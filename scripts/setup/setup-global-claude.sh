@@ -31,6 +31,7 @@ echo ""
 # ---------------------------------------------------------------------------
 mkdir -p "$TARGET_DIR/rules"
 mkdir -p "$TARGET_DIR/commands"
+mkdir -p "$TARGET_DIR/skills"
 
 # ---------------------------------------------------------------------------
 # Symlink rules
@@ -101,6 +102,32 @@ if [[ -d "$GLOBAL_CLAUDE/commands" ]]; then
         fi
         ln -s "$dir" "$target_subdir"
         echo "  [link] commands/$dirname/"
+    done
+fi
+
+# ---------------------------------------------------------------------------
+# Symlink skills (subdirectory-based: skills/<name>/SKILL.md)
+# ---------------------------------------------------------------------------
+if [[ -d "$GLOBAL_CLAUDE/skills" ]]; then
+    echo "--- Skills ---"
+    for dir in "$GLOBAL_CLAUDE/skills"/*/; do
+        [[ -d "$dir" ]] || continue
+        dirname="$(basename "$dir")"
+        target_subdir="$TARGET_DIR/skills/$dirname"
+
+        if [[ -L "$target_subdir" ]]; then
+            existing="$(readlink -f "$target_subdir")"
+            if [[ "$existing" == "$(readlink -f "$dir")" ]]; then
+                echo "  [skip] skills/$dirname/ (already linked)"
+                continue
+            fi
+            rm "$target_subdir"
+        elif [[ -d "$target_subdir" ]]; then
+            echo "  [WARN] skills/$dirname/ exists and is not a symlink, skipping"
+            continue
+        fi
+        ln -s "$dir" "$target_subdir"
+        echo "  [link] skills/$dirname/"
     done
 fi
 
