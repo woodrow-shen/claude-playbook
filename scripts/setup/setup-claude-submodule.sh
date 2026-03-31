@@ -5,11 +5,11 @@
 # Usage: ./setup-claude-submodule.sh <config-name> [target-repo-path] [submodule-path]
 #   config-name:      one of: global, debugging (or any config under configs/)
 #   target-repo-path: defaults to current directory
-#   submodule-path:   where to place the submodule (default: .claude-playbook)
+#   submodule-path:   where to place the submodule (default: claude-playbook)
 #
 # Example:
 #   cd ~/work/robot-fw
-#   /path/to/setup-claude-submodule.sh robot . .claude-playbook
+#   /path/to/setup-claude-submodule.sh robot . claude-playbook
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ fi
 CONFIG_NAME="$1"
 TARGET_REPO="${2:-.}"
 TARGET_REPO="$(cd "$TARGET_REPO" && pwd)"
-SUBMODULE_PATH="${3:-.claude-playbook}"
+SUBMODULE_PATH="${3:-claude-playbook}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AWS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -64,23 +64,63 @@ fi
 git submodule update --init "$SUBMODULE_PATH"
 
 # ---------------------------------------------------------------------------
-# Delegate to merge setup, pointing at the submodule copy
+# Sync config into submodule if it only exists locally (not yet pushed)
 # ---------------------------------------------------------------------------
-MERGE_SCRIPT="$SUBMODULE_PATH/scripts/setup/setup-claude-merge.sh"
-if [[ ! -f "$MERGE_SCRIPT" ]]; then
-    echo "ERROR: setup-claude-merge.sh not found in submodule"
+SUBMODULE_CONFIG="$SUBMODULE_PATH/configs/$CONFIG_NAME"
+LOCAL_CONFIG="$AWS_ROOT/configs/$CONFIG_NAME"
+if [[ ! -d "$SUBMODULE_CONFIG" ]] && [[ -d "$LOCAL_CONFIG" ]]; then
+    echo "[sync] Config '$CONFIG_NAME' not in submodule yet, copying from local playbook..."
+    cp -r "$LOCAL_CONFIG" "$SUBMODULE_CONFIG"
+fi
+
+# ---------------------------------------------------------------------------
+# REPLACE mode: symlink entire .claude/ and CLAUDE.md
+# ---------------------------------------------------------------------------
+CONFIG_DIR="$SUBMODULE_PATH/configs/$CONFIG_NAME"
+
+if [[ ! -d "$CONFIG_DIR" ]]; then
+    echo "ERROR: Config '$CONFIG_NAME' not found at $TARGET_REPO/$CONFIG_DIR"
     exit 1
 fi
 
 echo ""
-echo "Running merge setup from submodule..."
+echo "Installing config (REPLACE mode)..."
 echo ""
-# Override AWS_ROOT via first arg (config-name) and second arg (target)
-# The merge script expects: <config-name> [target-repo-path]
-# But it resolves AWS_ROOT from its own location, which is now inside the submodule.
-bash "$MERGE_SCRIPT" "$CONFIG_NAME" "$TARGET_REPO"
+
+# --- CLAUDE.md ---
+echo "--- CLAUDE.md ---"
+if [[ -f "$CONFIG_DIR/CLAUDE.md" ]]; then
+    if [[ -L "$TARGET_REPO/CLAUDE.md" ]]; then
+        rm "$TARGET_REPO/CLAUDE.md"
+    elif [[ -e "$TARGET_REPO/CLAUDE.md" ]]; then
+        echo "  [WARN] CLAUDE.md exists and is not a symlink, skipping"
+    fi
+    if [[ ! -e "$TARGET_REPO/CLAUDE.md" ]]; then
+        ln -s "$CONFIG_DIR/CLAUDE.md" "$TARGET_REPO/CLAUDE.md"
+        echo "  [link] CLAUDE.md -> $CONFIG_DIR/CLAUDE.md"
+    fi
+else
+    echo "  [skip] No CLAUDE.md in config"
+fi
+
+# --- .claude/ (whole directory) ---
+echo "--- .claude/ ---"
+if [[ -d "$CONFIG_DIR/.claude" ]]; then
+    if [[ -L "$TARGET_REPO/.claude" ]]; then
+        rm "$TARGET_REPO/.claude"
+    elif [[ -d "$TARGET_REPO/.claude" ]]; then
+        echo "  [WARN] .claude/ exists as a real directory, skipping"
+        echo "  [WARN] Remove it first or use MERGE mode (option 3) instead"
+    fi
+    if [[ ! -e "$TARGET_REPO/.claude" ]]; then
+        ln -s "$CONFIG_DIR/.claude" "$TARGET_REPO/.claude"
+        echo "  [link] .claude/ -> $CONFIG_DIR/.claude/"
+    fi
+else
+    echo "  [skip] No .claude/ directory in config"
+fi
 
 echo ""
-echo "Submodule setup complete."
+echo "Submodule setup complete (REPLACE mode)."
 echo "Don't forget to commit the submodule addition:"
 echo "  git add .gitmodules $SUBMODULE_PATH && git commit -m 'Add claude-playbook submodule'"

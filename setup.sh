@@ -85,6 +85,120 @@ run_setup_global() {
     fi
 }
 
+# Helper: list available project configs (excludes global)
+_list_project_configs() {
+    local configs=()
+    for d in "$CLAUDE_PLAYBOOK_ROOT/configs"/*/; do
+        [[ -d "$d" ]] || continue
+        local name
+        name="$(basename "$d")"
+        [[ "$name" == "global" ]] && continue
+        configs+=("$name")
+    done
+    echo "${configs[@]}"
+}
+
+# Helper: create a new config scaffold under configs/<name>
+# Usage: _create_config <config-name>
+_create_config() {
+    local name="$1"
+    local config_dir="$CLAUDE_PLAYBOOK_ROOT/configs/$name"
+
+    mkdir -p "$config_dir/.claude/commands"
+    mkdir -p "$config_dir/.claude/agents"
+    mkdir -p "$config_dir/.claude/rules"
+    mkdir -p "$config_dir/docs"
+
+    cat > "$config_dir/CLAUDE.md" << EOF
+# ${name} Config
+
+## Overview
+
+Configuration for ${name} project.
+
+## Commands
+
+(Add your commands here)
+
+## Getting Started
+
+See [Claude Playbook Documentation](../../README.md) for more information.
+EOF
+
+    cat > "$config_dir/.claude/commands/hello.md" << 'CMDEOF'
+Say hello and confirm the config is working.
+
+When the user runs this command:
+1. Print "Hello from the config!"
+2. List available commands in this config
+CMDEOF
+}
+
+# Helper: ask user for config name with validation
+# If the config doesn't exist, offers to create it.
+# Usage: _ask_config_name VARNAME [default-suggestion]
+# Sets the variable named VARNAME to the chosen config.
+_ask_config_name() {
+    local _varname="$1"
+    local _suggestion="${2:-}"
+    local _available
+    _available=($(_list_project_configs))
+
+    if [[ ${#_available[@]} -gt 0 ]]; then
+        echo "Available configs:"
+        for _cfg in "${_available[@]}"; do
+            echo "  - $_cfg"
+        done
+        echo ""
+    fi
+
+    # Determine default: use suggestion if valid, else first available, else empty
+    local _default=""
+    if [[ -n "$_suggestion" ]] && [[ "$_suggestion" =~ ^[a-z0-9-]+$ ]]; then
+        _default="$_suggestion"
+    elif [[ ${#_available[@]} -gt 0 ]]; then
+        _default="${_available[0]}"
+    fi
+
+    local _prompt="Config name"
+    [[ -n "$_default" ]] && _prompt="$_prompt (default: $_default)"
+    read -p "$_prompt: " _input
+    _input="${_input:-$_default}"
+
+    if [[ -z "$_input" ]]; then
+        print_error "Config name cannot be empty"
+        return 1
+    fi
+
+    if [[ "$_input" == "global" ]]; then
+        print_error "Use option 1 (Setup Global Claude) for global config"
+        return 1
+    fi
+
+    # Validate name format
+    if ! [[ "$_input" =~ ^[a-z0-9-]+$ ]]; then
+        print_error "Invalid config name. Use lowercase letters, numbers, and hyphens only."
+        return 1
+    fi
+
+    # If config doesn't exist, offer to create it
+    if [[ ! -d "$CLAUDE_PLAYBOOK_ROOT/configs/$_input" ]]; then
+        print_warning "Config '$_input' does not exist yet."
+        read -p "Create it now? (Y/n): " _create
+        _create="${_create:-Y}"
+        if [[ "$_create" =~ ^[Yy]$ ]]; then
+            _create_config "$_input"
+            print_success "Created config '$_input'"
+            echo ""
+        else
+            print_info "Setup cancelled."
+            return 1
+        fi
+    fi
+
+    eval "$_varname=\$_input"
+}
+
 run_setup_submodule() {
     print_info "Running submodule mode setup..."
     echo ""
@@ -108,21 +222,11 @@ run_setup_submodule() {
     print_info "Project: $PROJECT_PATH"
     echo ""
 
-    # Auto-detect config name from directory basename
-    AUTO_CONFIG_NAME=$(basename "$PROJECT_PATH")
-
-    # Validate auto-detected name (must be lowercase, alphanumeric, hyphens only)
-    if [[ "$AUTO_CONFIG_NAME" =~ ^[a-z0-9-]+$ ]]; then
-        DEFAULT_CONFIG="$AUTO_CONFIG_NAME"
-        PROMPT_MSG="Config name (default: $DEFAULT_CONFIG, press Enter to use): "
-    else
-        DEFAULT_CONFIG="global"
-        PROMPT_MSG="Config name (default: $DEFAULT_CONFIG, directory name '$AUTO_CONFIG_NAME' is invalid): "
+    # Ask for config name with validation (suggest project basename)
+    CONFIG_NAME=""
+    if ! _ask_config_name "CONFIG_NAME" "$(basename "$PROJECT_PATH" | tr '[:upper:]' '[:lower:]')"; then
+        return 1
     fi
-
-    # Ask for config name
-    read -p "$PROMPT_MSG" CONFIG_NAME
-    CONFIG_NAME="${CONFIG_NAME:-$DEFAULT_CONFIG}"
 
     # Build command
     CMD="cd '$PROJECT_PATH' && bash '$CLAUDE_PLAYBOOK_ROOT/scripts/setup/setup-claude-submodule.sh' '$CONFIG_NAME' '$PROJECT_PATH'"
@@ -161,21 +265,11 @@ run_setup_merge() {
     print_info "Project: $PROJECT_PATH"
     echo ""
 
-    # Auto-detect config name from directory basename
-    AUTO_CONFIG_NAME=$(basename "$PROJECT_PATH")
-
-    # Validate auto-detected name (must be lowercase, alphanumeric, hyphens only)
-    if [[ "$AUTO_CONFIG_NAME" =~ ^[a-z0-9-]+$ ]]; then
-        DEFAULT_CONFIG="$AUTO_CONFIG_NAME"
-        PROMPT_MSG="Config name (default: $DEFAULT_CONFIG, press Enter to use): "
-    else
-        DEFAULT_CONFIG="global"
-        PROMPT_MSG="Config name (default: $DEFAULT_CONFIG, directory name '$AUTO_CONFIG_NAME' is invalid): "
+    # Ask for config name with validation (suggest project basename)
+    CONFIG_NAME=""
+    if ! _ask_config_name "CONFIG_NAME" "$(basename "$PROJECT_PATH" | tr '[:upper:]' '[:lower:]')"; then
+        return 1
     fi
-
-    # Ask for config name
-    read -p "$PROMPT_MSG" CONFIG_NAME
-    CONFIG_NAME="${CONFIG_NAME:-$DEFAULT_CONFIG}"
 
     # Build command
     CMD="bash '$CLAUDE_PLAYBOOK_ROOT/scripts/setup/setup-claude-merge.sh' '$CONFIG_NAME' '$PROJECT_PATH'"
@@ -279,39 +373,9 @@ create_new_config() {
     print_info "Creating config: $CONFIG_NAME"
     echo ""
 
-    # Create directory structure
-    CONFIG_DIR="$CLAUDE_PLAYBOOK_ROOT/configs/$CONFIG_NAME"
-    mkdir -p "$CONFIG_DIR/.claude/commands"
-    mkdir -p "$CONFIG_DIR/.claude/agents"
-    mkdir -p "$CONFIG_DIR/.claude/rules"
-    mkdir -p "$CONFIG_DIR/docs"
+    _create_config "$CONFIG_NAME"
 
-    # Create CLAUDE.md
-    cat > "$CONFIG_DIR/CLAUDE.md" << EOF
-# ${CONFIG_NAME} Config
-
-## Overview
-
-Configuration for ${CONFIG_NAME} project.
-
-## Commands
-
-(Add your commands here)
-
-## Getting Started
-
-See [Claude Playbook Documentation](../../README.md) for more information.
-EOF
-
-    # Create sample command
-    cat > "$CONFIG_DIR/.claude/commands/hello.md" << 'CMDEOF'
-Say hello and confirm the config is working.
-
-When the user runs this command:
-1. Print "Hello from the config!"
-2. List available commands in this config
-CMDEOF
-
+    local CONFIG_DIR="$CLAUDE_PLAYBOOK_ROOT/configs/$CONFIG_NAME"
     print_success "Created config structure at: $CONFIG_DIR"
     echo ""
     print_info "Directory structure created:"
