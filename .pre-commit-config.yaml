@@ -1,0 +1,92 @@
+# Pre-commit hooks configuration for claude-playbook
+# See https://pre-commit.com for more information
+
+repos:
+  # Local hooks (custom scripts)
+  - repo: local
+    hooks:
+      # Check for command injection patterns in AI command files
+      - id: check-command-injection
+        name: Check command injection patterns
+        entry: bash scripts/hooks/check-command-injection.sh
+        language: system
+        files: '\.(md|yaml|yml|json)$'
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # Check new command files for secure template patterns
+      - id: check-new-command-template
+        name: Check new command template
+        entry: bash scripts/hooks/check-new-command-template.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Check new commands against secure template compliance (strict)
+      - id: check-secure-template-compliance
+        name: Check secure template compliance
+        entry: bash scripts/hooks/check-secure-template-compliance.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Check that claude-playbook submodule is not staged
+      - id: check-no-submodule
+        name: Check no submodule staged
+        entry: bash scripts/hooks/check-no-submodule.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Enforce TDD - tests must exist before code
+      - id: enforce-tdd
+        name: Enforce TDD (Test-Driven Development)
+        entry: bash scripts/hooks/enforce-tdd.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Validate 100% test coverage on push
+      - id: validate-coverage
+        name: Validate 100% Test Coverage
+        entry: bash tests/scripts/validate-100-percent-coverage.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      # Check commit message format
+      - id: check-commit-msg
+        name: Check commit message format
+        entry: bash scripts/hooks/check-commit-msg.sh
+        language: system
+        stages: [commit-msg]
+        pass_filenames: true
+
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Check for files that would conflict in case-insensitive filesystems
+      - id: check-case-conflict
+
+      # Check for merge conflicts
+      - id: check-merge-conflict
+
+      # Check YAML syntax
+      - id: check-yaml
+        args: ['--unsafe']
+
+      # Check for large files
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+
+      # Trim trailing whitespace
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+
+      # Check for mixed line endings
+      - id: mixed-line-ending
+        args: ['--fix=lf']
