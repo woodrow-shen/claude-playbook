@@ -18,11 +18,13 @@ AI agents run in non-interactive environments. Interactive tools hang, waste tok
 - **NEVER** use `crontab -e` (opens editor)
 - **NEVER** use `visudo`, `vipw`, or any `vi*` wrapper
 
-### NEVER use interactive prompts
+### NEVER use interactive prompts in shell commands
+
+These rules apply to shell commands and scripts executed via bash, NOT to conversational prompts in slash commands (asking the user questions via chat is fine).
 
 - **NEVER** use commands that expect `y/n` confirmation without providing the answer
-- **NEVER** use `read` to wait for user input in scripts you execute
-- **NEVER** use `select` menus in bash
+- **NEVER** use `read` to wait for user input in shell scripts you execute
+- **NEVER** use `select` menus in bash scripts
 
 ### Use non-interactive alternatives
 
