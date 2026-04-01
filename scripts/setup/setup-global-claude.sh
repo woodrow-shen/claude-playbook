@@ -154,5 +154,14 @@ if [[ -f "$GLOBAL_CLAUDEMD" ]]; then
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Install git hooks for claude-playbook repo
+# ---------------------------------------------------------------------------
+INSTALL_HOOKS="$AWS_ROOT/scripts/hooks/install-hooks.sh"
+if [[ -x "$INSTALL_HOOKS" ]] && [[ -d "$AWS_ROOT/.git" ]]; then
+    echo "--- Git Hooks ---"
+    bash "$INSTALL_HOOKS"
+fi
+
 echo ""
 echo "Global Claude Code setup complete."

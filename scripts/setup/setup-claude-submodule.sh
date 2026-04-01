@@ -120,6 +120,15 @@ else
     echo "  [skip] No .claude/ directory in config"
 fi
 
+# ---------------------------------------------------------------------------
+# Install git hooks into the playbook submodule
+# ---------------------------------------------------------------------------
+INSTALL_HOOKS="$TARGET_REPO/$SUBMODULE_PATH/scripts/hooks/install-hooks.sh"
+if [[ -x "$INSTALL_HOOKS" ]]; then
+    echo "--- Git Hooks (submodule) ---"
+    bash "$INSTALL_HOOKS"
+fi
+
 echo ""
 echo "Submodule setup complete (REPLACE mode)."
 echo "Don't forget to commit the submodule addition:"

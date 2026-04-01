@@ -126,7 +126,9 @@ COVERED_SKILLS=0
 UNCOVERED_SKILLS=()
 
 while IFS= read -r skill_file; do
-    skill_name=$(basename "$skill_file" .md)
+    # Skills use subdirectory structure: skills/<name>/SKILL.md
+    # Extract skill name from parent directory
+    skill_name=$(basename "$(dirname "$skill_file")")
 
     if has_test "test-skills-${skill_name}.sh"; then
         COVERED_SKILLS=$((COVERED_SKILLS + 1))

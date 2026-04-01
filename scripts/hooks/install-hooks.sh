@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 # Install git hooks for claude-playbook
+# Works both as a standalone repo and as a submodule.
 # Usage: ./install-hooks.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-HOOKS_DIR="$REPO_ROOT/.git/hooks"
 
-if [[ ! -d "$REPO_ROOT/.git" ]]; then
+# Resolve hooks directory — handles both standalone repos (.git is a dir)
+# and submodules (.git is a file pointing to ../.git/modules/<name>)
+if [[ -d "$REPO_ROOT/.git" ]]; then
+    HOOKS_DIR="$REPO_ROOT/.git/hooks"
+elif [[ -f "$REPO_ROOT/.git" ]]; then
+    # Submodule: .git file contains "gitdir: <path>"
+    GIT_DIR="$(sed 's/^gitdir: //' "$REPO_ROOT/.git")"
+    # Resolve relative path
+    if [[ "$GIT_DIR" != /* ]]; then
+        GIT_DIR="$REPO_ROOT/$GIT_DIR"
+    fi
+    HOOKS_DIR="$(cd "$GIT_DIR" && pwd)/hooks"
+else
     echo "ERROR: Not a git repository: $REPO_ROOT"
     exit 1
 fi

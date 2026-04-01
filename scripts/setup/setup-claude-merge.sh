@@ -145,6 +145,15 @@ if [[ -f "$SRC_CLAUDE/settings.json" ]]; then
     link_file "$SRC_CLAUDE/settings.json" "$DST_CLAUDE/settings.json" ".claude/settings.json"
 fi
 
+# ---------------------------------------------------------------------------
+# Install git hooks into the playbook repo
+# ---------------------------------------------------------------------------
+INSTALL_HOOKS="$AWS_ROOT/scripts/hooks/install-hooks.sh"
+if [[ -x "$INSTALL_HOOKS" ]]; then
+    echo "--- Git Hooks (playbook) ---"
+    bash "$INSTALL_HOOKS"
+fi
+
 echo ""
 echo "Setup complete. Symlinks created in $TARGET_REPO"
 echo ""
