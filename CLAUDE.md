@@ -10,7 +10,7 @@ This repo provides shared commands, agents, skills, and rules distributed via sy
 
 ```
 configs/
-├── global/          # 19 commands, 13 agents, 2 skills, 6 rules
+├── global/          # 19 commands, 13 agents, 2 skills, 7 rules
 └── debugging/       # Kernel debug, OpenOCD, coredump (skeleton)
 ```
 

@@ -21,13 +21,13 @@ claude-setup
 - **19 commands** — Bug triage, TDD, PR review, release management, tmux dispatch
 - **13 agents** — 10 general-purpose roles + monitor, release, tmux
 - **2 skills** — Input validation, tmux session management
-- **6 rules** — Token efficiency, TDD, security, documentation standards
+- **7 rules** — Token efficiency, TDD, security, documentation standards
 
 ## Structure
 
 ```
 configs/
-├── global/              # 19 commands, 13 agents, 2 skills, 6 rules
+├── global/              # 19 commands, 13 agents, 2 skills, 7 rules
 └── debugging/           # Kernel debug, OpenOCD, coredump (skeleton)
 ```
 
