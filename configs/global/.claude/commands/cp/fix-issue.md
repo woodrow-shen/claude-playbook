@@ -43,8 +43,9 @@ If option 2: use codebase search to find relevant files, analyze the issue, prop
 
 Locate the claude-playbook repository:
 1. If `.claude` is a symlink: follow it to find claude-playbook
-2. If `claude-playbook` directory exists: use it
-3. Search for `configs` directory
+2. If `.claude-playbook` directory exists: use it (local clone mode)
+3. If `claude-playbook` directory exists: use it (submodule mode)
+4. Search for `configs` directory
 
 Store as WORKSPACE_PATH. If not found, display error and exit.
 

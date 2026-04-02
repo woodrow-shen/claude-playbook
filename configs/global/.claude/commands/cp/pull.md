@@ -1,32 +1,34 @@
 ---
 name: cp:pull
-description: "Pull latest changes from claude-playbook submodule"
+description: "Pull latest changes from claude-playbook"
 ---
 
-Pull latest changes from the claude-playbook submodule.
+Pull latest changes from the claude-playbook repository (submodule or local clone).
 
-## Step 1: Find Submodule
+## Step 1: Find Playbook
 
 ```bash
 if [ -L ".claude" ]; then
-    SUBMODULE_PATH=$(readlink ".claude" | sed 's|/configs/.*||')
+    PLAYBOOK_PATH=$(readlink ".claude" | sed 's|/configs/.*||')
+elif [ -d ".claude-playbook" ]; then
+    PLAYBOOK_PATH=".claude-playbook"
 elif [ -d "claude-playbook" ]; then
-    SUBMODULE_PATH="claude-playbook"
+    PLAYBOOK_PATH="claude-playbook"
 else
-    SUBMODULE_PATH=$(find . -maxdepth 2 -type d -name "configs" -path "*/configs" | \
+    PLAYBOOK_PATH=$(find . -maxdepth 2 -type d -name "configs" -path "*/configs" | \
                      xargs -I {} dirname {} | head -1)
 fi
 
-if [ -z "$SUBMODULE_PATH" ]; then
-    echo "Error: Could not find claude-playbook submodule"
+if [ -z "$PLAYBOOK_PATH" ]; then
+    echo "Error: Could not find claude-playbook"
     exit 1
 fi
 ```
 
-## Step 2: Pull Submodule
+## Step 2: Pull Changes
 
 ```bash
-cd "$SUBMODULE_PATH"
+cd "$PLAYBOOK_PATH"
 git pull origin main
 cd ..
 ```
@@ -71,7 +73,7 @@ If parent repo uses MERGE mode (`.claude` is a directory, not a symlink):
 
 ```bash
 if [ -d ".claude" ] && [ ! -L ".claude" ]; then
-    SETUP_SCRIPT="$SUBMODULE_PATH/scripts/setup/setup-claude-merge.sh"
+    SETUP_SCRIPT="$PLAYBOOK_PATH/scripts/setup/setup-claude-merge.sh"
     if [ -f "$SETUP_SCRIPT" ]; then
         bash "$SETUP_SCRIPT" --update
     fi

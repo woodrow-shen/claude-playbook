@@ -1,24 +1,26 @@
 ---
 name: cp:push
-description: "Push local changes to claude-playbook submodule"
+description: "Push local changes to claude-playbook"
 ---
 
-Push local changes to the claude-playbook submodule.
+Push local changes to the claude-playbook repository (submodule or local clone).
 
-## Step 1: Find Submodule
+## Step 1: Find Playbook
 
 ```bash
 if [ -L ".claude" ]; then
-    SUBMODULE_PATH=$(readlink ".claude" | sed 's|/configs/.*||')
+    PLAYBOOK_PATH=$(readlink ".claude" | sed 's|/configs/.*||')
+elif [ -d ".claude-playbook" ]; then
+    PLAYBOOK_PATH=".claude-playbook"
 elif [ -d "claude-playbook" ]; then
-    SUBMODULE_PATH="claude-playbook"
+    PLAYBOOK_PATH="claude-playbook"
 else
-    SUBMODULE_PATH=$(find . -maxdepth 2 -type d -name "configs" -path "*/configs" | \
+    PLAYBOOK_PATH=$(find . -maxdepth 2 -type d -name "configs" -path "*/configs" | \
                      xargs -I {} dirname {} | head -1)
 fi
 
-if [ -z "$SUBMODULE_PATH" ]; then
-    echo "Error: Could not find claude-playbook submodule"
+if [ -z "$PLAYBOOK_PATH" ]; then
+    echo "Error: Could not find claude-playbook"
     exit 1
 fi
 ```
@@ -26,7 +28,7 @@ fi
 ## Step 2: Detect Changes
 
 ```bash
-cd "$SUBMODULE_PATH"
+cd "$PLAYBOOK_PATH"
 CHANGED_FILES=$(git status --porcelain configs/ scripts/ docs/ | awk '{print $2}')
 ```
 

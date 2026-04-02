@@ -36,6 +36,8 @@ fi
 ```bash
 if [ -L ".claude" ]; then
     PLAYBOOK_PATH=$(readlink ".claude" | sed 's|/configs/.*||')
+elif [ -d ".claude-playbook" ]; then
+    PLAYBOOK_PATH=".claude-playbook"
 elif [ -d "claude-playbook" ]; then
     PLAYBOOK_PATH="claude-playbook"
 else

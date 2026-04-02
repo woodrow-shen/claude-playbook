@@ -20,7 +20,9 @@ Find where claude-playbook is located:
 
 2. Check if current directory is within claude-playbook (walk up looking for `configs/global/.claude`)
 
-3. Check `~/claude-playbook`
+3. Check `.claude-playbook` in the current directory
+
+4. Check `~/claude-playbook`
 
 If not found, show error and stop.
 
