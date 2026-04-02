@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Install git hooks for claude-playbook
+# Install git hooks for claude-playbook.
+# If pre-commit framework is available and .pre-commit-config.yaml exists,
+# uses 'pre-commit install'. Otherwise falls back to manual hook generation.
+#
 # Works both as a standalone repo and as a submodule.
 # Usage: ./install-hooks.sh
 set -euo pipefail
@@ -10,18 +13,42 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Resolve hooks directory — handles both standalone repos (.git is a dir)
 # and submodules (.git is a file pointing to ../.git/modules/<name>)
 if [[ -d "$REPO_ROOT/.git" ]]; then
-    HOOKS_DIR="$REPO_ROOT/.git/hooks"
+    GIT_DIR="$REPO_ROOT/.git"
 elif [[ -f "$REPO_ROOT/.git" ]]; then
     # Submodule: .git file contains "gitdir: <path>"
     GIT_DIR="$(sed 's/^gitdir: //' "$REPO_ROOT/.git")"
-    # Resolve relative path
     if [[ "$GIT_DIR" != /* ]]; then
         GIT_DIR="$REPO_ROOT/$GIT_DIR"
     fi
-    HOOKS_DIR="$(cd "$GIT_DIR" && pwd)/hooks"
+    GIT_DIR="$(cd "$GIT_DIR" && pwd)"
 else
     echo "ERROR: Not a git repository: $REPO_ROOT"
     exit 1
+fi
+
+HOOKS_DIR="$GIT_DIR/hooks"
+
+# ---------------------------------------------------------------------------
+# Strategy 1: Use pre-commit framework if available
+# ---------------------------------------------------------------------------
+if [[ -f "$REPO_ROOT/.pre-commit-config.yaml" ]] && command -v pre-commit &>/dev/null; then
+    echo "Using pre-commit framework..."
+    cd "$REPO_ROOT"
+    pre-commit install --install-hooks
+    pre-commit install --hook-type commit-msg
+    echo ""
+    echo "Git hooks installed via pre-commit in $HOOKS_DIR"
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Strategy 2: Manual hook generation (fallback)
+# ---------------------------------------------------------------------------
+if [[ -f "$REPO_ROOT/.pre-commit-config.yaml" ]]; then
+    echo "NOTE: .pre-commit-config.yaml found but 'pre-commit' not installed."
+    echo "      Install with: pip install pre-commit"
+    echo "      Falling back to manual hook installation."
+    echo ""
 fi
 
 mkdir -p "$HOOKS_DIR"
