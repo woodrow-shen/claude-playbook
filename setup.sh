@@ -71,6 +71,8 @@ show_menu() {
     echo "7. Uninstall Project Claude"
     echo "8. Create New Config"
     echo "9. Show Help"
+    echo "10. Install Pre-commit Hooks"
+    echo "11. Recover Configuration Files"
     echo "0. Exit"
     echo ""
 }
@@ -435,6 +437,89 @@ create_new_config() {
     echo ""
 }
 
+run_install_hooks() {
+    print_info "Installing pre-commit hooks..."
+    echo ""
+
+    # Get current directory or ask for project path
+    read -p "Project path (press Enter to use current directory): " PROJECT_PATH
+
+    if [ -z "$PROJECT_PATH" ]; then
+        PROJECT_PATH="$(pwd)"
+    fi
+
+    # Expand ~ to home directory
+    PROJECT_PATH="${PROJECT_PATH/#\~/$HOME}"
+
+    # Check if it's a git repository
+    if [ ! -d "$PROJECT_PATH/.git" ]; then
+        print_error "$PROJECT_PATH is not a git repository"
+        return 1
+    fi
+
+    print_info "Project: $PROJECT_PATH"
+    echo ""
+
+    # Detect playbook location
+    PLAYBOOK_HOOKS=""
+    if [ -d "$PROJECT_PATH/.claude-playbook/scripts/hooks" ]; then
+        PLAYBOOK_HOOKS="$PROJECT_PATH/.claude-playbook/scripts/hooks/install-hooks.sh"
+        print_info "Detected local clone mode"
+    elif [ -d "$PROJECT_PATH/claude-playbook/scripts/hooks" ]; then
+        PLAYBOOK_HOOKS="$PROJECT_PATH/claude-playbook/scripts/hooks/install-hooks.sh"
+        print_info "Detected submodule mode"
+    elif [ -f "$PROJECT_PATH/scripts/hooks/install-hooks.sh" ]; then
+        PLAYBOOK_HOOKS="$PROJECT_PATH/scripts/hooks/install-hooks.sh"
+        print_info "Detected playbook repo itself"
+    else
+        print_error "Could not find claude-playbook hooks in $PROJECT_PATH"
+        return 1
+    fi
+
+    if [ -x "$PLAYBOOK_HOOKS" ]; then
+        bash "$PLAYBOOK_HOOKS"
+        if [ $? -eq 0 ]; then
+            print_success "Pre-commit hooks installed!"
+        else
+            print_error "Hook installation failed!"
+        fi
+    else
+        print_error "Hook script not executable: $PLAYBOOK_HOOKS"
+        return 1
+    fi
+}
+
+run_recover_config() {
+    print_info "Recovering configuration files..."
+    echo ""
+
+    # Get current directory or ask for project path
+    read -p "Project path (press Enter to use current directory): " PROJECT_PATH
+
+    if [ -z "$PROJECT_PATH" ]; then
+        PROJECT_PATH="$(pwd)"
+    fi
+
+    # Expand ~ to home directory
+    PROJECT_PATH="${PROJECT_PATH/#\~/$HOME}"
+
+    # Check if it's a git repository
+    if [ ! -d "$PROJECT_PATH/.git" ]; then
+        print_error "$PROJECT_PATH is not a git repository"
+        return 1
+    fi
+
+    print_info "Project: $PROJECT_PATH"
+    echo ""
+
+    bash "$CLAUDE_PLAYBOOK_ROOT/scripts/setup/recover-config.sh" "$PROJECT_PATH"
+    if [ $? -eq 0 ]; then
+        print_success "Configuration recovery completed!"
+    else
+        print_error "Configuration recovery failed!"
+    fi
+}
+
 show_help() {
     cat << 'EOF'
 
@@ -483,6 +568,16 @@ Claude Playbook Setup Help
    - Generates template files (CLAUDE.md, sample command)
    - Ready for customization
 
+10. Install Pre-commit Hooks
+    - Installs pre-commit and commit-msg hooks
+    - Detects playbook location automatically
+    - Works with submodule, local clone, or playbook repo
+
+11. Recover Configuration Files
+    - Fixes broken symlinks (.claude/, CLAUDE.md)
+    - Restores missing .gitignore entries
+    - Repairs .gitmodules registration for submodules
+
 For more information, see:
 - README.md
 - docs/guides/
@@ -505,7 +600,7 @@ claude_setup_main() {
 
     while true; do
         show_menu
-        read -p "Enter your choice [0-9]: " choice
+        read -p "Enter your choice [0-11]: " choice
         echo ""
 
         case $choice in
@@ -536,12 +631,18 @@ claude_setup_main() {
             9)
                 show_help
                 ;;
+            10)
+                run_install_hooks
+                ;;
+            11)
+                run_recover_config
+                ;;
             0)
                 print_info "Exiting setup"
                 break
                 ;;
             *)
-                print_error "Invalid choice. Please enter 0-9."
+                print_error "Invalid choice. Please enter 0-11."
                 ;;
         esac
 
