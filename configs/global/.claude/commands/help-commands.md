@@ -29,7 +29,7 @@ To get help with available commands, just type:
 
 - **Purpose**: Automatically generates comprehensive CLAUDE.md files for any project.
 - **Usage**: `/custom-init`
-- **What it does**: 
+- **What it does**:
   - Analyzes project structure and detects technology stack.
   - Generates documentation sections (Overview, Architecture, Features).
   - Creates development workflow guides.
