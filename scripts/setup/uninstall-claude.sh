@@ -80,5 +80,27 @@ elif [[ -d "$DST_CLAUDE" ]]; then
     rmdir "$DST_CLAUDE" 2>/dev/null && echo "  [rm] .claude/ (empty)" || true
 fi
 
+# ---------------------------------------------------------------------------
+# .claude-playbook/ (local clone mode)
+# ---------------------------------------------------------------------------
+if [[ -d "$TARGET_REPO/.claude-playbook" ]]; then
+    echo "--- .claude-playbook/ (local clone) ---"
+    echo "  Found local clone at $TARGET_REPO/.claude-playbook"
+    read -p "  Remove .claude-playbook/ clone directory? (yes/no): " CONFIRM_CLONE
+    if [[ "$CONFIRM_CLONE" == "yes" ]]; then
+        rm -rf "$TARGET_REPO/.claude-playbook"
+        echo "  [rm] .claude-playbook/"
+        ((removed++)) || true
+
+        # Clean .gitignore entry
+        if [[ -f "$TARGET_REPO/.gitignore" ]] && grep -qxF '.claude-playbook/' "$TARGET_REPO/.gitignore"; then
+            sed -i '/^\.claude-playbook\/$/d' "$TARGET_REPO/.gitignore"
+            echo "  [rm] .claude-playbook/ from .gitignore"
+        fi
+    else
+        echo "  [skip] .claude-playbook/ (kept)"
+    fi
+fi
+
 echo ""
 echo "Removed $removed symlink(s) from $TARGET_REPO"

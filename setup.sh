@@ -65,11 +65,12 @@ show_menu() {
     echo "1. Setup Global Claude (install to ~/.claude)"
     echo "2. Setup Project with Submodule (REPLACE mode)"
     echo "3. Setup Project with Submodule (MERGE mode)"
-    echo "4. Update Global Claude"
-    echo "5. Uninstall Global Claude"
-    echo "6. Uninstall Project Claude"
-    echo "7. Create New Config"
-    echo "8. Show Help"
+    echo "4. Setup Project with Local Clone (no submodule)"
+    echo "5. Update Global Claude"
+    echo "6. Uninstall Global Claude"
+    echo "7. Uninstall Project Claude"
+    echo "8. Create New Config"
+    echo "9. Show Help"
     echo "0. Exit"
     echo ""
 }
@@ -285,6 +286,49 @@ run_setup_merge() {
     fi
 }
 
+run_setup_local_clone() {
+    print_info "Running local clone mode setup..."
+    echo ""
+
+    # Get current directory or ask for project path
+    read -p "Project path (press Enter to use current directory): " PROJECT_PATH
+
+    if [ -z "$PROJECT_PATH" ]; then
+        PROJECT_PATH="$(pwd)"
+    fi
+
+    # Expand ~ to home directory
+    PROJECT_PATH="${PROJECT_PATH/#\~/$HOME}"
+
+    # Check if it's a git repository
+    if [ ! -d "$PROJECT_PATH/.git" ]; then
+        print_error "$PROJECT_PATH is not a git repository"
+        return 1
+    fi
+
+    print_info "Project: $PROJECT_PATH"
+    echo ""
+
+    # Ask for config name with validation (suggest project basename)
+    CONFIG_NAME=""
+    if ! _ask_config_name "CONFIG_NAME" "$(basename "$PROJECT_PATH" | tr '[:upper:]' '[:lower:]')"; then
+        return 1
+    fi
+
+    # Build command
+    CMD="bash '$CLAUDE_PLAYBOOK_ROOT/scripts/setup/setup-claude-local-clone.sh' '$CONFIG_NAME' '$PROJECT_PATH'"
+
+    print_info "Running: $CMD"
+    echo ""
+
+    eval "$CMD"
+    if [ $? -eq 0 ]; then
+        print_success "Local clone mode setup completed!"
+    else
+        print_error "Local clone mode setup failed!"
+    fi
+}
+
 run_update_global() {
     print_info "Updating global claude..."
     bash "$CLAUDE_PLAYBOOK_ROOT/scripts/setup/setup-global-claude.sh"
@@ -415,19 +459,26 @@ Claude Playbook Setup Help
    - Local files take priority over symlinked ones
    - Best for mature projects needing local commands
 
-4. Update Global Claude
+4. Setup Project with Local Clone (no submodule)
+   - Clones claude-playbook to .claude-playbook/
+   - Added to .gitignore (not tracked as submodule)
+   - Symlinks .claude/ to upstream config (REPLACE mode)
+   - Update with cd .claude-playbook && git pull
+   - Lighter weight than submodule for simple setups
+
+5. Update Global Claude
    - Refreshes ~/.claude with latest configs
    - Run after pulling claude-playbook updates
 
-5. Uninstall Global Claude
+6. Uninstall Global Claude
    - Removes claude-playbook symlinks from ~/.claude
    - Does not affect project-specific configs
 
-6. Uninstall Project Claude
+7. Uninstall Project Claude
    - Removes .claude symlinks from project
    - Does not delete native (non-symlinked) files
 
-7. Create New Config
+8. Create New Config
    - Creates a new config directory structure
    - Generates template files (CLAUDE.md, sample command)
    - Ready for customization
@@ -454,7 +505,7 @@ claude_setup_main() {
 
     while true; do
         show_menu
-        read -p "Enter your choice [0-8]: " choice
+        read -p "Enter your choice [0-9]: " choice
         echo ""
 
         case $choice in
@@ -468,18 +519,21 @@ claude_setup_main() {
                 run_setup_merge
                 ;;
             4)
-                run_update_global
+                run_setup_local_clone
                 ;;
             5)
-                run_uninstall_global
+                run_update_global
                 ;;
             6)
-                run_uninstall_project
+                run_uninstall_global
                 ;;
             7)
-                create_new_config
+                run_uninstall_project
                 ;;
             8)
+                create_new_config
+                ;;
+            9)
                 show_help
                 ;;
             0)
@@ -487,7 +541,7 @@ claude_setup_main() {
                 break
                 ;;
             *)
-                print_error "Invalid choice. Please enter 0-8."
+                print_error "Invalid choice. Please enter 0-9."
                 ;;
         esac
 
