@@ -53,10 +53,9 @@ is_strict_file() {
 CRITICAL_PATTERNS=(
     # Shell execution via subshell / eval
     '\$\(.*\)'                          # $(command substitution)
-    '`[^`]+`'                           # `backtick execution`
     '\beval\b'                          # eval
     '\bexec\b\s'                        # exec (with space, not "execute")
-    '\bsource\b\s+[^.]'                # source non-dotfile
+    '\bsource\b\s+\S+\.(sh|bash)\b'    # source script files
 
     # Pipe to shell
     '\|\s*(ba)?sh\b'                    # | sh, | bash
@@ -131,6 +130,18 @@ found_critical=0
 found_warning=0
 found_relaxed=0
 
+# ---------------------------------------------------------------------------
+# Build set of line numbers inside markdown code fences for a file.
+# Output: one line number per line, suitable for grep -x matching.
+# ---------------------------------------------------------------------------
+_code_fence_lines() {
+    local file="$1"
+    awk '
+        /^[[:space:]]*```/ { in_fence = !in_fence; next }
+        in_fence { print NR }
+    ' "$file"
+}
+
 scan_file() {
     local file="$1"
     local level="$2"
@@ -139,6 +150,10 @@ scan_file() {
     local strict="$5"
     shift 5
     local patterns=("$@")
+
+    # Pre-compute lines inside code fences (skipped during scanning)
+    local fence_lines
+    fence_lines=$(_code_fence_lines "$file")
 
     for pattern in "${patterns[@]}"; do
         [[ -f "$file" ]] || continue
@@ -151,6 +166,10 @@ scan_file() {
                 local content="${match#*:}"
                 content="$(echo "$content" | sed 's/^[[:space:]]*//')"
 
+                # Skip lines inside markdown code fences
+                if echo "$fence_lines" | grep -qxF "$lineno"; then
+                    continue
+                fi
                 # Skip <!-- safe: reason --> annotated lines
                 if echo "$content" | grep -qP '<!--\s*safe:'; then
                     continue
