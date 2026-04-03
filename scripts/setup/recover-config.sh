@@ -89,7 +89,13 @@ if [[ -z "$CONFIG_NAME" ]]; then
         [[ "$name" == "global" ]] && continue
         echo "  - $name"
     done
-    read -p "Config name: " CONFIG_NAME
+    if [[ -t 0 ]]; then
+        read -p "Config name: " CONFIG_NAME
+    else
+        echo "ERROR: Cannot detect config name and stdin is not a terminal."
+        echo "Use symlinks that point into configs/<name>/ so recovery can auto-detect."
+        exit 1
+    fi
     if [[ -z "$CONFIG_NAME" ]]; then
         echo "ERROR: Config name required"
         exit 1

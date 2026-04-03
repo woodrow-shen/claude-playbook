@@ -17,8 +17,8 @@ remove_aws_link() {
     local label="$2"
     if [[ -L "$path" ]]; then
         local target
-        target="$(readlink -f "$path")"
-        if [[ "$target" == *claude-playbook* || "$target" == *claude-playbook* ]]; then
+        target="$(readlink -f "$path" 2>/dev/null || echo "")"
+        if [[ "$target" == *claude-playbook* ]]; then
             rm "$path"
             echo "  [rm] $label"
             ((removed++)) || true
@@ -51,6 +51,15 @@ if [[ -d "$TARGET_DIR/commands" ]]; then
     for f in "$TARGET_DIR/commands"/*.md; do
         [[ -L "$f" ]] || continue
         remove_aws_link "$f" "commands/$(basename "$f")"
+    done
+fi
+
+# --- skills ---
+echo "--- skills/ ---"
+if [[ -d "$TARGET_DIR/skills" ]]; then
+    for d in "$TARGET_DIR/skills"/*/; do
+        [[ -L "${d%/}" ]] || continue
+        remove_aws_link "${d%/}" "skills/$(basename "$d")/"
     done
 fi
 

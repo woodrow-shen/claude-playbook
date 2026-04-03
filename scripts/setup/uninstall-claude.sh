@@ -65,7 +65,7 @@ fi
 # claude-playbook submodule
 # ---------------------------------------------------------------------------
 SUBMODULE_PATH=""
-for candidate in claude-playbook augment-playbook; do
+for candidate in claude-playbook; do
     if [[ -d "$TARGET_REPO/$candidate" ]]; then
         SUBMODULE_PATH="$candidate"
         break
