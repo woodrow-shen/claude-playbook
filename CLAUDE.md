@@ -47,6 +47,7 @@ Each commit MUST pass security checks as the top priority. Pre-commit hooks run 
 
 - GitHub Actions CI (`.github/workflows/ci.yml`) runs on every push and PR to main: pre-commit hooks, all functional tests, 100% coverage validation, and release validation.
 - CI MUST pass without errors on each push. If CI fails, the agent should fix the issue automatically before proceeding.
+- After every `git push`, the agent MUST check CI status (`gh run list --limit 1` or `gh run watch`) and report the result. Do not proceed with further work until CI is confirmed green.
 
 ### Release
 
