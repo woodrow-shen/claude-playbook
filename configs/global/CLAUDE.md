@@ -2,9 +2,9 @@
 
 Global commands, agents, skills, and rules shared across all projects.
 
-## Commands (19)
+## Commands (20)
 
-### General (11)
+### General (12)
 
 - `/bug` — Bug triage, GitHub issue, fix, PR, and merge
 - `/commit` — Conventional commits with auto-staging and sign-off
@@ -17,6 +17,7 @@ Global commands, agents, skills, and rules shared across all projects.
 - `/custom-init` — Generate or refresh CLAUDE.md with codebase analysis
 - `/tmux` — Send instructions to Claude Code in another tmux session
 - `/monitor-tmux` — Monitor a tmux session and report progress
+- `/pre-commit` — Run pre-commit hooks on staged or all files
 
 ### `/cp:*` Namespace (8)
 
