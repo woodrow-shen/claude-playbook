@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Remove project-level Claude Code symlinks from a target repo.
-# Only removes symlinks that point into claude-playbook, never deletes native files.
+# Remove project-level Claude Code configuration from a target repo.
+# Removes symlinks, .claude/ directory, CLAUDE.md, and playbook repo.
 #
 # Usage: ./uninstall-claude.sh [target-repo-path]
 set -euo pipefail
@@ -14,70 +14,35 @@ echo ""
 removed=0
 
 # ---------------------------------------------------------------------------
-# Helper: remove symlink only if it points to claude-playbook
-# ---------------------------------------------------------------------------
-remove_aws_link() {
-    local path="$1"
-    local label="$2"
-    if [[ -L "$path" ]]; then
-        local target
-        target="$(readlink -f "$path")"
-        if [[ "$target" == *claude-playbook* || "$target" == *claude-playbook* ]]; then
-            rm "$path"
-            echo "  [rm] $label"
-            ((removed++)) || true
-        else
-            echo "  [skip] $label (symlink to non-claude-playbook target)"
-        fi
-    fi
-}
-
-# ---------------------------------------------------------------------------
 # CLAUDE.md
 # ---------------------------------------------------------------------------
 echo "--- CLAUDE.md ---"
-remove_aws_link "$TARGET_REPO/CLAUDE.md" "CLAUDE.md"
+if [[ -L "$TARGET_REPO/CLAUDE.md" ]]; then
+    rm "$TARGET_REPO/CLAUDE.md"
+    echo "  [rm] CLAUDE.md (symlink)"
+    ((removed++)) || true
+elif [[ -f "$TARGET_REPO/CLAUDE.md" ]]; then
+    rm "$TARGET_REPO/CLAUDE.md"
+    echo "  [rm] CLAUDE.md"
+    ((removed++)) || true
+else
+    echo "  [skip] CLAUDE.md (not found)"
+fi
 
 # ---------------------------------------------------------------------------
-# .claude/ contents
+# .claude/ directory
 # ---------------------------------------------------------------------------
-DST_CLAUDE="$TARGET_REPO/.claude"
-
-if [[ -L "$DST_CLAUDE" ]]; then
-    # Entire .claude/ is a symlink (replace mode)
-    remove_aws_link "$DST_CLAUDE" ".claude/"
-elif [[ -d "$DST_CLAUDE" ]]; then
-    # Merge mode: check individual files
-    echo "--- .claude/rules/ ---"
-    if [[ -d "$DST_CLAUDE/rules" ]]; then
-        for f in "$DST_CLAUDE/rules"/*.md; do
-            [[ -L "$f" ]] || continue
-            remove_aws_link "$f" ".claude/rules/$(basename "$f")"
-        done
-        # Remove rules/ dir if empty
-        rmdir "$DST_CLAUDE/rules" 2>/dev/null && echo "  [rm] .claude/rules/ (empty)" || true
-    fi
-
-    echo "--- .claude/commands/ ---"
-    if [[ -d "$DST_CLAUDE/commands" ]]; then
-        # Remove symlinked subdirectories (e.g., ac/)
-        for d in "$DST_CLAUDE/commands"/*/; do
-            [[ -L "${d%/}" ]] || continue
-            remove_aws_link "${d%/}" ".claude/commands/$(basename "$d")/"
-        done
-        # Remove symlinked files
-        for f in "$DST_CLAUDE/commands"/*.md; do
-            [[ -L "$f" ]] || continue
-            remove_aws_link "$f" ".claude/commands/$(basename "$f")"
-        done
-        rmdir "$DST_CLAUDE/commands" 2>/dev/null && echo "  [rm] .claude/commands/ (empty)" || true
-    fi
-
-    echo "--- .claude/settings.json ---"
-    remove_aws_link "$DST_CLAUDE/settings.json" ".claude/settings.json"
-
-    # Remove .claude/ dir if empty
-    rmdir "$DST_CLAUDE" 2>/dev/null && echo "  [rm] .claude/ (empty)" || true
+echo "--- .claude/ ---"
+if [[ -L "$TARGET_REPO/.claude" ]]; then
+    rm "$TARGET_REPO/.claude"
+    echo "  [rm] .claude/ (symlink)"
+    ((removed++)) || true
+elif [[ -d "$TARGET_REPO/.claude" ]]; then
+    rm -rf "$TARGET_REPO/.claude"
+    echo "  [rm] .claude/ (directory)"
+    ((removed++)) || true
+else
+    echo "  [skip] .claude/ (not found)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -85,22 +50,40 @@ fi
 # ---------------------------------------------------------------------------
 if [[ -d "$TARGET_REPO/.claude-playbook" ]]; then
     echo "--- .claude-playbook/ (local clone) ---"
-    echo "  Found local clone at $TARGET_REPO/.claude-playbook"
-    read -p "  Remove .claude-playbook/ clone directory? (yes/no): " CONFIRM_CLONE
-    if [[ "$CONFIRM_CLONE" == "yes" ]]; then
-        rm -rf "$TARGET_REPO/.claude-playbook"
-        echo "  [rm] .claude-playbook/"
-        ((removed++)) || true
+    rm -rf "$TARGET_REPO/.claude-playbook"
+    echo "  [rm] .claude-playbook/"
+    ((removed++)) || true
 
-        # Clean .gitignore entry
-        if [[ -f "$TARGET_REPO/.gitignore" ]] && grep -qxF '.claude-playbook/' "$TARGET_REPO/.gitignore"; then
-            sed -i '/^\.claude-playbook\/$/d' "$TARGET_REPO/.gitignore"
-            echo "  [rm] .claude-playbook/ from .gitignore"
-        fi
-    else
-        echo "  [skip] .claude-playbook/ (kept)"
+    # Clean .gitignore entry
+    if [[ -f "$TARGET_REPO/.gitignore" ]] && grep -qxF '.claude-playbook/' "$TARGET_REPO/.gitignore"; then
+        sed -i '/^\.claude-playbook\/$/d' "$TARGET_REPO/.gitignore"
+        echo "  [rm] .claude-playbook/ from .gitignore"
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# claude-playbook submodule
+# ---------------------------------------------------------------------------
+SUBMODULE_PATH=""
+for candidate in claude-playbook augment-playbook; do
+    if [[ -d "$TARGET_REPO/$candidate" ]]; then
+        SUBMODULE_PATH="$candidate"
+        break
+    fi
+done
+
+if [[ -n "$SUBMODULE_PATH" ]]; then
+    echo "--- $SUBMODULE_PATH/ (submodule) ---"
+    cd "$TARGET_REPO"
+
+    # Deinit and remove submodule
+    git submodule deinit -f "$SUBMODULE_PATH" 2>/dev/null || true
+    git rm -f "$SUBMODULE_PATH" 2>/dev/null || true
+    rm -rf "$TARGET_REPO/.git/modules/$SUBMODULE_PATH" 2>/dev/null || true
+    rm -rf "$TARGET_REPO/$SUBMODULE_PATH" 2>/dev/null || true
+    echo "  [rm] $SUBMODULE_PATH/"
+    ((removed++)) || true
+fi
+
 echo ""
-echo "Removed $removed symlink(s) from $TARGET_REPO"
+echo "Removed $removed item(s) from $TARGET_REPO"
