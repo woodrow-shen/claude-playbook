@@ -34,9 +34,9 @@ Global commands, agents, skills, and rules shared across all projects.
 
 ### General Purpose (10)
 
-- fullstack-developer, frontend-developer, backend-developer
-- solution-architect, technical-project-lead, pm
-- qa, code-quality-debugger, technical-writer, devops
+- general-fullstack-developer, general-frontend-developer, general-backend-developer
+- general-solution-architect, general-technical-project-lead, general-pm
+- general-qa, general-code-quality-debugger, general-technical-writer, general-devops
 
 ### Specialized (3)
 
@@ -49,7 +49,7 @@ Global commands, agents, skills, and rules shared across all projects.
 - input-validation — Reusable input validation patterns for security
 - tmux-session-management — Multi-session navigation and debugging
 
-## Rules (7)
+## Rules (9)
 
 - claude-playbook-contribution — Commit message and contribution guidelines
 - bug-report — Bug reporting and debugging guidelines
@@ -58,3 +58,5 @@ Global commands, agents, skills, and rules shared across all projects.
 - review-pr — PR review guidelines and checklist
 - token-efficiency — Maximize value per token spent
 - no-interactive-editors — Never use vim/nano/interactive tools
+- tdd-enforcement — Red-Green-Refactor cycle for all code changes
+- config-documentation — Each config's commands/agents must have documentation

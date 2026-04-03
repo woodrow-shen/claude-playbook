@@ -15,6 +15,17 @@ VERSION="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Validate version format: semver with optional stage
+# Valid: 0.1.0, 1.0.0, 1.2.3-alpha.1, 1.0.0-beta.2, 1.0.0-rc.1
+# Stages: alpha, beta, rc only
+if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
+    echo "ERROR: Invalid version format: $VERSION"
+    echo "Expected: <major>.<minor>.<patch>[-<stage>.<n>]"
+    echo "Stages: alpha, beta, rc"
+    echo "Examples: 0.1.0, 1.0.0-alpha.1, 1.0.0-beta.2, 1.0.0-rc.1"
+    exit 1
+fi
+
 cd "$REPO_ROOT"
 
 echo "=========================================="
