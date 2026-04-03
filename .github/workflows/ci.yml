@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pre-commit:
+    name: Pre-commit Hooks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - uses: pre-commit/action@v3.0.1
+
+  tests:
+    name: Functional Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run all functional tests
+        run: |
+          failed=0
+          for test in tests/func/test-*.sh; do
+            echo ""
+            echo "========================================"
+            echo "Running: $test"
+            echo "========================================"
+            if bash "$test"; then
+              echo "PASSED: $test"
+            else
+              echo "FAILED: $test"
+              failed=$((failed + 1))
+            fi
+          done
+          echo ""
+          echo "========================================"
+          if [ "$failed" -gt 0 ]; then
+            echo "FAILED: $failed test(s) failed"
+            exit 1
+          else
+            echo "ALL TESTS PASSED"
+          fi
+
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate 100% test coverage
+        run: bash tests/scripts/validate-100-percent-coverage.sh --strict
+
+  validate:
+    name: Release Validation
+    runs-on: ubuntu-latest
+    needs: [pre-commit, tests, coverage]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run release validation
+        run: bash scripts/release/validate.sh

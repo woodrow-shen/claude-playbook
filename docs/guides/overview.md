@@ -257,7 +257,18 @@ bash /path/to/claude-playbook/scripts/setup/uninstall-global-claude.sh
 
 ## CI/CD Status
 
-### Pre-commit Hooks (Active)
+### GitHub Actions (`.github/workflows/ci.yml`)
+
+CI runs on every push and PR to `main`:
+
+| Job | What it does |
+|-----|-------------|
+| Pre-commit Hooks | Command injection, template compliance, TDD, formatting |
+| Functional Tests | All test scripts in isolated environments |
+| Test Coverage | Validates 100% coverage (strict mode) |
+| Release Validation | README/CLAUDE.md accuracy, guide coverage, counts |
+
+### Pre-commit Hooks
 
 Pre-commit hooks are active and enforced for all commits:
 
@@ -277,9 +288,7 @@ pre-commit run --all-files
 - TDD enforcement
 - No submodule staging
 
-### Testing
-
-All quality checks run locally:
+### Running Tests Locally
 
 ```bash
 # Run all functional tests

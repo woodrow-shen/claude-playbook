@@ -2,9 +2,9 @@
 
 Shared AI assistant configurations for Claude Code development workflows.
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/woodrow-shen/claude-playbook/actions/workflows/ci.yml/badge.svg)](https://github.com/woodrow-shen/claude-playbook/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](tests/)
 [![Shell](https://img.shields.io/badge/shell-bash-green.svg)](setup.sh)
-[![Tests](https://img.shields.io/badge/tests-45_scripts-brightgreen.svg)](tests/)
 
 ## Overview
 
@@ -86,9 +86,16 @@ See detailed setup instructions: [docs/guides/overview.md#setup-scripts-overview
 
 ## CI/CD Status
 
-**Pre-commit Hooks:** Active and enforced
+**GitHub Actions:** Runs on every push and PR to `main`.
 
-All quality checks run locally via pre-commit hooks and test scripts:
+| Job | What it does |
+|-----|-------------|
+| Pre-commit Hooks | Command injection, template compliance, TDD, formatting |
+| Functional Tests | All 45 test scripts in isolated environments |
+| Test Coverage | Validates 100% coverage (commands, agents, skills, rules) |
+| Release Validation | README/CLAUDE.md accuracy, guide coverage, counts |
+
+Run locally:
 
 ```bash
 # Run all functional tests
