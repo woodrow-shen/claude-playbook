@@ -58,8 +58,10 @@ link_file() {
 
     if [[ -L "$dst" ]]; then
         local existing
-        existing="$(readlink -f "$dst")"
-        if [[ "$existing" == "$(readlink -f "$src")" ]]; then
+        existing="$(readlink -f "$dst" 2>/dev/null || echo "")"
+        local expected
+        expected="$(readlink -f "$src" 2>/dev/null || echo "")"
+        if [[ -n "$existing" ]] && [[ "$existing" == "$expected" ]]; then
             echo "  [skip] $label (already linked)"
             return
         fi
@@ -124,8 +126,8 @@ if [[ -d "$SRC_CLAUDE/commands" ]]; then
         dirname="$(basename "$dir")"
         target_subdir="$DST_CLAUDE/commands/$dirname"
         if [[ -L "$target_subdir" ]]; then
-            existing="$(readlink -f "$target_subdir")"
-            if [[ "$existing" == "$(readlink -f "$dir")" ]]; then
+            existing="$(readlink -f "$target_subdir" 2>/dev/null || echo "")"
+            if [[ -n "$existing" ]] && [[ "$existing" == "$(readlink -f "$dir" 2>/dev/null || echo "")" ]]; then
                 echo "  [skip] .claude/commands/$dirname/ (already linked)"
                 continue
             fi

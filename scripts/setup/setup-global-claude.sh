@@ -43,8 +43,8 @@ if [[ -d "$GLOBAL_CLAUDE/rules" ]]; then
         name="$(basename "$f")"
         target="$TARGET_DIR/rules/$name"
         if [[ -L "$target" ]]; then
-            existing="$(readlink -f "$target")"
-            if [[ "$existing" == "$(readlink -f "$f")" ]]; then
+            existing="$(readlink -f "$target" 2>/dev/null || echo "")"
+            if [[ -n "$existing" ]] && [[ "$existing" == "$(readlink -f "$f" 2>/dev/null || echo "")" ]]; then
                 echo "  [skip] rules/$name (already linked)"
                 continue
             fi
@@ -69,8 +69,8 @@ if [[ -d "$GLOBAL_CLAUDE/commands" ]]; then
         name="$(basename "$f")"
         target="$TARGET_DIR/commands/$name"
         if [[ -L "$target" ]]; then
-            existing="$(readlink -f "$target")"
-            if [[ "$existing" == "$(readlink -f "$f")" ]]; then
+            existing="$(readlink -f "$target" 2>/dev/null || echo "")"
+            if [[ -n "$existing" ]] && [[ "$existing" == "$(readlink -f "$f" 2>/dev/null || echo "")" ]]; then
                 echo "  [skip] commands/$name (already linked)"
                 continue
             fi
@@ -90,8 +90,8 @@ if [[ -d "$GLOBAL_CLAUDE/commands" ]]; then
         target_subdir="$TARGET_DIR/commands/$dirname"
 
         if [[ -L "$target_subdir" ]]; then
-            existing="$(readlink -f "$target_subdir")"
-            if [[ "$existing" == "$(readlink -f "$dir")" ]]; then
+            existing="$(readlink -f "$target_subdir" 2>/dev/null || echo "")"
+            if [[ -n "$existing" ]] && [[ "$existing" == "$(readlink -f "$dir" 2>/dev/null || echo "")" ]]; then
                 echo "  [skip] commands/$dirname/ (already linked)"
                 continue
             fi
@@ -116,8 +116,8 @@ if [[ -d "$GLOBAL_CLAUDE/skills" ]]; then
         target_subdir="$TARGET_DIR/skills/$dirname"
 
         if [[ -L "$target_subdir" ]]; then
-            existing="$(readlink -f "$target_subdir")"
-            if [[ "$existing" == "$(readlink -f "$dir")" ]]; then
+            existing="$(readlink -f "$target_subdir" 2>/dev/null || echo "")"
+            if [[ -n "$existing" ]] && [[ "$existing" == "$(readlink -f "$dir" 2>/dev/null || echo "")" ]]; then
                 echo "  [skip] skills/$dirname/ (already linked)"
                 continue
             fi
@@ -138,8 +138,8 @@ echo "--- CLAUDE.md ---"
 if [[ -f "$GLOBAL_CLAUDEMD" ]]; then
     target="$TARGET_DIR/CLAUDE.md"
     if [[ -L "$target" ]]; then
-        existing="$(readlink -f "$target")"
-        if [[ "$existing" == "$(readlink -f "$GLOBAL_CLAUDEMD")" ]]; then
+        existing="$(readlink -f "$target" 2>/dev/null || echo "")"
+        if [[ -n "$existing" ]] && [[ "$existing" == "$(readlink -f "$GLOBAL_CLAUDEMD" 2>/dev/null || echo "")" ]]; then
             echo "  [skip] CLAUDE.md (already linked)"
         else
             rm "$target"
