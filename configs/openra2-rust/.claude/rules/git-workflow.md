@@ -34,7 +34,14 @@ Every commit MUST pass all pre-commit hooks before it is accepted.
 - NEVER modify `.git/hooks/` to disable hooks
 - NEVER modify `core.hooksPath` to point away from installed hooks
 
-### 4. Failed Hook Recovery
+### 4. Never Commit Submodule or Local Config
+
+- NEVER stage or commit `.gitmodules` or `claude-playbook/` — the submodule is managed by the user outside of normal commits
+- NEVER stage or commit `.claude/` — it is local configuration (already in `.gitignore`)
+- NEVER stage or commit `CLAUDE.md` — it is local configuration (already in `.gitignore`)
+- Before committing, always verify `git status` and ensure none of the above are staged
+
+### 5. Failed Hook Recovery
 
 When a pre-commit hook fails:
 
