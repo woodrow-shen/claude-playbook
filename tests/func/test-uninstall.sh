@@ -137,10 +137,12 @@ bash "$MOCK_PB9/scripts/setup/setup-global-claude.sh" "$MOCK_PB9" >/dev/null 2>&
 assert_symlink "pre-check: rules/test-rule.md is symlink" "$HOME/.claude/rules/test-rule.md"
 assert_symlink "pre-check: commands/test-cmd.md is symlink" "$HOME/.claude/commands/test-cmd.md"
 assert_symlink "pre-check: skills/test-skill is symlink" "$HOME/.claude/skills/test-skill"
+assert_symlink "pre-check: agents/test-agent.md is symlink" "$HOME/.claude/agents/test-agent.md"
 bash "$MOCK_PB9/scripts/setup/uninstall-global-claude.sh" 2>&1
 assert_file_not_exists "rules/test-rule.md removed" "$HOME/.claude/rules/test-rule.md"
 assert_file_not_exists "commands/test-cmd.md removed" "$HOME/.claude/commands/test-cmd.md"
 assert_file_not_exists "skills/test-skill removed" "$HOME/.claude/skills/test-skill"
+assert_file_not_exists "agents/test-agent.md removed" "$HOME/.claude/agents/test-agent.md"
 
 # --------------------------------------------------------------------------
 # Test 10: Preserves non-playbook symlinks

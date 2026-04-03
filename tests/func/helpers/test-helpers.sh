@@ -73,6 +73,12 @@ create_mock_playbook() {
     echo "---" >> "$path/configs/global/.claude/commands/sub-ns/nested.md"
     echo "Nested command." >> "$path/configs/global/.claude/commands/sub-ns/nested.md"
 
+    mkdir -p "$path/configs/global/.claude/agents"
+    echo "---" > "$path/configs/global/.claude/agents/test-agent.md"
+    echo "name: test-agent" >> "$path/configs/global/.claude/agents/test-agent.md"
+    echo "---" >> "$path/configs/global/.claude/agents/test-agent.md"
+    echo "Test agent." >> "$path/configs/global/.claude/agents/test-agent.md"
+
     echo "---" > "$path/configs/global/.claude/skills/test-skill/SKILL.md"
     echo "name: test-skill" >> "$path/configs/global/.claude/skills/test-skill/SKILL.md"
     echo "---" >> "$path/configs/global/.claude/skills/test-skill/SKILL.md"

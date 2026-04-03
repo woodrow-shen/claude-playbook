@@ -54,6 +54,15 @@ if [[ -d "$TARGET_DIR/commands" ]]; then
     done
 fi
 
+# --- agents ---
+echo "--- agents/ ---"
+if [[ -d "$TARGET_DIR/agents" ]]; then
+    for f in "$TARGET_DIR/agents"/*.md; do
+        [[ -L "$f" ]] || continue
+        remove_aws_link "$f" "agents/$(basename "$f")"
+    done
+fi
+
 # --- skills ---
 echo "--- skills/ ---"
 if [[ -d "$TARGET_DIR/skills" ]]; then

@@ -32,6 +32,7 @@ echo ""
 mkdir -p "$TARGET_DIR/rules"
 mkdir -p "$TARGET_DIR/commands"
 mkdir -p "$TARGET_DIR/skills"
+mkdir -p "$TARGET_DIR/agents"
 
 # ---------------------------------------------------------------------------
 # Symlink rules
@@ -128,6 +129,31 @@ if [[ -d "$GLOBAL_CLAUDE/skills" ]]; then
         fi
         ln -s "$dir" "$target_subdir"
         echo "  [link] skills/$dirname/"
+    done
+fi
+
+# ---------------------------------------------------------------------------
+# Symlink agents
+# ---------------------------------------------------------------------------
+if [[ -d "$GLOBAL_CLAUDE/agents" ]]; then
+    echo "--- Agents ---"
+    for f in "$GLOBAL_CLAUDE/agents"/*.md; do
+        [[ -f "$f" ]] || continue
+        name="$(basename "$f")"
+        target="$TARGET_DIR/agents/$name"
+        if [[ -L "$target" ]]; then
+            existing="$(readlink -f "$target" 2>/dev/null || echo "")"
+            if [[ -n "$existing" ]] && [[ "$existing" == "$(readlink -f "$f" 2>/dev/null || echo "")" ]]; then
+                echo "  [skip] agents/$name (already linked)"
+                continue
+            fi
+            rm "$target"
+        elif [[ -f "$target" ]]; then
+            echo "  [WARN] agents/$name exists and is not a symlink, skipping"
+            continue
+        fi
+        ln -s "$f" "$target"
+        echo "  [link] agents/$name"
     done
 fi
 

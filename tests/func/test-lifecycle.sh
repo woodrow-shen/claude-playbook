@@ -39,6 +39,7 @@ assert_symlink_valid "rules/test-rule.md is valid symlink" "$HOME/.claude/rules/
 assert_symlink_valid "commands/test-cmd.md is valid symlink" "$HOME/.claude/commands/test-cmd.md"
 assert_symlink_valid "commands/sub-ns is valid symlink" "$HOME/.claude/commands/sub-ns"
 assert_symlink_valid "skills/test-skill is valid symlink" "$HOME/.claude/skills/test-skill"
+assert_symlink_valid "agents/test-agent.md is valid symlink" "$HOME/.claude/agents/test-agent.md"
 assert_symlink_valid "CLAUDE.md is valid symlink" "$HOME/.claude/CLAUDE.md"
 
 # --- Step 3: Uninstall ---
@@ -55,6 +56,7 @@ assert_file_not_exists "rules/test-rule.md gone" "$HOME/.claude/rules/test-rule.
 assert_file_not_exists "commands/test-cmd.md gone" "$HOME/.claude/commands/test-cmd.md"
 assert_file_not_exists "commands/sub-ns gone" "$HOME/.claude/commands/sub-ns"
 assert_file_not_exists "skills/test-skill gone" "$HOME/.claude/skills/test-skill"
+assert_file_not_exists "agents/test-agent.md gone" "$HOME/.claude/agents/test-agent.md"
 assert_file_not_exists "CLAUDE.md gone" "$HOME/.claude/CLAUDE.md"
 
 # --- Step 5: Reinstall ---
@@ -71,6 +73,7 @@ assert_symlink_valid "rules/test-rule.md valid after reinstall" "$HOME/.claude/r
 assert_symlink_valid "commands/test-cmd.md valid after reinstall" "$HOME/.claude/commands/test-cmd.md"
 assert_symlink_valid "commands/sub-ns valid after reinstall" "$HOME/.claude/commands/sub-ns"
 assert_symlink_valid "skills/test-skill valid after reinstall" "$HOME/.claude/skills/test-skill"
+assert_symlink_valid "agents/test-agent.md valid after reinstall" "$HOME/.claude/agents/test-agent.md"
 assert_symlink_valid "CLAUDE.md valid after reinstall" "$HOME/.claude/CLAUDE.md"
 
 # ============================================================================

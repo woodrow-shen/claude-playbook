@@ -26,6 +26,7 @@ output=$(run_setup)
 assert_dir_exists "rules/ dir exists" "$HOME/.claude/rules"
 assert_dir_exists "commands/ dir exists" "$HOME/.claude/commands"
 assert_dir_exists "skills/ dir exists" "$HOME/.claude/skills"
+assert_dir_exists "agents/ dir exists" "$HOME/.claude/agents"
 
 # --------------------------------------------------------------------------
 # Test 2: Symlinks rules
@@ -56,7 +57,14 @@ echo "--- Test 5: Symlinks skills ---"
 assert_symlink_valid "skills/test-skill is a valid symlink" "$HOME/.claude/skills/test-skill"
 
 # --------------------------------------------------------------------------
-# Test 6: Symlinks CLAUDE.md
+# Test 6: Symlinks agents
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 6: Symlinks agents ---"
+assert_symlink_valid "agents/test-agent.md is a valid symlink" "$HOME/.claude/agents/test-agent.md"
+
+# --------------------------------------------------------------------------
+# Test 7: Symlinks CLAUDE.md
 # --------------------------------------------------------------------------
 echo ""
 echo "--- Test 6: Symlinks CLAUDE.md ---"
