@@ -105,22 +105,21 @@ pre-commit run --all-files
 
 ## Documentation
 
-- **[CLAUDE.md](CLAUDE.md)** - Config overview and AI instructions
+- **[CLAUDE.md](CLAUDE.md)** - Project rules and policies
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development workflow and guidelines
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 - **[docs/guides/overview.md](docs/guides/overview.md)** - Complete overview
 - **[docs/documentation-guidelines.md](docs/documentation-guidelines.md)** - Writing standards
+- **[docs/testing/testing-guide.md](docs/testing/testing-guide.md)** - Testing guide
 - **[docs/security/](docs/security/)** - Security documentation
 - **[docs/templates/](docs/templates/)** - Templates for new configs and commands
 
 ## Contributing
 
-Development workflow:
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full development workflow, including:
 
-1. Create a feature branch
-2. Write tests first (TDD enforced)
-3. Implement changes
-4. Run `pre-commit run --all-files`
-5. Commit with `claude/<scope>:` prefix and sign-off (`git commit -s`)
-6. Submit PR for review
-
-See [docs/documentation-guidelines.md](docs/documentation-guidelines.md) for writing standards.
+- Adding new commands, agents, and configs
+- Commit message format and scopes
+- Pre-commit hook setup
+- Testing requirements (TDD, 100% coverage)
+- Release process
