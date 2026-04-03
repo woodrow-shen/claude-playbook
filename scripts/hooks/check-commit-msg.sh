@@ -28,7 +28,7 @@ echo "Checking commit message format..."
 # Check for scope prefix
 FIRST_LINE=$(echo "$COMMIT_MSG" | head -1)
 
-if ! echo "$FIRST_LINE" | grep -qE "^claude(/[a-z-]+)*: "; then
+if ! echo "$FIRST_LINE" | grep -qE "^claude(/[a-z0-9-]+)*: "; then
     echo ""
     echo "ERROR: Commit message must start with scope prefix"
     echo ""
