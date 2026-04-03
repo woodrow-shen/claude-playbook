@@ -107,4 +107,41 @@ bash "$MOCK_PB_NOREMOTE/scripts/setup/setup-claude-local-clone.sh" debugging "$T
 rc=$?
 assert_exit_code "fails with exit 1 when no remote" "1" "$rc"
 
+# --------------------------------------------------------------------------
+# Test 9: Sparse checkout excludes other configs
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 9: Sparse checkout excludes other configs ---"
+# Add another config to mock playbook and push to bare remote
+mkdir -p "$MOCK_PB/configs/other-config/.claude"
+echo "# Other" > "$MOCK_PB/configs/other-config/CLAUDE.md"
+cd "$MOCK_PB" && git add -A && git commit -q -m "add other-config"
+git push -q origin main 2>/dev/null
+
+TARGET9="$TEST_TMPDIR/target9"
+create_mock_target_repo "$TARGET9"
+bash "$MOCK_PB/scripts/setup/setup-claude-local-clone.sh" debugging "$TARGET9" >/dev/null 2>&1
+
+assert_dir_exists "configs/debugging/ in sparse clone" "$TARGET9/.claude-playbook/configs/debugging"
+assert_dir_exists "configs/global/ in sparse clone" "$TARGET9/.claude-playbook/configs/global"
+assert_dir_exists "scripts/ in sparse clone" "$TARGET9/.claude-playbook/scripts"
+# other-config should be excluded by sparse checkout
+if [[ ! -d "$TARGET9/.claude-playbook/configs/other-config" ]]; then
+    assert_pass "configs/other-config/ excluded by sparse checkout"
+else
+    assert_fail "configs/other-config/ should be excluded by sparse checkout"
+fi
+
+# --------------------------------------------------------------------------
+# Test 10: --no-sparse includes all configs
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 10: --no-sparse includes all configs ---"
+TARGET10="$TEST_TMPDIR/target10"
+create_mock_target_repo "$TARGET10"
+bash "$MOCK_PB/scripts/setup/setup-claude-local-clone.sh" --no-sparse debugging "$TARGET10" >/dev/null 2>&1
+
+assert_dir_exists "configs/other-config/ present with --no-sparse" "$TARGET10/.claude-playbook/configs/other-config"
+assert_dir_exists "configs/debugging/ present with --no-sparse" "$TARGET10/.claude-playbook/configs/debugging"
+
 report_results

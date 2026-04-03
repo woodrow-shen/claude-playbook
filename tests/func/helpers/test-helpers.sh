@@ -108,6 +108,7 @@ create_mock_playbook() {
     cp "$PLAYBOOK_ROOT/scripts/setup/uninstall-claude.sh" "$path/scripts/setup/"
     cp "$PLAYBOOK_ROOT/scripts/setup/uninstall-global-claude.sh" "$path/scripts/setup/"
     cp "$PLAYBOOK_ROOT/scripts/setup/recover-config.sh" "$path/scripts/setup/"
+    cp "$PLAYBOOK_ROOT/scripts/setup/sparse-checkout-helper.sh" "$path/scripts/setup/"
     cp "$PLAYBOOK_ROOT/scripts/hooks/install-hooks.sh" "$path/scripts/hooks/"
     chmod +x "$path/scripts/setup/"*.sh "$path/scripts/hooks/"*.sh
 

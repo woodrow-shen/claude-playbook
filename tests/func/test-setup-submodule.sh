@@ -97,4 +97,34 @@ assert_exit_code "exit code 1 when no remote" "1" "$rc"
 # Restore origin for cleanup
 git remote add origin "file://$TEST_TMPDIR/playbook-bare.git"
 
+# --------------------------------------------------------------------------
+# Test 8: Sparse checkout excludes other configs
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 8: Sparse checkout excludes other configs ---"
+mkdir -p "$MOCK_PLAYBOOK/configs/other-config/.claude"
+echo "# Other" > "$MOCK_PLAYBOOK/configs/other-config/CLAUDE.md"
+cd "$MOCK_PLAYBOOK" && git add -A && git commit -q -m "add other-config"
+git push -q origin main 2>/dev/null
+
+create_mock_target_repo "$TEST_TMPDIR/target8"
+bash "$MOCK_PLAYBOOK/scripts/setup/setup-claude-submodule.sh" debugging "$TEST_TMPDIR/target8" >/dev/null 2>&1
+
+assert_dir_exists "configs/debugging/ in sparse submodule" "$TEST_TMPDIR/target8/claude-playbook/configs/debugging"
+assert_dir_exists "configs/global/ in sparse submodule" "$TEST_TMPDIR/target8/claude-playbook/configs/global"
+if [[ ! -d "$TEST_TMPDIR/target8/claude-playbook/configs/other-config" ]]; then
+    assert_pass "configs/other-config/ excluded by sparse checkout"
+else
+    assert_fail "configs/other-config/ should be excluded by sparse checkout"
+fi
+
+# --------------------------------------------------------------------------
+# Test 9: --no-sparse includes all configs
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 9: --no-sparse includes all configs ---"
+create_mock_target_repo "$TEST_TMPDIR/target9"
+bash "$MOCK_PLAYBOOK/scripts/setup/setup-claude-submodule.sh" --no-sparse debugging "$TEST_TMPDIR/target9" >/dev/null 2>&1
+assert_dir_exists "configs/other-config/ present with --no-sparse" "$TEST_TMPDIR/target9/claude-playbook/configs/other-config"
+
 report_results

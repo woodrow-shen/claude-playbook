@@ -15,18 +15,39 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Args
 # ---------------------------------------------------------------------------
-if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <config-name> [target-repo-path] [submodule-path]"
+SPARSE_CHECKOUT=true
+CONFIG_NAME=""
+TARGET_REPO=""
+SUBMODULE_PATH=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-sparse) SPARSE_CHECKOUT=false; shift ;;
+        *)
+            if [[ -z "$CONFIG_NAME" ]]; then
+                CONFIG_NAME="$1"
+            elif [[ -z "$TARGET_REPO" ]]; then
+                TARGET_REPO="$1"
+            elif [[ -z "$SUBMODULE_PATH" ]]; then
+                SUBMODULE_PATH="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$CONFIG_NAME" ]]; then
+    echo "Usage: $0 [--no-sparse] <config-name> [target-repo-path] [submodule-path]"
     exit 1
 fi
 
-CONFIG_NAME="$1"
-TARGET_REPO="${2:-.}"
+TARGET_REPO="${TARGET_REPO:-.}"
 TARGET_REPO="$(cd "$TARGET_REPO" && pwd)"
-SUBMODULE_PATH="${3:-claude-playbook}"
+SUBMODULE_PATH="${SUBMODULE_PATH:-claude-playbook}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AWS_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "$SCRIPT_DIR/sparse-checkout-helper.sh"
 
 if [[ "$CONFIG_NAME" == "global" ]]; then
     echo "ERROR: Use setup-global-claude.sh for global config"
@@ -62,6 +83,14 @@ else
 fi
 
 git submodule update --init "$SUBMODULE_PATH"
+
+# ---------------------------------------------------------------------------
+# Configure sparse checkout on the submodule
+# ---------------------------------------------------------------------------
+if [[ "$SPARSE_CHECKOUT" == true ]]; then
+    configure_sparse_checkout "$TARGET_REPO/$SUBMODULE_PATH" "$CONFIG_NAME" || true
+    cd "$TARGET_REPO"
+fi
 
 # ---------------------------------------------------------------------------
 # Sync config into submodule if it only exists locally (not yet pushed)

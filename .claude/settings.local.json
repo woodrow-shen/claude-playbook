@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash /home/woodrow/work/github/claude-playbook/scripts/setup/uninstall-claude.sh /tmp/test-local-clone)"
+    ]
+  }
+}

@@ -15,17 +15,35 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Args
 # ---------------------------------------------------------------------------
-if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <config-name> [target-repo-path]"
+SPARSE_CHECKOUT=true
+CONFIG_NAME=""
+TARGET_REPO=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-sparse) SPARSE_CHECKOUT=false; shift ;;
+        *)
+            if [[ -z "$CONFIG_NAME" ]]; then
+                CONFIG_NAME="$1"
+            elif [[ -z "$TARGET_REPO" ]]; then
+                TARGET_REPO="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$CONFIG_NAME" ]]; then
+    echo "Usage: $0 [--no-sparse] <config-name> [target-repo-path]"
     exit 1
 fi
 
-CONFIG_NAME="$1"
-TARGET_REPO="${2:-.}"
+TARGET_REPO="${TARGET_REPO:-.}"
 TARGET_REPO="$(cd "$TARGET_REPO" && pwd)"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLAYBOOK_SRC="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "$SCRIPT_DIR/sparse-checkout-helper.sh"
 
 if [[ "$CONFIG_NAME" == "global" ]]; then
     echo "ERROR: Use setup-global-claude.sh for global config"
@@ -58,8 +76,19 @@ cd "$TARGET_REPO"
 if [[ -d "$CLONE_PATH/.git" ]]; then
     echo "[skip] Clone already exists at $CLONE_PATH"
 else
-    echo "[clone] Cloning claude-playbook..."
-    git clone "$PLAYBOOK_REMOTE" "$CLONE_PATH"
+    if [[ "$SPARSE_CHECKOUT" == true ]]; then
+        echo "[clone] Cloning claude-playbook (sparse)..."
+        git clone --no-checkout "$PLAYBOOK_REMOTE" "$CLONE_PATH"
+        if configure_sparse_checkout "$TARGET_REPO/$CLONE_PATH" "$CONFIG_NAME"; then
+            git checkout -q
+        else
+            cd "$TARGET_REPO/$CLONE_PATH" && git checkout -q
+        fi
+        cd "$TARGET_REPO"
+    else
+        echo "[clone] Cloning claude-playbook..."
+        git clone "$PLAYBOOK_REMOTE" "$CLONE_PATH"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
