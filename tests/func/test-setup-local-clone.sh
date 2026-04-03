@@ -144,4 +144,22 @@ bash "$MOCK_PB/scripts/setup/setup-claude-local-clone.sh" --no-sparse debugging 
 assert_dir_exists "configs/other-config/ present with --no-sparse" "$TARGET10/.claude-playbook/configs/other-config"
 assert_dir_exists "configs/debugging/ present with --no-sparse" "$TARGET10/.claude-playbook/configs/debugging"
 
+# --------------------------------------------------------------------------
+# Test 11: Hooks work after sparse checkout
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 11: Hooks work after sparse checkout ---"
+TARGET11="$TEST_TMPDIR/target11"
+create_mock_target_repo "$TARGET11"
+output=$(bash "$MOCK_PB/scripts/setup/setup-claude-local-clone.sh" debugging "$TARGET11" 2>&1)
+
+# install-hooks.sh should be present and have run
+assert_dir_exists "scripts/hooks/ in sparse clone" "$TARGET11/.claude-playbook/scripts/hooks"
+assert_file_exists "install-hooks.sh in sparse clone" "$TARGET11/.claude-playbook/scripts/hooks/install-hooks.sh"
+assert_output_contains "hooks installed during setup" "$output" "hooks installed"
+
+# Hooks should be installed in the clone's .git/hooks/
+assert_file_exists "pre-commit hook exists" "$TARGET11/.claude-playbook/.git/hooks/pre-commit"
+assert_file_exists "commit-msg hook exists" "$TARGET11/.claude-playbook/.git/hooks/commit-msg"
+
 report_results

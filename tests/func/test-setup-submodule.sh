@@ -127,4 +127,16 @@ create_mock_target_repo "$TEST_TMPDIR/target9"
 bash "$MOCK_PLAYBOOK/scripts/setup/setup-claude-submodule.sh" --no-sparse debugging "$TEST_TMPDIR/target9" >/dev/null 2>&1
 assert_dir_exists "configs/other-config/ present with --no-sparse" "$TEST_TMPDIR/target9/claude-playbook/configs/other-config"
 
+# --------------------------------------------------------------------------
+# Test 10: Hooks work after sparse checkout
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 10: Hooks work after sparse checkout ---"
+create_mock_target_repo "$TEST_TMPDIR/target10"
+output=$(bash "$MOCK_PLAYBOOK/scripts/setup/setup-claude-submodule.sh" debugging "$TEST_TMPDIR/target10" 2>&1)
+
+assert_dir_exists "scripts/hooks/ in sparse submodule" "$TEST_TMPDIR/target10/claude-playbook/scripts/hooks"
+assert_file_exists "install-hooks.sh in sparse submodule" "$TEST_TMPDIR/target10/claude-playbook/scripts/hooks/install-hooks.sh"
+assert_output_contains "hooks installed during setup" "$output" "hooks installed"
+
 report_results
