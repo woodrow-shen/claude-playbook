@@ -125,11 +125,10 @@ exit 0
 EOF
     chmod +x "$path/scripts/hooks/check-commit-msg.sh"
 
-    # Init as git repo
-    cd "$path"
-    git init -q
-    git add -A
-    git commit -q -m "initial mock playbook"
+    # Init as git repo (use -C to avoid cd side effects)
+    git -C "$path" init -q
+    git -C "$path" add -A
+    git -C "$path" commit -q -m "initial mock playbook"
 }
 
 # Creates a bare remote from a mock playbook for clone/submodule tests.
@@ -137,10 +136,14 @@ EOF
 create_bare_remote() {
     local src="$1"
     local bare="$2"
+    # Safety: refuse to modify repos outside TEST_TMPDIR
+    if [[ -n "$TEST_TMPDIR" ]] && [[ "$src" != "$TEST_TMPDIR"* ]]; then
+        echo "ERROR: create_bare_remote refusing to modify $src (outside TEST_TMPDIR)" >&2
+        return 1
+    fi
     git clone --bare -q "$src" "$bare"
-    cd "$src"
-    git remote remove origin 2>/dev/null || true
-    git remote add origin "file://$bare"
+    git -C "$src" remote remove origin 2>/dev/null || true
+    git -C "$src" remote add origin "file://$bare"
 }
 
 # Creates a mock target project repo.
@@ -148,11 +151,10 @@ create_bare_remote() {
 create_mock_target_repo() {
     local path="$1"
     mkdir -p "$path"
-    cd "$path"
-    git init -q
-    echo "# My Project" > README.md
-    git add README.md
-    git commit -q -m "initial project commit"
+    git -C "$path" init -q
+    echo "# My Project" > "$path/README.md"
+    git -C "$path" add README.md
+    git -C "$path" commit -q -m "initial project commit"
 }
 
 # ---------------------------------------------------------------------------
