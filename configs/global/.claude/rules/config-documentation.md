@@ -13,24 +13,17 @@ Applies to: all directories under `configs/`.
 
 ## Rules
 
-### Rule 1: Config Guide Required
+### Rule 1: Per-Command Guide Required
 
-Each config with 4+ commands **MUST** have a guide document at `docs/guides/configs/<config-name>-guide.md`.
+Every command **MUST** have a guide file at `configs/<config>/docs/<cmd>-guide.md`.
 
-Small configs (1-3 commands) are self-documenting and do not require a separate guide.
+Namespace commands (e.g., `/cp:*`) share one guide file (e.g., `configs/global/docs/cp-guide.md`).
 
-### Rule 2: Command Documentation Coverage
+### Rule 2: Agent Documentation Coverage
 
-Every command file in `.claude/commands/*.md` **MUST** be documented in one of:
-- The config's guide file (`docs/guides/configs/<config-name>-guide.md`)
-- The config's CLAUDE.md (for smaller configs)
-- A namespace-level entry (e.g., `/cp:*` commands documented as a group)
+Every agent file in `.claude/agents/*.md` **MUST** be listed with a one-line description in the config's CLAUDE.md.
 
-### Rule 3: Agent Documentation Coverage
-
-Every agent file in `.claude/agents/*.md` **MUST** be listed with a one-line description in the config's guide or CLAUDE.md.
-
-### Rule 4: Config CLAUDE.md
+### Rule 3: Config CLAUDE.md
 
 Each config **SHOULD** have a `CLAUDE.md` file that provides:
 - Overview of the config's purpose
@@ -38,7 +31,7 @@ Each config **SHOULD** have a `CLAUDE.md` file that provides:
 - List of agents with descriptions (if any)
 - Setup or usage notes
 
-### Rule 5: Counts Must Match
+### Rule 4: Counts Must Match
 
 Documentation that claims specific counts (e.g., "20 commands") **MUST** match the actual file count in the config directory. The release validation script checks this.
 

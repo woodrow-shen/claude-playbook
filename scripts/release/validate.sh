@@ -56,7 +56,7 @@ echo "Verifying config guides match actual configs..."
 for config_dir in configs/*/; do
     config=$(basename "$config_dir")
     claude_dir="configs/${config}/.claude"
-    guide_file="docs/guides/configs/${config}-guide.md"
+    config_claude="configs/${config}/CLAUDE.md"
 
     if [ ! -d "$claude_dir" ]; then
         echo "WARNING: Config directory not found: $claude_dir"
@@ -68,11 +68,11 @@ for config_dir in configs/*/; do
         actual_cmd_count=$(find "$claude_dir/commands" -name "*.md" -type f | wc -l)
         echo "  $config: $actual_cmd_count commands"
 
-        # If guide exists, check count matches
-        if [ -f "$guide_file" ]; then
-            guide_cmd_count=$(grep -o "Commands ([0-9]*)" "$guide_file" | grep -o "[0-9]*" || echo "0")
+        # If config CLAUDE.md exists, check count matches
+        if [ -f "$config_claude" ]; then
+            guide_cmd_count=$(grep -o "Commands ([0-9]*)" "$config_claude" | grep -o "[0-9]*" || echo "0")
             if [ "$actual_cmd_count" != "$guide_cmd_count" ] && [ "$guide_cmd_count" != "0" ]; then
-                echo "  WARNING: $config commands count mismatch (actual: $actual_cmd_count, guide: $guide_cmd_count)"
+                echo "  WARNING: $config commands count mismatch (actual: $actual_cmd_count, CLAUDE.md: $guide_cmd_count)"
             fi
         fi
     fi
@@ -254,14 +254,11 @@ for config_dir in configs/*/; do
     config=$(basename "$config_dir")
 
     if [ -d "$config_dir/.claude/agents" ]; then
-        # Find documentation source: config guide or CLAUDE.md
-        guide_file="docs/guides/configs/${config}-guide.md"
+        # Documentation source: config CLAUDE.md
         config_claude="$config_dir/CLAUDE.md"
 
         doc_file=""
-        if [ -f "$guide_file" ]; then
-            doc_file="$guide_file"
-        elif [ -f "$config_claude" ]; then
+        if [ -f "$config_claude" ]; then
             doc_file="$config_claude"
         fi
 

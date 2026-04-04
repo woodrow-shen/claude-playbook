@@ -102,8 +102,7 @@ Verify that every config has a comprehensive guide:
 **For each config in `configs/*/`:**
 
 1. Check if config-level documentation exists:
-   - `docs/guides/configs/<config>-guide.md` (preferred for configs with 4+ commands)
-   - `configs/<config>/CLAUDE.md` (acceptable for smaller configs)
+   - `configs/<config>/CLAUDE.md` (lists commands, agents, skills, rules)
 2. Verify the documentation is up-to-date by checking:
    - All commands from `configs/<config>/.claude/commands/` are documented
    - All agents from `configs/<config>/.claude/agents/` are mentioned
