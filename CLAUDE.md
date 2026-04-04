@@ -24,6 +24,7 @@ Each commit MUST pass security checks as the top priority. Pre-commit hooks run 
 - `configs/global/.claude/rules/config-documentation.md` MUST be followed. Every command needs a guide file at `configs/<config>/docs/<cmd>-guide.md`. Namespace commands need one shared guide. Every agent must be documented.
 - All docs (*.md) MUST be synced for each change. When implementation changes, update corresponding guides, CLAUDE.md files, README.md, and overview.md to match.
 - All documents for configs and playbook maintenance MUST reach 100% coverage.
+- This file (CLAUDE.md) MUST stay under 200 lines. It is a policy index, not documentation. Move details to referenced docs.
 
 ### Contribution
 

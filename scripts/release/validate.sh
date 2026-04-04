@@ -289,6 +289,19 @@ else
 fi
 echo ""
 
+# Check 9: CLAUDE.md line limit
+echo "Check 9: CLAUDE.md line limit"
+echo "------------------------------"
+CLAUDE_LINES=$(wc -l < "CLAUDE.md")
+CLAUDE_MAX=200
+if [ "$CLAUDE_LINES" -gt "$CLAUDE_MAX" ]; then
+    echo "ERROR: CLAUDE.md is $CLAUDE_LINES lines (max $CLAUDE_MAX). Move details to referenced docs."
+    VALIDATION_FAILED=true
+else
+    echo "OK: CLAUDE.md is $CLAUDE_LINES lines (limit: $CLAUDE_MAX)"
+fi
+echo ""
+
 # Final result
 echo "=========================================="
 if [ "$VALIDATION_FAILED" = true ]; then
