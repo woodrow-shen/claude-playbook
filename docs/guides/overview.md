@@ -38,8 +38,8 @@ claude-playbook/
 │   ├── templates/          # Templates for new configs and commands
 │   └── testing/            # Test strategy documentation
 │
-├── tests/                  # Test scripts (45 files)
-│   ├── func/               # Functional tests (44 scripts)
+├── tests/                  # Test scripts (47 files)
+│   ├── func/               # Functional tests (45 scripts)
 │   │   ├── helpers/        # Shared test helpers
 │   │   ├── test-setup-*.sh # Setup script tests
 │   │   ├── test-uninstall.sh

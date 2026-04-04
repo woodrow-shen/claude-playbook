@@ -22,7 +22,7 @@ Read the complete overview: [docs/guides/overview.md](docs/guides/overview.md)
 
 | Config | Use Case | Description |
 |--------|----------|-------------|
-| **Global** | Cross-project commands (installed to `~/.claude`) | 20 commands, 13 agents, 2 skills, 8 rules |
+| **Global** | Cross-project commands (installed to `~/.claude`) | 20 commands, 13 agents, 2 skills, 9 rules |
 | **Debugging** | Kernel debugging and coredump analysis | Skeleton config |
 | **OpenRA2-Rust** | OpenRA2 Rust project | Git workflow rules |
 
@@ -91,7 +91,7 @@ See detailed setup instructions: [docs/guides/overview.md#setup-scripts-overview
 | Job | What it does |
 |-----|-------------|
 | Pre-commit Hooks | Command injection, template compliance, TDD, formatting |
-| Functional Tests | All 45 test scripts in isolated environments |
+| Functional Tests | All 46 test scripts in isolated environments |
 | Test Coverage | Validates 100% coverage (commands, agents, skills, rules) |
 | Release Validation | README/CLAUDE.md accuracy, guide coverage, counts |
 
