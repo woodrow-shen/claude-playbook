@@ -52,6 +52,66 @@ if ! echo "$FIRST_LINE" | grep -qE "^claude(/[a-z0-9-]+)*: "; then
     exit 1
 fi
 
+# Extract description (part after "scope: ")
+DESCRIPTION=$(echo "$FIRST_LINE" | sed 's/^[^:]*: //')
+
+# Check description starts with lowercase
+FIRST_CHAR=$(echo "$DESCRIPTION" | cut -c1)
+if echo "$FIRST_CHAR" | grep -qE "^[A-Z]$"; then
+    echo ""
+    echo "ERROR: Description must start with lowercase"
+    echo ""
+    echo "  Wrong: claude: Add new feature"
+    echo "  Right: claude: add new feature"
+    echo ""
+    echo "Your message:"
+    echo "  $FIRST_LINE"
+    echo ""
+    exit 1
+fi
+
+# Check no trailing period
+if echo "$FIRST_LINE" | grep -qE '\.$'; then
+    echo ""
+    echo "ERROR: Subject line must not end with a period"
+    echo ""
+    echo "  Wrong: claude: add new feature."
+    echo "  Right: claude: add new feature"
+    echo ""
+    echo "Your message:"
+    echo "  $FIRST_LINE"
+    echo ""
+    exit 1
+fi
+
+# Check subject line length (warn >50, error >72)
+SUBJECT_LEN=${#FIRST_LINE}
+if [ "$SUBJECT_LEN" -gt 72 ]; then
+    echo ""
+    echo "ERROR: Subject line is $SUBJECT_LEN chars (max 72)"
+    echo ""
+    echo "Your message:"
+    echo "  $FIRST_LINE"
+    echo ""
+    exit 1
+elif [ "$SUBJECT_LEN" -gt 50 ]; then
+    echo "WARNING: Subject line is $SUBJECT_LEN chars (recommended max 50)"
+fi
+
+# Check for non-imperative mood (common past tense / third person endings)
+if echo "$DESCRIPTION" | grep -qE "^(added|adds|fixed|fixes|updated|updates|removed|removes|changed|changes|moved|moves|renamed|renames|deleted|deletes|created|creates|refactored|refactors|implemented|implements) "; then
+    echo ""
+    echo "ERROR: Use imperative mood in description"
+    echo ""
+    echo "  Wrong: claude: added new feature"
+    echo "  Right: claude: add new feature"
+    echo ""
+    echo "Your message:"
+    echo "  $FIRST_LINE"
+    echo ""
+    exit 1
+fi
+
 # Check for Signed-off-by
 if ! echo "$COMMIT_MSG" | grep -q "^Signed-off-by: "; then
     echo ""
