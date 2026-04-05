@@ -12,7 +12,7 @@ This repository provides reusable Claude Code configurations, enabling consisten
 
 **Quick Stats:**
 - **3 configs** - Global, Debugging, OpenRA2-Rust
-- **20 commands** - 100% documentation coverage
+- **21 commands** - 100% documentation coverage
 - **Interactive setup** - `claude-setup` command for easy installation
 - **Comprehensive tests** - Functional coverage with isolated environments
 
@@ -22,7 +22,7 @@ Read the complete overview: [docs/guides/overview.md](docs/guides/overview.md)
 
 | Config | Use Case | Description |
 |--------|----------|-------------|
-| **Global** | Cross-project commands (installed to `~/.claude`) | 20 commands, 13 agents, 2 skills, 9 rules |
+| **Global** | Cross-project commands (installed to `~/.claude`) | 21 commands, 13 agents, 2 skills, 9 rules |
 | **Debugging** | Kernel debugging and coredump analysis | Skeleton config |
 | **OpenRA2-Rust** | OpenRA2 Rust project | Git workflow rules |
 

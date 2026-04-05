@@ -82,7 +82,7 @@ configs/<config-name>/
 **Use Case:** Cross-project commands and workflows available everywhere (installed to `~/.claude`)
 
 **Key Features:**
-- 20 commands (12 general + 8 `/cp:*` namespace)
+- 21 commands (12 general + 9 `/cp:*` namespace)
 - 13 agents (10 general-purpose + 3 specialized)
 - 2 skills (input validation, tmux session management)
 - 9 rules (security, TDD, documentation, contribution, config docs)

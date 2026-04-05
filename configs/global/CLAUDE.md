@@ -2,7 +2,7 @@
 
 Global commands, agents, skills, and rules shared across all projects.
 
-## Commands (20)
+## Commands (21)
 
 ### General (12)
 
@@ -19,7 +19,7 @@ Global commands, agents, skills, and rules shared across all projects.
 - `/monitor-tmux` — Monitor a tmux session and report progress
 - `/pre-commit` — Run pre-commit hooks on staged or all files
 
-### `/cp:*` Namespace (8)
+### `/cp:*` Namespace (9)
 
 - `/cp:pull` — Pull latest changes from claude-playbook submodule
 - `/cp:push` — Push local changes to claude-playbook submodule
@@ -28,6 +28,7 @@ Global commands, agents, skills, and rules shared across all projects.
 - `/cp:issue` — Report bug or request feature on claude-playbook GitHub
 - `/cp:fix-issue` — Automatically fix a claude-playbook issue and merge
 - `/cp:release` — Manage releases (validate, prepare, publish)
+- `/cp:pre-commit` — Run claude-playbook pre-commit hooks from any repo
 - `/cp:refresh-global` — Refresh global Claude configurations in ~/.claude
 
 ## Agents (13)
