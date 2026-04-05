@@ -139,11 +139,17 @@ CMDEOF
 
 # Helper: ask user for config name with validation
 # If the config doesn't exist, offers to create it.
-# Usage: _ask_config_name VARNAME [default-suggestion]
+# Usage: _ask_config_name VARNAME [default-suggestion] [--defer-create]
 # Sets the variable named VARNAME to the chosen config.
+# With --defer-create, validates name and confirms creation intent but does
+# not create the config (caller is responsible for creating it later).
 _ask_config_name() {
     local _varname="$1"
     local _suggestion="${2:-}"
+    local _defer_create=false
+    if [[ "${3:-}" == "--defer-create" ]]; then
+        _defer_create=true
+    fi
     local _available
     _available=($(_list_project_configs))
 
@@ -190,9 +196,14 @@ _ask_config_name() {
         read -p "Create it now? (Y/n): " _create
         _create="${_create:-Y}"
         if [[ "$_create" =~ ^[Yy]$ ]]; then
-            _create_config "$_input"
-            print_success "Created config '$_input'"
-            echo ""
+            if [[ "$_defer_create" == true ]]; then
+                print_info "Config '$_input' will be created in the clone"
+                echo ""
+            else
+                _create_config "$_input"
+                print_success "Created config '$_input'"
+                echo ""
+            fi
         else
             print_info "Setup cancelled."
             return 1
@@ -312,8 +323,9 @@ run_setup_local_clone() {
     echo ""
 
     # Ask for config name with validation (suggest project basename)
+    # Use --defer-create so config is created in the clone, not source repo
     CONFIG_NAME=""
-    if ! _ask_config_name "CONFIG_NAME" "$(basename "$PROJECT_PATH" | tr '[:upper:]' '[:lower:]')"; then
+    if ! _ask_config_name "CONFIG_NAME" "$(basename "$PROJECT_PATH" | tr '[:upper:]' '[:lower:]')" "--defer-create"; then
         return 1
     fi
 

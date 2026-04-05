@@ -103,13 +103,37 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Sync config into clone if it only exists locally (not yet pushed)
+# Create config scaffold in clone if it does not exist
 # ---------------------------------------------------------------------------
 CLONE_CONFIG="$CLONE_PATH/configs/$CONFIG_NAME"
-LOCAL_CONFIG="$PLAYBOOK_SRC/configs/$CONFIG_NAME"
-if [[ ! -d "$CLONE_CONFIG" ]] && [[ -d "$LOCAL_CONFIG" ]]; then
-    echo "[sync] Config '$CONFIG_NAME' not in clone yet, copying from local playbook..."
-    cp -r "$LOCAL_CONFIG" "$CLONE_CONFIG"
+if [[ ! -d "$CLONE_CONFIG" ]]; then
+    echo "[create] Creating config '$CONFIG_NAME' in clone..."
+    mkdir -p "$CLONE_CONFIG/.claude/commands"
+    mkdir -p "$CLONE_CONFIG/.claude/agents"
+    mkdir -p "$CLONE_CONFIG/.claude/rules"
+    mkdir -p "$CLONE_CONFIG/docs"
+    cat > "$CLONE_CONFIG/CLAUDE.md" << EOF
+# ${CONFIG_NAME} Config
+
+## Overview
+
+Configuration for ${CONFIG_NAME} project.
+
+## Commands
+
+(Add your commands here)
+
+## Getting Started
+
+See [Claude Playbook Documentation](../../README.md) for more information.
+EOF
+    cat > "$CLONE_CONFIG/.claude/commands/hello.md" << 'CMDEOF'
+Say hello and confirm the config is working.
+
+When the user runs this command:
+1. Print "Hello from the config!"
+2. List available commands in this config
+CMDEOF
 fi
 
 # ---------------------------------------------------------------------------
