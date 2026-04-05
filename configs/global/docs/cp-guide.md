@@ -76,6 +76,16 @@ Manage claude-playbook releases.
 
 Delegates to the release agent. `validate` runs all checks, `prepare` updates CHANGELOG.md, `publish` creates a git tag and pushes.
 
+### /cp:pre-commit
+
+Run claude-playbook pre-commit hooks from any repo.
+
+```
+/cp:pre-commit
+```
+
+Locates the playbook (submodule, local clone, or symlink target), then runs pre-commit hooks. Uses the `pre-commit` framework if available, otherwise falls back to running hook scripts directly from `scripts/hooks/`.
+
 ### /cp:refresh-global
 
 Refresh global Claude configurations in ~/.claude.
