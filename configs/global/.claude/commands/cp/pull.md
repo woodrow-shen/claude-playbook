@@ -5,24 +5,45 @@ description: "Pull latest changes from claude-playbook"
 
 Pull latest changes from the claude-playbook repository (submodule or local clone).
 
-## Step 1: Find Playbook
+## Step 1: Find Playbook and Detect Mode
 
 ```bash
+MODE=""
+PLAYBOOK_PATH=""
+
 if [ -L ".claude" ]; then
+    # REPLACE mode: .claude is a symlink to configs/<name>/.claude
     PLAYBOOK_PATH=$(readlink ".claude" | sed 's|/configs/.*||')
+    if echo "$PLAYBOOK_PATH" | grep -q '\.claude-playbook'; then
+        MODE="local-clone (REPLACE)"
+    else
+        MODE="submodule (REPLACE)"
+    fi
+elif [ -d ".claude" ] && [ ! -L ".claude" ]; then
+    # MERGE mode: .claude is a real directory with symlinked files inside
+    if [ -d ".claude-playbook" ]; then
+        PLAYBOOK_PATH=".claude-playbook"
+        MODE="local-clone (MERGE)"
+    elif [ -d "claude-playbook" ]; then
+        PLAYBOOK_PATH="claude-playbook"
+        MODE="submodule (MERGE)"
+    fi
 elif [ -d ".claude-playbook" ]; then
     PLAYBOOK_PATH=".claude-playbook"
+    MODE="local-clone"
 elif [ -d "claude-playbook" ]; then
     PLAYBOOK_PATH="claude-playbook"
-else
-    PLAYBOOK_PATH=$(find . -maxdepth 2 -type d -name "configs" -path "*/configs" | \
-                     xargs -I {} dirname {} | head -1)
+    MODE="submodule"
 fi
 
 if [ -z "$PLAYBOOK_PATH" ]; then
-    echo "Error: Could not find claude-playbook"
+    echo "ERROR: Could not find claude-playbook"
+    echo "Looked in: .claude symlink, .claude-playbook/, claude-playbook/"
     exit 1
 fi
+
+echo "Playbook: $PLAYBOOK_PATH"
+echo "Mode: $MODE"
 ```
 
 ## Step 2: Pull Changes
@@ -83,5 +104,5 @@ fi
 ## Step 5: Report Success
 
 ```bash
-echo "Successfully pulled latest changes from claude-playbook"
+echo "Successfully pulled latest changes from claude-playbook ($MODE)"
 ```
