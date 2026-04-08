@@ -38,7 +38,7 @@ These rules apply to shell commands and scripts executed via bash, NOT to conver
 | `rm -i file` | `rm file` (after confirming with user) |
 | `apt install pkg` | `apt install -y pkg` |
 | `pip install` (with prompts) | `pip install --yes` or `pip install -q` |
-| `crontab -e` | `crontab <<< "..."` or write to temp file then `crontab file` |
+| `crontab -e` | `crontab <<< "..."` or write to temp file then `crontab file` | <!-- safe: documentation example showing non-interactive alternative -->
 
 ### File operations
 

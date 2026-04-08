@@ -81,6 +81,25 @@ CRITICAL_PATTERNS=(
     'nc\b.*-e'                          # netcat exec
     'ncat\b.*-e'                        # ncat exec
     'mkfifo'                            # named pipe (reverse shell pattern)
+
+    # Environment / variable injection
+    'LD_PRELOAD'                        # shared library injection
+    'LD_LIBRARY_PATH'                   # library path hijack
+    '\bexport\b.*\bPATH='              # PATH hijack
+
+    # File-based execution
+    '\bcrontab\b\s+[^-]'               # crontab write (not crontab -e which is interactive)
+    '/etc/cron'                         # write to cron directory
+    '\.(bashrc|bash_profile|profile)\b' # modify shell startup files
+    '/etc/sudoers'                      # modify sudo permissions
+
+    # Process injection
+    '\bgdb\b.*-ex'                      # GDB execute command
+    '/proc/.*/mem'                      # write to process memory
+    '\bptrace\b'                        # process trace / inject
+
+    # Obfuscation
+    "\\\$'\\\\\\\\x"                    # $'\x41' hex escape form
 )
 
 WARNING_PATTERNS=(

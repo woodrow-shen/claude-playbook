@@ -29,7 +29,7 @@ If `BRANCH_NAME` contains `"; rm -rf / #"`, the AI agent will execute it.
 
 ## Pattern Categories
 
-### CRITICAL Patterns (17 types)
+### CRITICAL Patterns (9 categories)
 
 These patterns are almost always malicious in AI command files. Commits containing these patterns will be **blocked**.
 
@@ -58,6 +58,25 @@ These patterns are almost always malicious in AI command files. Commits containi
 - `nc -e`, `ncat -e` - Netcat execute
 - `mkfifo` - Named pipe (reverse shell pattern)
 
+**Environment / Variable Injection:**
+- `LD_PRELOAD` - Shared library injection
+- `LD_LIBRARY_PATH` - Library path hijack
+- `export PATH=` - PATH hijack
+
+**File-based Execution:**
+- `crontab <file>` - Schedule tasks (not `crontab -e`)
+- `/etc/cron` - Write to cron directory
+- `.bashrc`, `.bash_profile`, `.profile` - Modify shell startup files
+- `/etc/sudoers` - Modify sudo permissions
+
+**Process Injection:**
+- `gdb -ex` - GDB execute command
+- `/proc/*/mem` - Write to process memory
+- `ptrace` - Process trace / inject
+
+**Obfuscation:**
+- `$'\x...'` - Hex escape form
+
 ### WARNING Patterns (20 types)
 
 These patterns may have legitimate uses but warrant careful review. Commits will **proceed with warnings**.
@@ -85,8 +104,6 @@ These patterns may have legitimate uses but warrant careful review. Commits will
 - `wget --post` - HTTP POST
 
 **Environment Manipulation:**
-- `export PATH=` - PATH hijacking
-- `export LD_PRELOAD`, `export LD_LIBRARY_PATH` - Library injection
 - `alias` - Alias injection
 
 **Git Config:**
