@@ -91,7 +91,7 @@ See detailed setup instructions: [docs/guides/overview.md#setup-scripts-overview
 | Job | What it does |
 |-----|-------------|
 | Pre-commit Hooks | Command injection, template compliance, TDD, formatting |
-| Functional Tests | All 46 test scripts in isolated environments |
+| Functional Tests | All 54 test scripts in isolated environments |
 | Test Coverage | Validates 100% coverage (commands, agents, skills, rules) |
 | Release Validation | README/CLAUDE.md accuracy, guide coverage, counts |
 
