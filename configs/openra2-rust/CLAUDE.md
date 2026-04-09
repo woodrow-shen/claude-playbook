@@ -1,17 +1,13 @@
-# OpenRA2-Rust -- Claude Code Configuration
-
-## Project Overview
+# OpenRA2-Rust -- Claude Code Workflow
 
 OpenRA2-Rust: Porting Red Alert 2 from C#/OpenRA to Rust/Bevy with Wgpu/Vulkan rendering.
 License: GPL-3.0. Owner: Woodrow Shen.
 
-**Current status:** All 14 phases complete. 435 unit tests, 9 integration tests.
-See `docs/PROJECT_STATUS.md` for full phase tracker.
-
-## Reference Repos
-
 - OpenRA engine: https://github.com/OpenRA/OpenRA
 - RA2 mod: https://github.com/OpenRA/ra2
+- Status/roadmap: `docs/PROJECT_STATUS.md`, `docs/PRD.md`, `docs/ARCHITECTURE.md`
+- Project structure: `src/lib.rs` (19 pub modules), `src/bin/` (12 demos/tools)
+- Dependencies: `Cargo.toml` (Bevy 0.15, base64, image, tempfile)
 
 ## Environment Variables
 
@@ -21,9 +17,78 @@ All binaries use environment variables for asset paths. Define in `.env` (gitign
 export RA2_ASSETS_DIR="/path/to/RA2/assets"
 export RA2_MIXDB_PATH="/path/to/OpenRA/global mix database.dat"
 export RA2_MOD_DIR="/path/to/ra2/mods/ra2"
+export SOURCE_PATH_OPENRA="/path/to/OpenRA"
+export SOURCE_PATH_RA2_MOD="/path/to/ra2"
 ```
 
 **NEVER hardcode local paths in committed files.** Use `std::env::var()` at runtime.
+
+### C# Source Reference Paths
+
+When porting features, read the original C# source directly from local checkouts:
+
+- `$SOURCE_PATH_OPENRA` -- OpenRA engine repo (e.g. `OpenRA.Game/`, `OpenRA.Mods.Common/`, `glsl/`)
+- `$SOURCE_PATH_RA2_MOD` -- RA2 mod repo (e.g. `mods/ra2/`, `OpenRA.Mods.RA2/`)
+
+Use these to quickly locate C# reference implementations:
+```bash
+# Example: find Turreted trait implementation
+grep -r "class Turreted" "$SOURCE_PATH_OPENRA"/OpenRA.Mods.Common/
+# Example: find RA2-specific trait
+grep -r "class MindControl" "$SOURCE_PATH_RA2_MOD"/OpenRA.Mods.RA2/
+```
+
+### Debug / Runtime Environment Variables
+
+These optional env vars control runtime behavior (not in `.env`):
+
+| Variable | Usage | Example |
+|----------|-------|---------|
+| `WAYLAND_DISPLAY` | Required for headless/SSH — set to run without a display server | `WAYLAND_DISPLAY=wayland-0` |
+| `AUTO_SCREENSHOT` | Capture screenshot after 10 frames and exit; value = output path | `AUTO_SCREENSHOT=/tmp/shot.png` |
+| `CAM_CPOS` | Initial camera position in cell coords | `CAM_CPOS=79,6` |
+| `CAM_ZOOM` | Initial camera zoom level | `CAM_ZOOM=2.0` |
+| `NO_TERRAIN` | Skip terrain tile rendering (debug actor sprites) | `NO_TERRAIN=1` |
+| `DUMP_TILES` | Dump cliff/extra tiles as PNG to /tmp | `DUMP_TILES=1` |
+| `VXL_COPIES` | Stress test: spawn N copies of each VXL model in a grid (bevy_vxl_direct only) | `VXL_COPIES=500` |
+| `DEBUG_HUD` | Show turret nudge debug HUD overlay | `DEBUG_HUD=1` |
+| `TILE_WIREFRAME` | Draw building tile wireframe gizmos | `TILE_WIREFRAME=1` |
+
+### Log Level Control (RUST_LOG)
+
+Bevy uses `tracing`. Control log verbosity with `RUST_LOG`:
+
+```bash
+RUST_LOG=warn cargo run                                    # quiet: warnings only
+RUST_LOG=info cargo run                                    # default: info+
+RUST_LOG=debug cargo run                                   # verbose: all debug traces
+RUST_LOG=openra2_rust::game::orders=debug cargo run        # debug for one module only
+RUST_LOG=openra2_rust::game=debug,openra2_rust::map=info cargo run  # per-module control
+```
+
+Key debug traces (visible at `debug` level):
+- `game::orders` — PICK (height-compensated click resolution), STOP (movement completion), PICK HIT (height level matching)
+- `game::terrain_height` — ALIGN (terrain height alignment offsets per unit)
+- `debug::systems` — [PICK] raw click-to-CPos mapping
+
+Combine for headless CI testing:
+```bash
+source .env && AUTO_SCREENSHOT=/tmp/test.png CAM_CPOS=79,6 CAM_ZOOM=2.0 cargo run
+```
+
+### CRITICAL: Never Read AUTO_SCREENSHOT PNGs Directly
+
+Bevy's screenshot encoder may produce PNGs that Claude's vision API cannot process (16-bit depth, non-standard chunks, etc.). Reading such a file with the Read tool **poisons the entire conversation context** -- every subsequent message will fail with `API Error: 400 Could not process image`, and the only fix is `/clear` which destroys all context.
+
+### CRITICAL: AUTO_SCREENSHOT MUST associate with WAYLAND_DISPLAY
+
+Agent usually goes wrong with visual test when it hits `AUTO_SCREENSHOT doesn't work in headless SSH (Wayland display not real) — user needs to visually test`. It's not acceptible to not issue the test without using WAYLAND_DISPLAY. `WAYLAND_DISPLAY` MUST be applied.
+
+**Always convert before reading:**
+```bash
+convert /tmp/shot.png -depth 8 /tmp/shot_safe.png
+```
+Then read `shot_safe.png` instead. Alternatively, use `file` or `identify` to verify format first.
 
 ## Key Technical Facts
 
@@ -36,138 +101,6 @@ export RA2_MOD_DIR="/path/to/ra2/mods/ra2"
 - **Bevy 0.15** pinned version, Rust 2024 edition
 - **Audio: IMA ADPCM** (89-step table) + Westwood compressed, BAG/IDX archive format
 
-## Quick Start
-
-```bash
-# Build
-cargo build
-
-# Run main app (Phase 4 map renderer -- requires env vars)
-source .env && cargo run
-
-# Run all tests
-cargo test --lib                  # 435 unit tests
-cargo test --test demo_binaries   # 9 integration tests (auto-loads .env)
-
-# Lint
-cargo clippy
-```
-
-## Demo Binaries
-
-| Binary | Phase | Type | Assets Required |
-|--------|-------|------|-----------------|
-| openra2-rust | 4 | GUI | Yes (map, tiles, palette) |
-| yaml_dump | 1 | CLI | Yes (mod.yaml) |
-| mix_tool | 2 | CLI | Yes (MIX file) |
-| sprite_dump | 3 | CLI | Yes (MIX + palette) |
-| shp_diag | 3 | CLI | Yes (ra2.mix) |
-| sequence_viewer | 5 | GUI | Yes (ra2.mix + mod) |
-| voxel_viewer | 6 | GUI | Yes (ra2.mix) |
-| movement_demo | 8 | GUI | No (self-contained) |
-| combat_demo | 9 | GUI | No (self-contained) |
-| production_demo | 10 | GUI | No (self-contained) |
-| audio_demo | 12 | CLI | Yes (audio.idx/bag) |
-| fog_demo | 13 | GUI | No (self-contained) |
-| net_demo | 14 | CLI | No (self-contained) |
-
-Run with: `source .env && cargo run --bin <name>`
-
-## Project Structure
-
-```
-openra2-rust/
-  Cargo.toml              # Single crate, Bevy 0.15 + base64 + image
-  .env                    # Local asset paths (gitignored)
-  docs/
-    PRD.md                # Product requirements (14-phase roadmap)
-    ARCHITECTURE.md       # Technical architecture (OpenRA->Bevy mapping)
-    PROJECT_STATUS.md     # Phase progress tracker (authoritative)
-    testing/              # 12 demo binary documentation files
-  tests/
-    demo_binaries.rs      # 3-tier self-verified integration tests
-  src/
-    main.rs               # Bevy App entry -- Phase 4 map renderer
-    lib.rs                # 19 pub modules
-    audio/                # AUD codec, BAG/IDX archive, sound engine, music, voices
-    buildings/            # Building footprint, placement, construction state
-    combat/               # Weapon, warhead, projectile, armor, attack system
-    crypto/               # Blowfish cipher, RSA key provider (bignum)
-    ecs/                  # Actor definitions, components, registry, spawner
-    fog/                  # Shroud, radar, visibility source system
-    formats/              # PAL, ShpTS, TmpTS, VXL, HVA parsers
-    locomotor/            # Terrain cost, locomotor types (Foot/Wheeled/Tracked/Fly/Float)
-    map/                  # CPos/MPos/WPos coordinates, map.yaml+map.bin loader
-    movement/             # Activity state machine, movement interpolation
-    net/                  # Lockstep: order, frame, protocol, server, session, sync
-    pathfinding/          # A* search, cell graph, cost heuristics
-    production/           # Tech tree, prerequisites, production queue, resources
-    ra2/                  # RA2 traits (see below)
-    render/               # Isometric camera with WASD pan + scroll zoom
-    sequences/            # SequenceDef, YAML loader, sprite cache, animation
-    vfs/                  # MIX archive reader, XCC database, CRC32 hash
-    voxels/               # VXL normals, software rasterizer
-    yaml/                 # MiniYAML parser, merge/inheritance, loader
-    bin/                  # 12 demo/tool binaries
-```
-
-## RA2-Specific Traits (src/ra2/)
-
-| Module | Trait |
-|--------|-------|
-| mind_control | Yuri mind control with capacity/eviction |
-| carrier_spawner | Aircraft carrier child launch/recall/rearm |
-| mirage | Mirage tank disguise with reveal triggers |
-| chrono_delivery | Chrono Legionnaire teleport with delay |
-| weather_control | Lightning storm super weapon |
-| periodic_explosion | Recurring damage (e.g., demo truck) |
-| spawn_survivors | Infantry survivors on vehicle destruction |
-| tinted_cells | Radiation/tiberium ground damage layer |
-
-## Dependencies
-
-| Crate | Version | Purpose |
-|-------|---------|---------|
-| bevy | 0.15 | ECS engine, rendering, windowing, input (features: wayland) |
-| base64 | 0.22 | Base64 decoding for RSA key block |
-| image | 0.25 | PNG output for verification tools |
-| tempfile | 3 | Dev dependency for tests |
-
-## Phase Roadmap (14 phases -- all complete)
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 0 | Project skeleton + Bevy | Done |
-| 1 | MiniYAML parser | Done |
-| 2 | VFS + MIX reader | Done |
-| 3 | Palette + sprite parsing | Done |
-| 4 | Map + isometric terrain render | Done |
-| 5 | Sequence + animation system | Done |
-| 6 | VXL voxel models | Done |
-| 7 | ECS Actor system | Done |
-| 8 | Movement + pathfinding | Done |
-| 9 | Combat system | Done |
-| 10 | Buildings + production | Done |
-| 11 | RA2-specific traits | Done |
-| 12 | Audio system | Done |
-| 13 | Fog of war + radar | Done |
-| 14 | Multiplayer lockstep networking | Done |
-
-See `docs/PRD.md` for full requirements and `docs/ARCHITECTURE.md` for OpenRA->Bevy mapping decisions.
-
-## Testing
-
-```bash
-cargo test --lib                  # Unit tests (435)
-cargo test --test demo_binaries   # Integration tests (9, auto-loads .env)
-cargo test                        # Everything
-```
-
-Integration tests are 3-tier:
-- **Tier 1** -- No assets: net_demo output validation, mix_tool error handling
-- **Tier 2** -- With assets: mix_tool, audio_demo, shp_diag, yaml_dump (skips gracefully if .env missing)
-- **Tier 3** -- Compile-check: all 8 GUI binaries build successfully
-
 ## Development Guidelines
 
 - Target: Ubuntu 24.04 x86_64, Intel Iris Xe, Vulkan
@@ -178,14 +111,27 @@ Integration tests are 3-tier:
 - **NEVER commit local paths** -- use environment variables via `.env`
 - **NEVER commit** `.gitmodules`, `claude-playbook/`, `.claude/`, or `CLAUDE.md`
 
-## Stats
+## OpenRA Porting Rules
 
-- 22,175 lines Rust, 100 source files, 19 modules
-- 13 binary targets (1 main + 12 demos/tools)
-- 435 unit tests + 9 integration tests
-- 587 RA2 actors parseable from mod rules
+**CRITICAL: Read the full C# call chain before implementing in Rust.**
 
-## Language
+Never assume coordinate system conventions. Always trace the complete pipeline from trait definition through rendering. Key lessons learned:
 
-- Code: English (comments, variable names, docs)
-- Conversation: traditional Chinese preferred
+- **LocalToWorld axis swap**: `BodyOrientation.LocalToWorld()` does `(y, -x, z)` for isometric maps. Body-local coordinates `(forward, right, up)` are NOT world-space WPos. This applies to ALL traits that use body-relative offsets (Turreted, WithVoxelTurret, etc.)
+- **Key C# files to check for any rendering feature**:
+  - Trait file itself (e.g. `Turreted.cs`)
+  - `BodyOrientation.cs` -- LocalToWorld, coordinate transforms
+  - `WorldRenderer.cs` / `ScreenPosition` -- WPos to screen pixel conversion
+  - `MapGrid.cs` -- TileScale (1448 for isometric), CellSize
+- **Verify with 2+ test cases** at different map positions to catch stagger/position-dependent bugs
+- **Use WebFetch on OpenRA GitHub** (`raw.githubusercontent.com/OpenRA/OpenRA/refs/heads/bleed/...`) to read actual source -- never guess formulas
+
+## Quick Reference
+
+```bash
+cargo build                              # Build
+source .env && cargo run                 # Run main app (map renderer)
+cargo test --lib                         # 467 unit tests
+cargo test --test integration       # 27 integration tests (auto-loads .env)
+source .env && cargo run --bin <name>    # Run demo binary
+```
