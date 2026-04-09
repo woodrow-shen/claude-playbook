@@ -80,15 +80,26 @@ source .env && AUTO_SCREENSHOT=/tmp/test.png CAM_CPOS=79,6 CAM_ZOOM=2.0 cargo ru
 
 Bevy's screenshot encoder may produce PNGs that Claude's vision API cannot process (16-bit depth, non-standard chunks, etc.). Reading such a file with the Read tool **poisons the entire conversation context** -- every subsequent message will fail with `API Error: 400 Could not process image`, and the only fix is `/clear` which destroys all context.
 
-### CRITICAL: AUTO_SCREENSHOT MUST associate with WAYLAND_DISPLAY
-
-Agent usually goes wrong with visual test when it hits `AUTO_SCREENSHOT doesn't work in headless SSH (Wayland display not real) — user needs to visually test`. It's not acceptible to not issue the test without using WAYLAND_DISPLAY. `WAYLAND_DISPLAY` MUST be applied.
-
 **Always convert before reading:**
 ```bash
 convert /tmp/shot.png -depth 8 /tmp/shot_safe.png
 ```
 Then read `shot_safe.png` instead. Alternatively, use `file` or `identify` to verify format first.
+
+### CRITICAL: Always Set WAYLAND_DISPLAY with AUTO_SCREENSHOT
+
+`AUTO_SCREENSHOT` requires a Wayland display server connection to render frames. Over SSH or in headless environments, Bevy cannot create a GPU context without `WAYLAND_DISPLAY` being set.
+
+- **NEVER** skip visual testing because "headless SSH has no display" -- set `WAYLAND_DISPLAY` to make it work
+- **ALWAYS** include `WAYLAND_DISPLAY=wayland-0` when running `AUTO_SCREENSHOT`
+
+```bash
+# WRONG - will fail in SSH sessions
+AUTO_SCREENSHOT=/tmp/shot.png cargo run
+
+# CORRECT - works in SSH by connecting to the host's Wayland compositor
+WAYLAND_DISPLAY=wayland-0 AUTO_SCREENSHOT=/tmp/shot.png cargo run
+```
 
 ## Key Technical Facts
 
