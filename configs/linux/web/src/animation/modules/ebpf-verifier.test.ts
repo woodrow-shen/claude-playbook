@@ -270,9 +270,9 @@ describe('eBPF Verifier Animation', () => {
   describe('generateFrames - kf-trusted-args-default (v7.0)', () => {
     const frames = ebpfVerifier.generateFrames('kf-trusted-args-default');
 
-    it('generates between 8 and 12 frames', () => {
-      expect(frames.length).toBeGreaterThanOrEqual(8);
-      expect(frames.length).toBeLessThanOrEqual(12);
+    it('generates between 15 and 20 frames (expanded v7.0 scenario)', () => {
+      expect(frames.length).toBeGreaterThanOrEqual(15);
+      expect(frames.length).toBeLessThanOrEqual(20);
     });
 
     it('frames have sequential step numbers', () => {
@@ -379,6 +379,68 @@ describe('eBPF Verifier Animation', () => {
         expect(f.description).toBeTruthy();
         expect(Array.isArray(f.highlights)).toBe(true);
       }
+    });
+
+    it('models all three BTF annotation paths: default, nullable, ign', () => {
+      const annotations = new Set<string>();
+      for (const f of frames) {
+        const d = f.data as EbpfVerifierState;
+        if (d.btfAnnotation) annotations.add(d.btfAnnotation);
+      }
+      expect(annotations.has('default')).toBe(true);
+      expect(annotations.has('nullable')).toBe(true);
+      expect(annotations.has('ign')).toBe(true);
+    });
+
+    it('has a KF_RCU accept frame with rcuSection=true and verdict=accepted', () => {
+      const kfRcuAccept = frames.find(f => {
+        const d = f.data as EbpfVerifierState;
+        return d.rcuSection === true && d.verdict === 'accepted';
+      });
+      expect(kfRcuAccept).toBeDefined();
+      const combined = `${kfRcuAccept!.label} ${kfRcuAccept!.description}`;
+      expect(combined).toMatch(/KF_RCU/);
+    });
+
+    it('populates verifierLog on at least 3 frames', () => {
+      const withLog = frames.filter(f => {
+        const d = f.data as EbpfVerifierState;
+        return Array.isArray(d.verifierLog) && d.verifierLog.length > 0;
+      });
+      expect(withLog.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('has at least one verdict=accepted and one verdict=rejected frame', () => {
+      const hasAccepted = frames.some(f => (f.data as EbpfVerifierState).verdict === 'accepted');
+      const hasRejected = frames.some(f => (f.data as EbpfVerifierState).verdict === 'rejected');
+      expect(hasAccepted).toBe(true);
+      expect(hasRejected).toBe(true);
+    });
+
+    it('references is_rcu_reg in descriptions (KF_RCU escape hatch)', () => {
+      const hasRef = frames.some(f => f.description.includes('is_rcu_reg'));
+      expect(hasRef).toBe(true);
+    });
+
+    it('references process_kf_arg_ptr_to_btf_id in descriptions', () => {
+      const hasRef = frames.some(f => f.description.includes('process_kf_arg_ptr_to_btf_id'));
+      expect(hasRef).toBe(true);
+    });
+
+    it('emits the real verifier diagnostic "must be referenced or trusted"', () => {
+      const found = frames.some(f => {
+        const d = f.data as EbpfVerifierState;
+        return (d.verifierLog ?? []).some(line => /must be referenced or trusted/.test(line));
+      });
+      expect(found).toBe(true);
+    });
+
+    it('emits the real verifier diagnostic "must be a rcu pointer"', () => {
+      const found = frames.some(f => {
+        const d = f.data as EbpfVerifierState;
+        return (d.verifierLog ?? []).some(line => /must be a rcu pointer/.test(line));
+      });
+      expect(found).toBe(true);
     });
   });
 

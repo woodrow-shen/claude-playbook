@@ -19,6 +19,14 @@ interface TaskInfo {
   state: 'running' | 'evaluated' | 'selected' | 'killed' | 'reaped';
 }
 
+interface CpuLaneState {
+  cpu: number;
+  op: string;
+  blocked: boolean;
+  lockHolder?: boolean;
+  apiEra?: 'pre-v7' | 'post-v7';
+}
+
 interface MemcgOomState {
   pageCounters: PageCounterNode[];
   tasks: TaskInfo[];
@@ -33,6 +41,10 @@ interface MemcgOomState {
   memcgId?: number;
   memcgIdRef?: number;
   xarrayPublished?: boolean;
+  cpuStates?: CpuLaneState[];
+  idrLockHeld?: boolean;
+  eraLabel?: string;
+  raceWindowActive?: boolean;
 }
 
 describe('MemcgOom', () => {
@@ -276,9 +288,12 @@ describe('MemcgOom', () => {
   describe('generateFrames - memcg-id-api (v7.0)', () => {
     const frames = memcgOom.generateFrames('memcg-id-api');
 
-    it('has between 8 and 12 frames', () => {
+    it('has between 8 and 20 frames', () => {
+      // The scenario was deepened in v7.0 to include pre-v7.0 idr_lock
+      // contention frames and post-v7.0 xa_load parallelism frames, so the
+      // upper bound is intentionally permissive.
       expect(frames.length).toBeGreaterThanOrEqual(8);
-      expect(frames.length).toBeLessThanOrEqual(12);
+      expect(frames.length).toBeLessThanOrEqual(20);
     });
 
     it('starts in mem_cgroup_css_alloc', () => {
@@ -356,6 +371,81 @@ describe('MemcgOom', () => {
         const data = f.data as MemcgOomState;
         expect(data.srcRef).toContain('mm/memcontrol.c');
       }
+    });
+
+    it('has at least one pre-v7.0 frame with idr_lock contention across CPUs', () => {
+      const preV7BlockedFrame = frames.find(f => {
+        const d = f.data as MemcgOomState;
+        if (!d.cpuStates) return false;
+        const anyPreV7 = d.cpuStates.some(c => c.apiEra === 'pre-v7');
+        const anyBlocked = d.cpuStates.some(c => c.blocked);
+        const anyHolder = d.cpuStates.some(c => c.lockHolder === true);
+        return anyPreV7 && anyBlocked && anyHolder;
+      });
+      expect(preV7BlockedFrame).toBeDefined();
+      // At least 2 CPUs should be blocked when contention is shown so the
+      // race across 3 lanes is meaningful.
+      const d = preV7BlockedFrame!.data as MemcgOomState;
+      expect(d.cpuStates!.filter(c => c.blocked).length).toBeGreaterThanOrEqual(2);
+      expect(d.idrLockHeld).toBe(true);
+    });
+
+    it('has at least one post-v7.0 frame with all CPUs running xa_load in parallel', () => {
+      const postV7ParallelFrame = frames.find(f => {
+        const d = f.data as MemcgOomState;
+        if (!d.cpuStates) return false;
+        const allPostV7 = d.cpuStates.every(c => c.apiEra === 'post-v7');
+        const noneBlocked = d.cpuStates.every(c => !c.blocked);
+        const allXaLoad = d.cpuStates.every(c => c.op.includes('xa_load'));
+        return allPostV7 && noneBlocked && allXaLoad;
+      });
+      expect(postV7ParallelFrame).toBeDefined();
+    });
+
+    it('explicitly highlights the idr_remove vs idr_find race window', () => {
+      const raceFrame = frames.find(f => (f.data as MemcgOomState).raceWindowActive === true);
+      expect(raceFrame).toBeDefined();
+      expect(raceFrame!.description).toContain('idr_remove');
+    });
+
+    it('contrasts idr_lock (pre-v7.0) against xarray RCU reads (post-v7.0)', () => {
+      const allDescs = frames.map(f => f.description).join(' ');
+      expect(allDescs).toContain('idr_lock');
+      expect(allDescs).toContain('rcu_read_lock');
+    });
+
+    it('post-v7.0 writer isolation frame shows xa_alloc holding xa_lock while readers proceed', () => {
+      const writerFrame = frames.find(f => {
+        const d = f.data as MemcgOomState;
+        if (!d.cpuStates) return false;
+        const hasHolder = d.cpuStates.some(c => c.lockHolder === true && c.op.includes('xa_alloc'));
+        const othersRunning = d.cpuStates
+          .filter(c => !c.lockHolder)
+          .every(c => !c.blocked);
+        return hasHolder && othersRunning;
+      });
+      expect(writerFrame).toBeDefined();
+    });
+
+    it('CPU lane frames carry an eraLabel for the renderer', () => {
+      const labelledFrames = frames.filter(f => (f.data as MemcgOomState).eraLabel);
+      expect(labelledFrames.length).toBeGreaterThanOrEqual(2);
+      const labels = labelledFrames.map(f => (f.data as MemcgOomState).eraLabel!);
+      expect(labels.some(l => l.includes('pre-v7'))).toBe(true);
+      expect(labels.some(l => l.includes('post-v7'))).toBe(true);
+    });
+
+    it('cloneState isolates cpuStates so frames are immutable', () => {
+      // Mutating a returned frame's cpuStates must not affect other frames.
+      const laneFrame = frames.find(f => (f.data as MemcgOomState).cpuStates);
+      expect(laneFrame).toBeDefined();
+      const laneData = laneFrame!.data as MemcgOomState;
+      const beforeOp = laneData.cpuStates![0].op;
+      laneData.cpuStates![0].op = 'MUTATED';
+      // Re-generate and check the pristine value is still intact.
+      const fresh = memcgOom.generateFrames('memcg-id-api');
+      const freshLane = fresh.find(f => (f.data as MemcgOomState).cpuStates);
+      expect((freshLane!.data as MemcgOomState).cpuStates![0].op).toBe(beforeOp);
     });
   });
 

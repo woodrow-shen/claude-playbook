@@ -18,6 +18,25 @@ export interface TaskInfo {
   state: 'running' | 'evaluated' | 'selected' | 'killed' | 'reaped';
 }
 
+/** Per-CPU charge-path state used by the memcg-id-api v7.0 concurrency contrast.
+ *
+ * `op` is the short label of the kernel operation the CPU is currently in
+ * (e.g. 'idr_find', 'xa_load', 'spin_lock', 'idle').
+ * `blocked` is true when the CPU is waiting on a spinlock / serialised region
+ * (pre-v7.0 idr_lock path) and false when it is making lockless forward
+ * progress (post-v7.0 xa_load RCU read path).
+ * `lockHolder` marks the CPU that currently owns idr_lock (pre-v7.0 only).
+ * `apiEra` is 'pre-v7' for idr_lock frames and 'post-v7' for xarray frames —
+ * the renderer uses it to colour the CPU tiles and the title strip.
+ */
+export interface CpuLaneState {
+  cpu: number;
+  op: string;
+  blocked: boolean;
+  lockHolder?: boolean;
+  apiEra?: 'pre-v7' | 'post-v7';
+}
+
 export interface MemcgOomState {
   pageCounters: PageCounterNode[];
   tasks: TaskInfo[];
@@ -35,6 +54,18 @@ export interface MemcgOomState {
   memcgIdRef?: number;
   /** True once xa_store() publishes the memcg pointer under its ID so xa_load() lookups resolve. */
   xarrayPublished?: boolean;
+  /** Per-CPU concurrent-charge lane state. Undefined for scenarios that do not
+   * visualise CPU contention (charge-hierarchy, oom-scoring, oom-kill). */
+  cpuStates?: CpuLaneState[];
+  /** True when the idr_lock spinlock is held on the pre-v7.0 path. Undefined
+   * or false outside of the pre-v7.0 contention frames. */
+  idrLockHeld?: boolean;
+  /** Short tag rendered in the title strip to make the API era obvious at a
+   * glance. Examples: 'pre-v7.0 idr_lock', 'post-v7.0 xarray'. */
+  eraLabel?: string;
+  /** Highlights an active race window between idr_remove() and a racing
+   * idr_find() on the pre-v7.0 path. */
+  raceWindowActive?: boolean;
 }
 
 function cloneState(s: MemcgOomState): MemcgOomState {
@@ -52,6 +83,10 @@ function cloneState(s: MemcgOomState): MemcgOomState {
     memcgId: s.memcgId,
     memcgIdRef: s.memcgIdRef,
     xarrayPublished: s.xarrayPublished,
+    cpuStates: s.cpuStates ? s.cpuStates.map(c => ({ ...c })) : undefined,
+    idrLockHeld: s.idrLockHeld,
+    eraLabel: s.eraLabel,
+    raceWindowActive: s.raceWindowActive,
   };
 }
 
@@ -532,6 +567,25 @@ function generateOomKillExecutionFrames(): AnimationFrame[] {
 
 /* ---------- Scenario 4: memcg-id-api (v7.0) ---------- */
 
+/** Helper: build a fresh per-CPU lane snapshot.
+ *
+ * The visualization contrasts three CPUs concurrently charging pages against
+ * the same memcg. We keep exactly three lanes so layout is deterministic
+ * regardless of frame index.
+ */
+function makeCpus(
+  era: 'pre-v7' | 'post-v7',
+  ops: Array<{ op: string; blocked: boolean; lockHolder?: boolean }>,
+): CpuLaneState[] {
+  return ops.map((o, i) => ({
+    cpu: i,
+    op: o.op,
+    blocked: o.blocked,
+    lockHolder: o.lockHolder ?? false,
+    apiEra: era,
+  }));
+}
+
 function generateMemcgIdApi(): AnimationFrame[] {
   const frames: AnimationFrame[] = [];
 
@@ -552,6 +606,10 @@ function generateMemcgIdApi(): AnimationFrame[] {
     memcgId: 0,
     memcgIdRef: 0,
     xarrayPublished: false,
+    cpuStates: undefined,
+    idrLockHeld: false,
+    eraLabel: undefined,
+    raceWindowActive: false,
   };
 
   // Frame 0: cgroup_mkdir triggers mem_cgroup_css_alloc
@@ -606,7 +664,7 @@ function generateMemcgIdApi(): AnimationFrame[] {
   frames.push(makeFrame(
     4,
     'refcount_set(&memcg->id.ref, 1)',
-    'At mm/memcontrol.c:3956, mem_cgroup_css_online() calls refcount_set(&memcg->id.ref, 1). This is the online-state pin: while the memcg is online, at least one refcount is held on its ID. The refcount_t protocol ensures saturation semantics — underflow or overflow trip WARN and leave the counter saturated, preventing use-after-free bugs if the pin is mishandled. css_get(css) at line 3957 then takes the matching css reference that the ID pins.',
+    'At mm/memcontrol.c:3956, mem_cgroup_css_online() calls refcount_set(&memcg->id.ref, 1). This is the online-state pin: while the memcg is online, at least one refcount is held on its ID. The refcount_t protocol ensures saturation semantics - underflow or overflow trip WARN and leave the counter saturated, preventing use-after-free bugs if the pin is mishandled. css_get(css) at line 3957 then takes the matching css reference that the ID pins.',
     ['refcount_set', 'id.ref'],
     state,
   ));
@@ -635,53 +693,161 @@ function generateMemcgIdApi(): AnimationFrame[] {
     state,
   ));
 
-  // Frame 7: another task looks up memcg via xa_load (O(log n))
-  state.currentFunction = 'mem_cgroup_from_private_id';
-  state.phase = 'xa_load_lookup';
+  /* ---------------- Pre-v7.0 contrast: idr_lock contention ---------------- */
+
+  // Frame 7: scene-set. 3 CPUs each carry a folio that must be charged to
+  // memcg id=42. On the pre-v7.0 API the lookup goes through idr_find under
+  // idr_lock, which is a single spinlock.
+  state.currentFunction = 'mem_cgroup_from_id';
+  state.phase = 'pre_v7_contention_setup';
+  state.eraLabel = 'pre-v7.0 idr_lock';
+  state.idrLockHeld = false;
+  state.cpuStates = makeCpus('pre-v7', [
+    { op: 'charge_memcg -> idr_find(42)', blocked: false },
+    { op: 'charge_memcg -> idr_find(42)', blocked: false },
+    { op: 'charge_memcg -> idr_find(42)', blocked: false },
+  ]);
   state.srcRef = 'mm/memcontrol.c:3720 mem_cgroup_from_private_id()';
   frames.push(makeFrame(
     7,
+    'Pre-v7.0: three CPUs race to idr_find(id=42)',
+    'Rewind to the pre-v7.0 API to see what v7.0 fixed. Three CPUs concurrently enter the charge path for the same memcg (id=42). Each needs to resolve the ID to a memcg pointer. On the idr API, that lookup is idr_find(&mem_cgroup_idr, id) which must be serialised because idr modifications take idr_lock (a plain spinlock). On v7.0 this call site is replaced by mem_cgroup_from_private_id() -> xa_load() at mm/memcontrol.c:3720, which is lockless under rcu_read_lock(). Shown here as the pre-v7.0 baseline that the next frame contrasts with.',
+    ['mem_cgroup_from_id', 'idr_find', 'idr_lock'],
+    state,
+  ));
+
+  // Frame 8: idr_lock contention. CPU0 acquires the spinlock and runs
+  // idr_find; CPU1 and CPU2 spin.
+  state.phase = 'pre_v7_spin_contention';
+  state.idrLockHeld = true;
+  state.cpuStates = makeCpus('pre-v7', [
+    { op: 'idr_find(42) [idr_lock held]', blocked: false, lockHolder: true },
+    { op: 'spin_lock(idr_lock) [spin]', blocked: true },
+    { op: 'spin_lock(idr_lock) [spin]', blocked: true },
+  ]);
+  state.srcRef = 'mm/memcontrol.c:3720 mem_cgroup_from_private_id()';
+  frames.push(makeFrame(
+    8,
+    'Pre-v7.0: idr_lock serialises all ID lookups',
+    'CPU0 wins the race and takes idr_lock. It walks the idr radix tree, finds slot 42, and returns the memcg pointer. CPU1 and CPU2 are stuck in spin_lock() burning cycles on the cacheline of idr_lock. Every CPU that wants an ID->memcg resolution must queue behind every other CPU. Under heavy cgroup churn (containers booting, workqueues restarting) this single spinlock becomes a scalability bottleneck. v7.0 replaces this entirely with xa_load(), which synchronises readers via RCU instead of a spinlock.',
+    ['idr_lock', 'spin_lock', 'contention'],
+    state,
+  ));
+
+  // Frame 9: race window. CPU0 has just called idr_remove under idr_lock
+  // while CPU1 is inside idr_find. Without RCU, the idr implementation
+  // historically had a narrow window where a freed entry could be observed.
+  // xa_load + RCU closes this window definitively.
+  state.currentFunction = 'mem_cgroup_from_id';
+  state.phase = 'pre_v7_race_window';
+  state.idrLockHeld = true;
+  state.raceWindowActive = true;
+  state.cpuStates = makeCpus('pre-v7', [
+    { op: 'idr_remove(42) [freeing slot]', blocked: false, lockHolder: true },
+    { op: 'idr_find(42) [racing]', blocked: true },
+    { op: 'spin_lock(idr_lock) [spin]', blocked: true },
+  ]);
+  state.srcRef = 'mm/memcontrol.c:3681 xa_erase()';
+  frames.push(makeFrame(
+    9,
+    'Pre-v7.0 race window: idr_remove vs idr_find',
+    'CPU0 is tearing down the memcg and calls idr_remove(&mem_cgroup_idr, 42). CPU1 is spinning inside idr_find(42) waiting to pick up idr_lock. The two operations are fully serialised by idr_lock, but the freed-slot contents and the memcg lifetime have to be hand-managed by every caller (via explicit refcount + rcu_read_lock around idr_find). Any caller that forgets the RCU dance sees use-after-free. v7.0 eliminates this hazard: xa_erase(&mem_cgroup_private_ids, id) (mm/memcontrol.c:3681) is ordered against concurrent xa_load() by the xarray internal RCU protocol, and xa_load() returns NULL for freed slots without the caller needing to open-code the RCU read side.',
+    ['idr_remove', 'race', 'rcu'],
+    state,
+  ));
+
+  /* ---------------- Post-v7.0: xa_load parallelism + xa_alloc writer ----- */
+
+  // Frame 10: all three CPUs proceed in parallel through xa_load. No lock,
+  // no cacheline ping-pong. This is the core win of the switch.
+  state.currentFunction = 'mem_cgroup_from_private_id';
+  state.phase = 'post_v7_parallel_reads';
+  state.eraLabel = 'post-v7.0 xarray';
+  state.idrLockHeld = false;
+  state.raceWindowActive = false;
+  state.cpuStates = makeCpus('post-v7', [
+    { op: 'xa_load(42) [rcu_read_lock]', blocked: false },
+    { op: 'xa_load(42) [rcu_read_lock]', blocked: false },
+    { op: 'xa_load(42) [rcu_read_lock]', blocked: false },
+  ]);
+  state.srcRef = 'mm/memcontrol.c:3720 mem_cgroup_from_private_id()';
+  frames.push(makeFrame(
+    10,
+    'Post-v7.0: three CPUs xa_load() in parallel',
+    'Same three CPUs, same memcg id=42, but now the lookup is mem_cgroup_from_private_id() -> xa_load(&mem_cgroup_private_ids, id) at mm/memcontrol.c:3720. Each CPU takes rcu_read_lock() (which is a no-op on preemptible kernels, a preempt_disable on others - no cross-CPU communication) and walks the xarray nodes from its own cache. Reads make forward progress without blocking on any other CPU. Publication from xa_store() is ordered via smp_store_release() inside the xarray, so every reader either sees NULL or a fully-initialised memcg. No open-coded RCU needed.',
+    ['xa_load', 'rcu_read_lock', 'mem_cgroup_from_private_id'],
+    state,
+  ));
+
+  // Frame 11: contrast the writer side. Only xa_alloc/xa_store/xa_erase
+  // serialise on xa_lock, and that is per-xarray, not global. Readers still
+  // proceed.
+  state.currentFunction = 'xa_alloc';
+  state.phase = 'post_v7_writer_isolation';
+  state.cpuStates = makeCpus('post-v7', [
+    { op: 'xa_alloc(new id) [xa_lock held]', blocked: false, lockHolder: true },
+    { op: 'xa_load(42) [rcu, no wait]', blocked: false },
+    { op: 'xa_load(42) [rcu, no wait]', blocked: false },
+  ]);
+  state.srcRef = 'mm/memcontrol.c:3818 xa_alloc()';
+  frames.push(makeFrame(
+    11,
+    'Post-v7.0: only xa_alloc serialises, readers keep flowing',
+    'A fourth CPU (shown on lane 0) comes in to create a new cgroup and calls xa_alloc() at mm/memcontrol.c:3818. xa_alloc internally takes xa_lock (an xarray-private spinlock) to update the radix tree. Crucially this does NOT block the other CPUs doing xa_load() on lane 1 and lane 2 - RCU readers never wait for writers. The locking granularity is also per-xarray, so unrelated subsystems using their own xarrays are not serialised either. Compare with pre-v7.0 where one global idr_lock served both sides.',
+    ['xa_alloc', 'xa_lock', 'mem_cgroup_private_ids'],
+    state,
+  ));
+
+  // Frame 12: xa_load lookup by the consumer that originally motivated the
+  // scenario (previously frame 7).
+  state.currentFunction = 'mem_cgroup_from_private_id';
+  state.phase = 'xa_load_lookup';
+  state.cpuStates = undefined;
+  state.eraLabel = undefined;
+  state.srcRef = 'mm/memcontrol.c:3720 mem_cgroup_from_private_id()';
+  frames.push(makeFrame(
+    12,
     'xa_load(): O(log n) ID -> memcg lookup',
-    'A consumer (e.g. workingset or objcg reclaim) wants to resolve an ID back to a memcg. Under rcu_read_lock(), mem_cgroup_from_private_id() at mm/memcontrol.c:3720 calls xa_load(&mem_cgroup_private_ids, id). The xarray walk is O(log n) through its radix nodes and is fully lockless on the read side. Because the memcg pointer was published via xa_store after refcount_set, the caller is guaranteed to see a fully-initialised memcg with id.ref > 0.',
+    'Back on the single-CPU story: a consumer (e.g. workingset or objcg reclaim) wants to resolve an ID back to a memcg. Under rcu_read_lock(), mem_cgroup_from_private_id() at mm/memcontrol.c:3720 calls xa_load(&mem_cgroup_private_ids, id). The xarray walk is O(log n) through its radix nodes and is fully lockless on the read side. Because the memcg pointer was published via xa_store after refcount_set, the caller is guaranteed to see a fully-initialised memcg with id.ref > 0.',
     ['mem_cgroup_from_private_id', 'xa_load'],
     state,
   ));
 
-  // Frame 8: rmdir -> refcount_sub_and_test drops the online pin
+  // Frame 13: rmdir -> refcount_sub_and_test drops the online pin
   state.currentFunction = 'mem_cgroup_private_id_put';
   state.phase = 'refcount_drop';
   state.memcgIdRef = 0;
   state.srcRef = 'mm/memcontrol.c:3688 refcount_sub_and_test()';
   frames.push(makeFrame(
-    8,
+    13,
     'refcount_sub_and_test(): drop online pin',
     'Userspace rmdir()s the cgroup. mem_cgroup_css_offline() drops the online-state pin via mem_cgroup_private_id_put(), which at mm/memcontrol.c:3688 calls refcount_sub_and_test(n, &memcg->id.ref). If the refcount reaches zero, the branch is taken and mem_cgroup_private_id_remove() is invoked. Using refcount_t instead of atomic_t gives saturating semantics and WARN on misuse, hardening the offline path against double-puts.',
     ['refcount_sub_and_test', 'id.ref'],
     state,
   ));
 
-  // Frame 9: xa_erase releases ID back to the pool
+  // Frame 14: xa_erase releases ID back to the pool
   state.currentFunction = 'mem_cgroup_private_id_remove';
   state.phase = 'xa_erase';
   state.memcgId = 0;
   state.xarrayPublished = false;
   state.srcRef = 'mm/memcontrol.c:3681 xa_erase()';
   frames.push(makeFrame(
-    9,
+    14,
     'xa_erase(): release ID back to pool',
-    'mem_cgroup_private_id_remove() at mm/memcontrol.c:3681 calls xa_erase(&mem_cgroup_private_ids, memcg->id.id) to remove the entry and free the ID back to the xarray for reuse, then sets memcg->id.id = 0. After this point any racing xa_load() will see NULL. The final css_put(&memcg->css) at line 3692 drops the reference the ID was holding, allowing the css to be freed.',
+    'mem_cgroup_private_id_remove() at mm/memcontrol.c:3681 calls xa_erase(&mem_cgroup_private_ids, memcg->id.id) to remove the entry and free the ID back to the xarray for reuse, then sets memcg->id.id = 0. After this point any racing xa_load() will see NULL - no use-after-free, no explicit RCU bookkeeping at the call site. The final css_put(&memcg->css) at line 3692 drops the reference the ID was holding, allowing the css to be freed.',
     ['xa_erase', 'mem_cgroup_private_id_remove'],
     state,
   ));
 
-  // Frame 10: contrast with pre-v7.0 idr_alloc-based API
+  // Frame 15: summary
   state.currentFunction = 'xa_alloc';
   state.phase = 'summary';
   state.srcRef = 'mm/memcontrol.c:3676 mem_cgroup_private_ids (xarray)';
   frames.push(makeFrame(
-    10,
+    15,
     'v7.0 xarray vs pre-v7.0 idr: what changed',
-    'Pre-v7.0 used idr_alloc()/idr_remove() with an idr_lock spinlock guarding a radix-tree-like idr. v7.0 switched to a private DEFINE_XARRAY_ALLOC1(mem_cgroup_private_ids) at mm/memcontrol.c:3676, giving three wins: (1) lockless RCU reads via xa_load, (2) finer-grained internal xa_lock on modifications, (3) built-in ID allocation via xa_alloc/XA_LIMIT without an auxiliary bitmap. The online protocol (xa_alloc placeholder -> refcount_set -> xa_store pointer -> xa_erase on release) makes the publish/retire races explicit.',
+    'Pre-v7.0 used idr_alloc()/idr_remove() with an idr_lock spinlock guarding a radix-tree-like idr: every lookup serialised, every teardown raced against every lookup unless callers hand-coded rcu_read_lock. v7.0 switched to a private DEFINE_XARRAY_ALLOC1(mem_cgroup_private_ids) at mm/memcontrol.c:3676, giving three wins: (1) lockless RCU reads via xa_load, (2) finer-grained internal xa_lock on modifications so readers never wait for writers, (3) built-in ID allocation via xa_alloc/XA_LIMIT without an auxiliary bitmap. The online protocol (xa_alloc placeholder -> refcount_set -> xa_store pointer -> xa_erase on release) makes the publish/retire ordering explicit and removes the pre-v7.0 idr_remove/idr_find race window entirely.',
     ['xa_alloc', 'xarray', 'idr'],
     state,
   ));
@@ -812,6 +978,94 @@ function renderOomReaperIndicator(
   }));
 }
 
+/** Render the per-CPU lane strip used by the memcg-id-api v7.0 scenario.
+ *
+ * Blocked CPUs are drawn in red ('#ef4444') with a short wait-glyph to make
+ * contention visible at a glance. The lock-holder CPU is outlined in yellow.
+ * The era label ('pre-v7.0 idr_lock' vs 'post-v7.0 xarray') is drawn above
+ * the strip so that even a single still-frame communicates which API path
+ * is on screen.
+ */
+function renderCpuLanes(
+  container: SVGGElement,
+  cpus: CpuLaneState[],
+  eraLabel: string | undefined,
+  idrLockHeld: boolean,
+  raceWindowActive: boolean,
+  width: number,
+  yOffset: number,
+): void {
+  // Era title (and lock-state tag) on top of the lane strip.
+  const eraColor = cpus.length > 0 && cpus[0].apiEra === 'post-v7' ? '#22c55e' : '#f59e0b';
+  container.appendChild(svgText(width / 2, yOffset, eraLabel ?? '', {
+    'text-anchor': 'middle', 'font-size': 13, 'font-weight': 'bold', fill: eraColor,
+  }));
+
+  // idr_lock indicator for the pre-v7.0 frames. Presence/absence of this
+  // badge (and the holder highlight on CPU tiles) is the primary visual
+  // difference between the contention frames and the parallel-read frames.
+  if (idrLockHeld) {
+    const lockX = width / 2 - 70;
+    const lockY = yOffset + 10;
+    container.appendChild(svgEl('rect', {
+      x: lockX, y: lockY, width: 140, height: 20, rx: 4, fill: '#7f1d1d',
+    }));
+    container.appendChild(svgText(width / 2, lockY + 14, 'idr_lock HELD', {
+      'text-anchor': 'middle', 'font-size': 10, fill: '#ffffff', 'font-weight': 'bold',
+    }));
+  }
+  if (raceWindowActive) {
+    const warnX = width / 2 - 110;
+    const warnY = yOffset + 32;
+    const warn = svgEl('rect', {
+      x: warnX, y: warnY, width: 220, height: 18, rx: 4, fill: '#dc2626',
+    });
+    warn.setAttribute('class', 'anim-highlight');
+    container.appendChild(warn);
+    container.appendChild(svgText(width / 2, warnY + 13, 'race window: idr_remove vs idr_find', {
+      'text-anchor': 'middle', 'font-size': 10, fill: '#ffffff', 'font-weight': 'bold',
+    }));
+  }
+
+  const stripY = yOffset + 58;
+  const laneH = 44;
+  const laneW = Math.min(260, (width - 60) / cpus.length);
+  const startX = (width - laneW * cpus.length) / 2;
+
+  for (let i = 0; i < cpus.length; i++) {
+    const c = cpus[i];
+    const x = startX + i * laneW;
+    const fill = c.blocked ? '#ef4444' : (c.apiEra === 'post-v7' ? '#065f46' : '#1e3a8a');
+    const stroke = c.lockHolder ? '#fbbf24' : 'none';
+    const rect = svgEl('rect', {
+      x, y: stripY, width: laneW - 8, height: laneH, rx: 6,
+      fill, stroke, 'stroke-width': c.lockHolder ? 3 : 0,
+    });
+    if (c.blocked || c.lockHolder) rect.setAttribute('class', 'anim-highlight');
+    container.appendChild(rect);
+
+    container.appendChild(svgText(x + (laneW - 8) / 2, stripY + 14, `CPU${c.cpu}`, {
+      'text-anchor': 'middle', 'font-size': 11, 'font-weight': 'bold', fill: '#ffffff',
+    }));
+    container.appendChild(svgText(x + (laneW - 8) / 2, stripY + 30, c.op, {
+      'text-anchor': 'middle', 'font-size': 9, fill: '#e0e0e0',
+    }));
+    if (c.blocked) {
+      container.appendChild(svgText(x + (laneW - 8) / 2, stripY + 42, 'BLOCKED', {
+        'text-anchor': 'middle', 'font-size': 8, 'font-weight': 'bold', fill: '#fecaca',
+      }));
+    } else if (c.lockHolder) {
+      container.appendChild(svgText(x + (laneW - 8) / 2, stripY + 42, 'HOLDER', {
+        'text-anchor': 'middle', 'font-size': 8, 'font-weight': 'bold', fill: '#fde68a',
+      }));
+    } else {
+      container.appendChild(svgText(x + (laneW - 8) / 2, stripY + 42, 'RUNNING', {
+        'text-anchor': 'middle', 'font-size': 8, 'font-weight': 'bold', fill: '#bbf7d0',
+      }));
+    }
+  }
+}
+
 /* ---------- Module export ---------- */
 
 const memcgOomModule: AnimationModule = {
@@ -867,6 +1121,21 @@ const memcgOomModule: AnimationModule = {
     if (data.tasks.length > 0) {
       const taskY = data.pageCounters.length > 0 ? 180 : 40;
       renderTasks(container, data.tasks, frame.highlights, width, taskY);
+    }
+
+    // Per-CPU contention lanes (memcg-id-api v7.0 pre/post contrast).
+    // Rendered below the page counters and above the OOM reaper indicator.
+    if (data.cpuStates && data.cpuStates.length > 0) {
+      const lanesY = data.pageCounters.length > 0 ? 190 : 60;
+      renderCpuLanes(
+        container,
+        data.cpuStates,
+        data.eraLabel,
+        data.idrLockHeld === true,
+        data.raceWindowActive === true,
+        width,
+        lanesY,
+      );
     }
 
     // OOM reaper indicator

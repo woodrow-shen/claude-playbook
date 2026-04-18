@@ -10,12 +10,21 @@ export interface EbpfVerifierState {
   kfuncTrusted?: boolean;
   /** v7.0 KF_TRUSTED_ARGS scenario: verifier's acceptance decision for the current kfunc call */
   verifierResult?: 'accept' | 'reject';
+  /** v7.0 KF_TRUSTED_ARGS scenario: BTF parameter annotation suffix being modeled */
+  btfAnnotation?: 'default' | 'nullable' | 'ign';
+  /** v7.0 KF_TRUSTED_ARGS scenario: whether the BPF program is currently inside a bpf_rcu_read_lock critical section */
+  rcuSection?: boolean;
+  /** v7.0 KF_TRUSTED_ARGS scenario: running verifier log as emitted by verbose() -- one entry per frame that appends a diagnostic */
+  verifierLog?: string[];
+  /** v7.0 KF_TRUSTED_ARGS scenario: three-state verdict for distinct accept/reject visual rendering */
+  verdict?: 'pending' | 'accepted' | 'rejected';
 }
 
 function cloneState(state: EbpfVerifierState): EbpfVerifierState {
   return {
     ...state,
     registers: state.registers ? { ...state.registers } : undefined,
+    verifierLog: state.verifierLog ? [...state.verifierLog] : undefined,
   };
 }
 
@@ -382,6 +391,8 @@ function generateKfTrustedArgsDefault(): AnimationFrame[] {
     srcRef: 'kernel/bpf/verifier.c:17626 check_kfunc_call()',
     kfuncTrusted: true,
     verifierResult: 'accept',
+    verdict: 'pending',
+    verifierLog: [],
   };
 
   // Frame 0: BPF program under verification calls bpf_task_release(task)
@@ -428,6 +439,9 @@ function generateKfTrustedArgsDefault(): AnimationFrame[] {
   state.srcRef = 'kernel/bpf/verifier.c:12190 is_trusted_reg()';
   state.kfuncTrusted = true;
   state.verifierResult = 'accept';
+  state.verdict = 'accepted';
+  state.btfAnnotation = 'default';
+  state.verifierLog = [...(state.verifierLog ?? []), 'R1 is trusted (PTR_TRUSTED in type_flag)'];
   frames.push({
     step: 4,
     label: 'Trusted task_struct pointer -- is_trusted_reg() returns true',
@@ -451,6 +465,8 @@ function generateKfTrustedArgsDefault(): AnimationFrame[] {
 
   // Frame 6: v7.0 default behavior rejects the untrusted call
   state.srcRef = 'kernel/bpf/verifier.c:12192 check_kfunc_args()';
+  state.verdict = 'rejected';
+  state.verifierLog = [...(state.verifierLog ?? []), 'R1 must be referenced or trusted'];
   frames.push({
     step: 6,
     label: 'v7.0 default: untrusted kfunc arg is rejected',
@@ -479,13 +495,122 @@ function generateKfTrustedArgsDefault(): AnimationFrame[] {
     data: cloneState(state),
   });
 
-  // Frame 9: Program load fails
+  // Frame 9: BTF annotation path -- default (no suffix) requires trusted
+  state.phase = 'helper-check';
+  state.currentInsn = 4;
+  state.srcRef = 'kernel/bpf/verifier.c:11380 get_kfunc_ptr_arg_type()';
+  state.kfuncTrusted = true;
+  state.verifierResult = 'accept';
+  state.btfAnnotation = 'default';
+  state.rcuSection = false;
+  state.verdict = 'accepted';
+  state.verifierLog = [...(state.verifierLog ?? []), 'arg#0: no BTF suffix -> KF_ARG_PTR_TO_BTF_ID, trusted required'];
+  frames.push({
+    step: 9,
+    label: 'BTF path #1: default annotation -- trusted pointer required',
+    description: `First of three BTF annotation paths. get_kfunc_ptr_arg_type() (kernel/bpf/verifier.c:11380 get_kfunc_ptr_arg_type()) classifies the argument. With no BTF param suffix, a PTR_TO_BTF_ID argument falls through to the KF_ARG_PTR_TO_BTF_ID case at kernel/bpf/verifier.c:12189 check_kfunc_args(). The v7.0 default then demands is_trusted_reg(reg) (kernel/bpf/verifier.c:5127 is_trusted_reg()). Since R1 carries PTR_TRUSTED from the tp_btf tracepoint, this path is accepted and no verbose() diagnostic fires.`,
+    highlights: ['btf-default'],
+    data: cloneState(state),
+  });
+
+  // Frame 10: BTF annotation path -- __nullable lets NULL through
+  state.srcRef = 'kernel/bpf/verifier.c:10881 is_kfunc_arg_nullable()';
+  state.kfuncTrusted = true;
+  state.verifierResult = 'accept';
+  state.btfAnnotation = 'nullable';
+  state.verdict = 'accepted';
+  state.verifierLog = [...(state.verifierLog ?? []), 'arg#0: suffix "__nullable" matched; NULL and PTR_MAYBE_NULL allowed'];
+  frames.push({
+    step: 10,
+    label: 'BTF path #2: __nullable -- NULL or PTR_MAYBE_NULL permitted',
+    description: `Second BTF annotation path. is_kfunc_arg_nullable() (kernel/bpf/verifier.c:10881 is_kfunc_arg_nullable()) calls btf_param_match_suffix(btf, arg, "__nullable") (kernel/bpf/btf.c:9794 btf_param_match_suffix()). If true, the NULL-rejection gate at kernel/bpf/verifier.c:12124 check_kfunc_args() is bypassed: "if ((bpf_register_is_null(reg) || type_may_be_null(reg->type)) && !is_kfunc_arg_nullable(...))" skips the "Possibly NULL pointer passed to trusted arg%d" verbose(). An argument tagged __nullable accepts registers with the PTR_MAYBE_NULL type flag -- the kfunc itself is responsible for the NULL check at runtime.`,
+    highlights: ['btf-nullable'],
+    data: cloneState(state),
+  });
+
+  // Frame 11: BTF annotation path -- __ign tells verifier to ignore the arg
+  state.srcRef = 'kernel/bpf/verifier.c:10856 is_kfunc_arg_ignore()';
+  state.kfuncTrusted = true;
+  state.verifierResult = 'accept';
+  state.btfAnnotation = 'ign';
+  state.verdict = 'accepted';
+  state.verifierLog = [...(state.verifierLog ?? []), 'arg#0: suffix "__ign" matched; skipping type validation'];
+  frames.push({
+    step: 11,
+    label: 'BTF path #3: __ign -- verifier skips argument checking entirely',
+    description: `Third BTF annotation path: the optional/ignored-arg escape. is_kfunc_arg_ignore() (kernel/bpf/verifier.c:10856 is_kfunc_arg_ignore()) matches the "__ign" suffix via btf_param_match_suffix() (kernel/bpf/btf.c:9794 btf_param_match_suffix()). An __ign parameter is not subject to the KF_ARG_PTR_TO_BTF_ID trusted check at kernel/bpf/verifier.c:12190 is_trusted_reg() -- the verifier walks past it. This is the escape hatch for kfunc authors who need a parameter that exists for ABI reasons but must not be verified (e.g. compiler-managed slots). Unlike __nullable, this skips type checks altogether.`,
+    highlights: ['btf-ign'],
+    data: cloneState(state),
+  });
+
+  // Frame 12: KF_RCU scenario -- call bpf_task_acquire OUTSIDE RCU read-side CS
+  state.currentInsn = 6;
+  state.srcRef = 'kernel/bpf/verifier.c:5151 is_rcu_reg()';
+  state.kfuncTrusted = false;
+  state.verifierResult = 'reject';
+  state.btfAnnotation = 'default';
+  state.rcuSection = false;
+  state.verdict = 'rejected';
+  state.verifierLog = [...(state.verifierLog ?? []), 'R1 must be a rcu pointer'];
+  frames.push({
+    step: 12,
+    label: 'KF_RCU kfunc called outside rcu_read_lock -- rejected',
+    description: `Switch to a kfunc flagged KF_RCU: bpf_task_acquire (kernel/bpf/helpers.c:4720 BTF_ID_FLAGS() declares KF_ACQUIRE | KF_RCU | KF_RET_NULL). The program is NOT inside a bpf_rcu_read_lock() region, so the R1 task pointer has base type PTR_TO_BTF_ID without MEM_RCU. At kernel/bpf/verifier.c:12190 is_trusted_reg() the trusted check fails; is_kfunc_rcu(meta) is true (kernel/bpf/verifier.c:10815 is_kfunc_rcu()), so the fallback is is_rcu_reg(reg) (kernel/bpf/verifier.c:5151 is_rcu_reg()) which returns (reg->type & MEM_RCU). Without MEM_RCU this returns false, verbose() fires "R1 must be a rcu pointer" at kernel/bpf/verifier.c:12196 check_kfunc_args() and -EINVAL propagates.`,
+    highlights: ['kf-rcu-reject'],
+    data: cloneState(state),
+  });
+
+  // Frame 13: KF_RCU scenario -- call bpf_task_acquire INSIDE rcu_read_lock: accepted
+  state.srcRef = 'kernel/bpf/verifier.c:12195 is_rcu_reg()';
+  state.kfuncTrusted = false;
+  state.verifierResult = 'accept';
+  state.btfAnnotation = 'default';
+  state.rcuSection = true;
+  state.verdict = 'accepted';
+  state.verifierLog = [...(state.verifierLog ?? []), 'R1 has MEM_RCU; KF_RCU kfunc accepts rcu-protected pointer'];
+  frames.push({
+    step: 13,
+    label: 'KF_RCU escape hatch: inside rcu_read_lock, MEM_RCU pointer accepted',
+    description: `Now the program wraps the bpf_task_acquire() call in bpf_rcu_read_lock()/bpf_rcu_read_unlock(). Inside the RCU CS, the register's type gains the MEM_RCU flag (see the RCU handling at kernel/bpf/verifier.c:5153 is_rcu_reg() returning reg->type & MEM_RCU). At kernel/bpf/verifier.c:12190 is_trusted_reg() the trusted check still fails, but is_kfunc_rcu(meta) is true (kernel/bpf/verifier.c:10815 is_kfunc_rcu()), and now is_rcu_reg(reg) at kernel/bpf/verifier.c:12195 check_kfunc_args() also returns true. The verifier falls through without emitting a verbose() diagnostic. This is the intended KF_RCU escape hatch: untrusted but ref-guarded pointers are safe only inside the RCU read-side critical section.`,
+    highlights: ['kf-rcu-accept'],
+    data: cloneState(state),
+  });
+
+  // Frame 14: process_kf_arg_ptr_to_btf_id finalizes type match
+  state.srcRef = 'kernel/bpf/verifier.c:11458 process_kf_arg_ptr_to_btf_id()';
+  state.rcuSection = true;
+  state.verdict = 'accepted';
+  state.verifierLog = [...(state.verifierLog ?? []), 'arg#0 BTF id matched struct task_struct'];
+  frames.push({
+    step: 14,
+    label: 'process_kf_arg_ptr_to_btf_id() matches BTF struct type',
+    description: `After the trusted/RCU gate passes, process_kf_arg_ptr_to_btf_id() (kernel/bpf/verifier.c:11458 process_kf_arg_ptr_to_btf_id()) resolves the register's btf and ref_id, then checks struct compatibility against the kfunc's declared parameter type. For bpf_task_acquire(struct task_struct *p) the register's BTF id must match struct task_struct (or a projection thereof). Mismatch emits verbose() like "arg#0 expected pointer to struct task_struct but got struct %s" at kernel/bpf/verifier.c:11458 process_kf_arg_ptr_to_btf_id(). On match, meta->ref_obj_id is propagated for KF_ACQUIRE kfuncs so a later KF_RELEASE can discharge it.`,
+    highlights: ['kf-btf-match'],
+    data: cloneState(state),
+  });
+
+  // Frame 15: Pre-v7.0 contrast -- previously check_kfunc_args skipped the check
+  state.srcRef = 'kernel/bpf/verifier.c:12028 check_kfunc_args()';
+  state.verdict = 'accepted';
+  state.verifierLog = [...(state.verifierLog ?? []), 'pre-v7.0 load path would have passed silently'];
+  frames.push({
+    step: 15,
+    label: 'Pre-v7.0 contrast: check_kfunc_args() previously skipped this check',
+    description: `Before commit 1a5c01d2508a, the dispatch at kernel/bpf/verifier.c:12028 check_kfunc_args() guarded the trusted-reg check with "(is_kfunc_trusted_args(meta) || is_kfunc_rcu(meta)) && ..." -- a kfunc author had to opt in by setting KF_TRUSTED_ARGS. An untrusted map-loaded pointer would silently pass. The same program now hits the unconditional gate. Commit 7646c7afd9a9 finished the transition by deleting KF_TRUSTED_ARGS entirely from include/linux/btf.h near include/linux/btf.h:21 BTF_TYPE_EMIT(). The default is no longer opt-in; it is the one true policy, opt-out only via KF_RCU, __nullable, or __ign.`,
+    highlights: ['pre-v7-contrast'],
+    data: cloneState(state),
+  });
+
+  // Frame 16: Program load fails or succeeds -- summary verdict
   state.phase = 'complete';
   state.srcRef = 'kernel/bpf/verifier.c:13049 check_kfunc_args()';
   state.kfuncTrusted = false;
   state.verifierResult = 'reject';
+  state.rcuSection = false;
+  state.verdict = 'rejected';
+  state.verifierLog = [...(state.verifierLog ?? []), 'bpf_check() -> -EINVAL; BPF_PROG_LOAD rejected'];
   frames.push({
-    step: 9,
+    step: 16,
     label: 'bpf_check() returns -EINVAL; BPF_PROG_LOAD fails',
     description: `check_kfunc_args() returned -EINVAL from the second call site, so check_kfunc_call() (kernel/bpf/verifier.c:13049 check_kfunc_args()) propagates it upward. do_check() aborts the instruction walk, bpf_check() cleans up the verifier env, and bpf_prog_load() at kernel/bpf/syscall.c:3089 bpf_check() returns -EINVAL to userspace. The user sees the verifier log line "R1 must be referenced or trusted" pointing at the offending BPF_CALL. Under pre-v7.0 kernels the same program loaded silently; under v7.0 it is rejected -- a meaningful hardening of kfunc ABI.`,
     highlights: ['prog-load-fail'],

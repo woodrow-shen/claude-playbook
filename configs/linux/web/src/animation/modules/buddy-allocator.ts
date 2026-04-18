@@ -7,6 +7,16 @@ export interface BuddyBlock {
   state: 'free' | 'allocated' | 'splitting' | 'coalescing';
 }
 
+export interface CpuContention {
+  cpu: number;
+  result: 'acquired' | 'failed';
+}
+
+export interface TrylockQueueEntry {
+  address: number;
+  order: number;
+}
+
 export interface BuddyState {
   maxOrder: number;
   blocks: BuddyBlock[];
@@ -14,6 +24,8 @@ export interface BuddyState {
   pcpLocked?: boolean;
   fpiTrylock?: boolean;
   irqSaved?: boolean;
+  contention?: CpuContention[];
+  trylockQueue?: TrylockQueueEntry[];
 }
 
 function cloneBlocks(blocks: BuddyBlock[]): BuddyBlock[] {
@@ -28,6 +40,8 @@ function cloneState(state: BuddyState): BuddyState {
     pcpLocked: state.pcpLocked,
     fpiTrylock: state.fpiTrylock,
     irqSaved: state.irqSaved,
+    contention: state.contention ? state.contention.map(c => ({ ...c })) : undefined,
+    trylockQueue: state.trylockQueue ? state.trylockQueue.map(e => ({ ...e })) : undefined,
   };
 }
 
@@ -256,13 +270,76 @@ function generatePcpLockOptimizationFrames(maxOrder: number): AnimationFrame[] {
     data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:1550 free_one_page() FPI_TRYLOCK branch' },
   });
 
+  // Contention scenario: two CPUs race on pcp_spin_trylock() for the same zone.
+  state = cloneState(state);
+  state.contention = [
+    { cpu: 0, result: 'acquired' },
+    { cpu: 1, result: 'acquired' },
+  ];
+  frames.push({
+    step: frames.length,
+    label: 'Two CPUs race into pcp_spin_trylock()',
+    description: 'CPU0 and CPU1 simultaneously free pages that target the same zone->per_cpu_pages. Both invoke the macro at mm/page_alloc.c:119, each performing pcpu_task_pin() and this_cpu_ptr(ptr). Because both land on the same per-CPU pageset (cross-CPU free from remote context, e.g. IRQ-tail softirq steering), they then contend on the embedded spin_trylock(&_ret->lock). Only one atomic cmpxchg on lock->rlock can win.',
+    highlights: [],
+    data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:119 pcp_spin_trylock() SMP variant' },
+  });
+
+  state = cloneState(state);
+  state.contention = [
+    { cpu: 0, result: 'acquired' },
+    { cpu: 1, result: 'failed' },
+  ];
+  state.pcpLocked = true;
+  frames.push({
+    step: frames.length,
+    label: 'CPU0 wins the trylock, CPU1 falls through',
+    description: 'CPU0\'s spin_trylock() at mm/page_alloc.c:124 succeeds and the macro returns the pinned per_cpu_pages pointer. CPU1 hits the if-branch at line 124 with a non-zero return, runs pcpu_task_unpin() at line 125, and the macro evaluates to NULL at line 126. No waiting, no IRQ disable/restore, no priority-inversion window: the loser bails in a handful of cycles and its caller is free to retry a different strategy.',
+    highlights: [],
+    data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:124 pcp_spin_trylock() spin_trylock branch' },
+  });
+
+  // Deferred-drain state machine: CPU1 queues its page onto zone->trylock_free_pages.
+  state = cloneState(state);
+  state.trylockQueue = [{ address: allocated.address, order: allocated.order }];
+  frames.push({
+    step: frames.length,
+    label: 'CPU1 enqueues its page via add_page_to_zone_llist()',
+    description: 'After CPU1\'s trylock failed, free_one_page() at mm/page_alloc.c:1552 calls add_page_to_zone_llist(). The helper at line 1534 stashes the page order into page->private (line 1538) and appends the page via llist_add(&page->pcp_llist, &zone->trylock_free_pages) at line 1540. This is a single cmpxchg on an llist head -- no lock, wait-free push. The page is now durable state in the zone and will be processed later.',
+    highlights: [allocated.id],
+    data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:1540 add_page_to_zone_llist() llist_add' },
+  });
+
+  state = cloneState(state);
+  state.trylockQueue = [
+    { address: allocated.address, order: allocated.order },
+    { address: 1, order: 0 },
+    { address: 2, order: 1 },
+  ];
+  frames.push({
+    step: frames.length,
+    label: 'Queue grows as more trylock failures accumulate',
+    description: 'Other CPUs (or later IRQ-context frees on the same CPU) continue to push onto zone->trylock_free_pages while zone->lock stays contended. Each push is O(1) and uses only a cmpxchg. The private field on each page records its free order so the drainer can reconstruct the original block size. No memory is leaked: the llist is the single owner of these pages until the drain executes.',
+    highlights: [allocated.id],
+    data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:1534 add_page_to_zone_llist()' },
+  });
+
   state = cloneState(state);
   frames.push({
     step: frames.length,
     label: 'Non-trylock path drains deferred llist',
-    description: 'The guard at mm/page_alloc.c:1561 reads: "if (unlikely(!llist_empty(llhead) && !(fpi_flags & FPI_TRYLOCK)))". When a regular (non-trylock) caller successfully acquires zone->lock, it pulls every page from zone->trylock_free_pages via llist_del_all() and feeds them through split_large_buddy(). Trylock callers skip the drain to preserve their fast path.',
+    description: 'The guard at mm/page_alloc.c:1561 reads: "if (unlikely(!llist_empty(llhead) && !(fpi_flags & FPI_TRYLOCK)))". When a regular (non-trylock) caller successfully acquires zone->lock, it pulls every page from zone->trylock_free_pages via llist_del_all() (line 1565) and feeds them through split_large_buddy(). Trylock callers skip the drain to preserve their fast path.',
     highlights: [allocated.id],
     data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:1561 free_one_page() llist drain guard' },
+  });
+
+  state = cloneState(state);
+  state.trylockQueue = [];
+  frames.push({
+    step: frames.length,
+    label: 'split_large_buddy() processes each drained page',
+    description: 'Inside the llist_for_each_entry_safe loop at mm/page_alloc.c:1566 the drainer reads each page\'s cached order from page->private (line 1567) and hands it to split_large_buddy() at line 1569. split_large_buddy() (defined at line 1511) walks pageblock-sized chunks with __free_one_page() at line 1526, honoring the zone\'s migrate types. When the loop finishes, zone->trylock_free_pages is empty again and the deferred work is fully reconciled before the drainer frees its own page at line 1573.',
+    highlights: [allocated.id],
+    data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:1569 split_large_buddy() drain call' },
   });
 
   state = cloneState(state);
@@ -275,6 +352,15 @@ function generatePcpLockOptimizationFrames(maxOrder: number): AnimationFrame[] {
     description: 'pcp_spin_unlock() at mm/page_alloc.c:131 releases the per-CPU pageset spinlock and calls pcpu_task_unpin() to re-enable preemption (or migration on RT). No IRQ-flag restore step is needed. The page is on the PCP free list; it will be bulk-freed to the buddy allocator when the PCP high watermark is hit.',
     highlights: freed ? [freed.id] : [],
     data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:131 pcp_spin_unlock() SMP variant' },
+  });
+
+  state = cloneState(state);
+  frames.push({
+    step: frames.length,
+    label: 'Cycle-count contrast: pre-v7.0 vs v7.0 PCP acquisition',
+    description: 'Pre-v7.0 PCP acquisition executed local_irq_save (pushfq + cli, ~20 cycles on modern x86 including the implicit serialization), then spin_lock (~10 cycles uncontended), then eventually local_irq_restore (popfq, ~15 cycles) -- approx 45-60 cycles of non-work around each free on the uncontended path. v7.0 pcp_spin_trylock() at mm/page_alloc.c:119 reduces this to pcpu_task_pin() (preempt_disable, essentially a single this_cpu inc, ~3 cycles) plus spin_trylock (~10 cycles): approx 13-18 cycles total, no IRQ-flag ops. That is roughly a 3x shrink of the lock-prologue/epilogue. In perf microbenchmarks pounding page_alloc from many CPUs, the removed pushf/popf also compresses p99 tail latency because pushfq is a serializing-adjacent instruction that stalls speculation.',
+    highlights: [],
+    data: { ...cloneState(state), srcRef: 'mm/page_alloc.c:119 pcp_spin_trylock() SMP variant' },
   });
 
   state = cloneState(state);
