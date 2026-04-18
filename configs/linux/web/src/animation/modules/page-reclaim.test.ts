@@ -38,6 +38,12 @@ interface ReclaimState {
   ptesToFlush?: number;
   tlbFlushes?: number;
   batchMode?: boolean;
+  folioSizeLabel?: string;
+  batchModeLabel?: 'per-page' | 'batched';
+  mmuGather?: { pages: number; flushScheduled: boolean };
+  cpuCycles?: { perPage: number; batched: number };
+  ptesCleared?: number;
+  rmapWalks?: number;
 }
 
 describe('PageReclaim', () => {
@@ -250,9 +256,9 @@ describe('PageReclaim', () => {
   describe('generateFrames - batched-large-folio-unmap (v7.0)', () => {
     const frames = pageReclaim.generateFrames('batched-large-folio-unmap');
 
-    it('has between 8 and 12 frames', () => {
+    it('has between 8 and 16 frames', () => {
       expect(frames.length).toBeGreaterThanOrEqual(8);
-      expect(frames.length).toBeLessThanOrEqual(12);
+      expect(frames.length).toBeLessThanOrEqual(16);
     });
 
     it('first frame describes a 16-page large folio', () => {
@@ -313,6 +319,107 @@ describe('PageReclaim', () => {
       const first = frames[0].data as ReclaimState;
       const last = frames[frames.length - 1].data as ReclaimState;
       expect(last.watermarks.freePages).toBeGreaterThan(first.watermarks.freePages);
+    });
+
+    it('first frame carries a human-readable folioSizeLabel', () => {
+      const data = frames[0].data as ReclaimState;
+      expect(typeof data.folioSizeLabel).toBe('string');
+      expect(data.folioSizeLabel).toMatch(/KiB|MiB/);
+    });
+
+    it('has at least one frame with batchModeLabel === "per-page"', () => {
+      const hasPerPage = frames.some(f => {
+        const data = f.data as ReclaimState;
+        return data.batchModeLabel === 'per-page';
+      });
+      expect(hasPerPage).toBe(true);
+    });
+
+    it('has at least one frame with batchModeLabel === "batched"', () => {
+      const hasBatched = frames.some(f => {
+        const data = f.data as ReclaimState;
+        return data.batchModeLabel === 'batched';
+      });
+      expect(hasBatched).toBe(true);
+    });
+
+    it('has at least one frame with mmuGather populated (pages > 0)', () => {
+      const hasGather = frames.some(f => {
+        const data = f.data as ReclaimState;
+        return (data.mmuGather?.pages ?? 0) > 0;
+      });
+      expect(hasGather).toBe(true);
+    });
+
+    it('has a frame where mmuGather.flushScheduled flips to true', () => {
+      const hasScheduled = frames.some(f => {
+        const data = f.data as ReclaimState;
+        return data.mmuGather?.flushScheduled === true;
+      });
+      expect(hasScheduled).toBe(true);
+    });
+
+    it('exposes cpuCycles contrast (perPage > batched)', () => {
+      const hasCycles = frames.some(f => {
+        const data = f.data as ReclaimState;
+        return (
+          data.cpuCycles !== undefined &&
+          data.cpuCycles.perPage > data.cpuCycles.batched
+        );
+      });
+      expect(hasCycles).toBe(true);
+    });
+
+    it('references the mmu_gather machinery (tlb_gather_mmu or struct mmu_gather)', () => {
+      const hasGatherRef = frames.some(f =>
+        /tlb_gather_mmu|struct mmu_gather|tlb_finish_mmu|__tlb_remove_page/.test(
+          f.description,
+        ),
+      );
+      expect(hasGatherRef).toBe(true);
+    });
+
+    it('describes the bulk PTE clear primitive (get_and_clear_ptes or folio_unmap_pte_batch)', () => {
+      const hasBulk = frames.some(f =>
+        /get_and_clear_ptes|folio_unmap_pte_batch|folio_pte_batch_flags/.test(
+          f.description,
+        ) ||
+        /get_and_clear_ptes|folio_unmap_pte_batch/.test(f.label),
+      );
+      expect(hasBulk).toBe(true);
+    });
+
+    it('records rmap walk counts: 16 for per-page contrast, 1 for v7.0 batched', () => {
+      const hasPerPageWalks = frames.some(f => {
+        const data = f.data as ReclaimState;
+        return data.batchModeLabel === 'per-page' && data.rmapWalks === 16;
+      });
+      const hasBatchedWalks = frames.some(f => {
+        const data = f.data as ReclaimState;
+        return data.batchModeLabel === 'batched' && data.rmapWalks === 1;
+      });
+      expect(hasPerPageWalks).toBe(true);
+      expect(hasBatchedWalks).toBe(true);
+    });
+
+    it('per-page contrast frame records 16 TLB flushes', () => {
+      const perPageFrame = frames.find(f => {
+        const data = f.data as ReclaimState;
+        return data.batchModeLabel === 'per-page';
+      });
+      expect(perPageFrame).toBeDefined();
+      const data = perPageFrame!.data as ReclaimState;
+      expect(data.tlbFlushes).toBe(16);
+    });
+
+    it('cloneState isolates mmuGather between frames (no shared reference)', () => {
+      // Find two frames that both expose mmuGather; mutating one must not
+      // affect the other, which guards the cloneState() invariant.
+      const framesWithGather = frames.filter(f => (f.data as ReclaimState).mmuGather);
+      expect(framesWithGather.length).toBeGreaterThanOrEqual(2);
+      const a = framesWithGather[0].data as ReclaimState;
+      const b = framesWithGather[1].data as ReclaimState;
+      expect(a.mmuGather).not.toBe(b.mmuGather);
     });
   });
 

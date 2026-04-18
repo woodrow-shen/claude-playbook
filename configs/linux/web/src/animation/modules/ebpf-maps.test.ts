@@ -281,9 +281,9 @@ describe('eBPF Maps & Helper Functions', () => {
   describe('generateFrames - bpf-f-cpu-flags (v7.0)', () => {
     const frames = ebpfMaps.generateFrames('bpf-f-cpu-flags');
 
-    it('generates 8-12 frames', () => {
-      expect(frames.length).toBeGreaterThanOrEqual(8);
-      expect(frames.length).toBeLessThanOrEqual(12);
+    it('generates 10-14 frames (deepened scenario)', () => {
+      expect(frames.length).toBeGreaterThanOrEqual(10);
+      expect(frames.length).toBeLessThanOrEqual(14);
     });
 
     it('frames have sequential step numbers starting at 0', () => {
@@ -395,6 +395,116 @@ describe('eBPF Maps & Helper Functions', () => {
         f.description.includes('hash') && f.description.includes('percpu')
       );
       expect(hasRef).toBe(true);
+    });
+
+    it('includes a pre-v7 frame with apiMode "pre-v7" and syscallCount > 1', () => {
+      const preV7 = frames.find(f => (f.data as EbpfMapsState).apiMode === 'pre-v7');
+      expect(preV7).toBeDefined();
+      const data = preV7!.data as EbpfMapsState;
+      expect(data.syscallCount).toBeGreaterThan(1);
+    });
+
+    it('single-cpu and all-cpus apiModes both use exactly 1 syscall', () => {
+      const single = frames.find(f => (f.data as EbpfMapsState).apiMode === 'single-cpu');
+      const all = frames.find(f => (f.data as EbpfMapsState).apiMode === 'all-cpus');
+      expect(single).toBeDefined();
+      expect(all).toBeDefined();
+      expect((single!.data as EbpfMapsState).syscallCount).toBe(1);
+      expect((all!.data as EbpfMapsState).syscallCount).toBe(1);
+    });
+
+    it('cpuMask matches the set of slots being written in each apiMode', () => {
+      // single-cpu: mask has exactly one entry equal to targetCpu
+      const single = frames.find(f => {
+        const d = f.data as EbpfMapsState;
+        return d.apiMode === 'single-cpu' && d.phase === 'applied';
+      });
+      expect(single).toBeDefined();
+      const sData = single!.data as EbpfMapsState;
+      expect(sData.cpuMask).toEqual([sData.targetCpu]);
+
+      // all-cpus: mask contains every CPU slot
+      const all = frames.find(f => {
+        const d = f.data as EbpfMapsState;
+        return d.apiMode === 'all-cpus' && d.phase === 'applied';
+      });
+      expect(all).toBeDefined();
+      const aData = all!.data as EbpfMapsState;
+      expect(aData.cpuMask!.sort()).toEqual([0, 1, 2, 3]);
+    });
+
+    it('references the BPF_MAP_UPDATE_ELEM syscall entry point', () => {
+      const hasRef = frames.some(f => {
+        const d = f.data as EbpfMapsState;
+        return /kernel\/bpf\/syscall\.c:\d+\s+map_update_elem\(/.test(d.srcRef);
+      });
+      expect(hasRef).toBe(true);
+    });
+
+    it('references the BPF_MAP_LOOKUP_ELEM syscall entry point', () => {
+      const hasRef = frames.some(f => {
+        const d = f.data as EbpfMapsState;
+        return /kernel\/bpf\/syscall\.c:\d+\s+map_lookup_elem\(/.test(d.srcRef);
+      });
+      expect(hasRef).toBe(true);
+    });
+
+    it('references bpf_percpu_array_update and bpf_percpu_array_copy', () => {
+      const hasUpdate = frames.some(f => f.description.includes('bpf_percpu_array_update'));
+      const hasCopy = frames.some(f => f.description.includes('bpf_percpu_array_copy'));
+      expect(hasUpdate).toBe(true);
+      expect(hasCopy).toBe(true);
+    });
+
+    it('explains BPF_F_ALL_CPUS is not accepted on the lookup path', () => {
+      // Read path should mention that BPF_F_ALL_CPUS is not valid for lookup
+      const lookupFrame = frames.find(f => {
+        const d = f.data as EbpfMapsState;
+        return d.phase === 'lookup' && (
+          f.description.includes('not accepted') ||
+          f.description.includes('NOT accepted') ||
+          f.description.includes('no way to return')
+        );
+      });
+      expect(lookupFrame).toBeDefined();
+    });
+
+    it('mentions the kernel/bpf/syscall.c flag allowed-mask (BPF_F_LOCK | BPF_F_CPU)', () => {
+      const hasRef = frames.some(f =>
+        f.description.includes('BPF_F_LOCK | BPF_F_CPU') ||
+        f.description.includes('BPF_F_LOCK|BPF_F_CPU')
+      );
+      expect(hasRef).toBe(true);
+    });
+
+    it('pre-v7 frame mentions num_possible_cpus or per-CPU loop cost', () => {
+      const preV7 = frames.find(f => (f.data as EbpfMapsState).apiMode === 'pre-v7');
+      expect(preV7).toBeDefined();
+      const desc = preV7!.description;
+      const mentionsCost =
+        desc.includes('num_possible_cpus') ||
+        desc.includes('loop') ||
+        desc.includes('N syscall') ||
+        desc.includes('per CPU');
+      expect(mentionsCost).toBe(true);
+    });
+
+    it('cloneState preserves new state fields (cpuMask, apiMode, syscallCount)', () => {
+      // Each frame must be independently mutable — mutating one frame's data
+      // should not affect subsequent frames.
+      const frame = frames.find(f => {
+        const d = f.data as EbpfMapsState;
+        return Array.isArray(d.cpuMask);
+      });
+      expect(frame).toBeDefined();
+      const data = frame!.data as EbpfMapsState;
+      const originalLen = data.cpuMask!.length;
+      data.cpuMask!.push(999);
+      // Find the same-index frame from a fresh generate call — it should be unaffected
+      const fresh = ebpfMaps.generateFrames('bpf-f-cpu-flags');
+      const freshFrame = fresh[frame!.step];
+      const freshData = freshFrame.data as EbpfMapsState;
+      expect(freshData.cpuMask!.length).toBe(originalLen);
     });
   });
 

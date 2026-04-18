@@ -10,10 +10,32 @@ export interface VmaEntry {
 }
 
 export interface UnmapDescSnapshot {
+  /** vma_start alias: minimum vma address being unmapped */
   start: string;
+  /** vma_end alias: maximum vma address being unmapped */
   end: string;
+  /** mm_struct owning the range, formatted for display */
   mm: string;
+  /** userfaultfd list pointer (NULL when not used) */
   uf?: string;
+  /**
+   * Real v7.0 struct unmap_desc field snapshots. Matches mm/vma.h:162.
+   * Kept optional so pre-v7.0 / partial snapshots remain usable.
+   */
+  mas?: string;
+  first?: string;
+  pgStart?: string;
+  pgEnd?: string;
+  vmaStart?: string;
+  vmaEnd?: string;
+  treeEnd?: string;
+  treeReset?: string;
+  mmWrLocked?: boolean;
+  /**
+   * Which fields have been populated up to this frame. Drives the
+   * "caller builds descriptor field by field" walkthrough.
+   */
+  populatedFields?: string[];
 }
 
 export interface VmaState {
@@ -25,10 +47,22 @@ export interface VmaState {
   vmaFlagsType?: 'legacy' | 'typed';
   /** v7.0: snapshot of struct unmap_desc fields when the refactor scenario is running */
   unmapDesc?: UnmapDescSnapshot;
+  /**
+   * v7.0: true when the frame shows a type-safety bug that would be rejected
+   * by the new typed API. Drives a contrived pre-v7.0 vs v7.0 comparison.
+   */
+  typeSafetyBug?: boolean;
 }
 
 function cloneVmas(vmas: VmaEntry[]): VmaEntry[] {
   return vmas.map(v => ({ ...v }));
+}
+
+function cloneUnmapDesc(d: UnmapDescSnapshot): UnmapDescSnapshot {
+  return {
+    ...d,
+    populatedFields: d.populatedFields ? [...d.populatedFields] : undefined,
+  };
 }
 
 /** Clone a VmaState snapshot -- used by scenarios that carry extra optional fields. */
@@ -39,7 +73,8 @@ function cloneState(state: VmaState): VmaState {
     vmas: cloneVmas(state.vmas),
     description: state.description,
     vmaFlagsType: state.vmaFlagsType,
-    unmapDesc: state.unmapDesc ? { ...state.unmapDesc } : undefined,
+    unmapDesc: state.unmapDesc ? cloneUnmapDesc(state.unmapDesc) : undefined,
+    typeSafetyBug: state.typeSafetyBug,
   };
 }
 
@@ -51,7 +86,7 @@ function makeFrame(
   vmas: VmaEntry[],
   currentFunction: string,
   srcRef: string,
-  extras?: Pick<VmaState, 'vmaFlagsType' | 'unmapDesc'>,
+  extras?: Pick<VmaState, 'vmaFlagsType' | 'unmapDesc' | 'typeSafetyBug'>,
 ): AnimationFrame {
   const state: VmaState = {
     currentFunction,
@@ -59,7 +94,8 @@ function makeFrame(
     vmas: cloneVmas(vmas),
     description,
     vmaFlagsType: extras?.vmaFlagsType,
-    unmapDesc: extras?.unmapDesc ? { ...extras.unmapDesc } : undefined,
+    unmapDesc: extras?.unmapDesc ? cloneUnmapDesc(extras.unmapDesc) : undefined,
+    typeSafetyBug: extras?.typeSafetyBug,
   };
   return {
     step,
@@ -435,117 +471,206 @@ function generateVmaFlagsUnmapDesc(): AnimationFrame[] {
     { id: 'stack', label: '[stack]', start: '0x7ffd00000', end: '0x7ffd21000', flags: 'rw-p', state: 'existing' },
   ];
 
-  // Frame 0: struct vm_area_struct now carries vma_flags_t vma_flags (was vm_flags_t vm_flags).
+  // Frame 0: contrived pre-v7.0 bug -- int-to-flag coercion goes undetected
+  // because vm_flags was a bare "unsigned long" scalar.
   frames.push(makeFrame(
     0,
-    'v7.0: struct vm_area_struct embeds vma_flags_t',
-    'Linux 7.0 refactored the VMA flag field at include/linux/mm_types.h:909. Previously struct vm_area_struct carried a raw bitmask "vm_flags_t vm_flags". The new field is "vma_flags_t vma_flags" -- a structured type with helper accessors, paving the way for safer manipulation and future per-flag metadata.',
+    'Pre-v7.0 bug: int-to-flag coercion (contrived)',
+    'Before v7.0 struct vm_area_struct exposed a raw scalar "vm_flags_t vm_flags" (typedef of unsigned long). A bug like "if (vma->vm_flags & 0x2)" would compile cleanly: the literal 0x2 silently substitutes for VM_WRITE, swapped bits go unnoticed, and reads/writes mix trivially -- "vma->vm_flags |= some_int" worked regardless of whether some_int was a valid flag mask. The compiler had no handle to catch these mistakes.',
     ['anon'],
     vmas,
     'vm_area_struct',
-    'include/linux/mm_types.h:909 vma_flags field',
-    { vmaFlagsType: 'typed' },
+    'include/linux/mm_types.h:958 vm_flags field',
+    { vmaFlagsType: 'legacy', typeSafetyBug: true },
   ));
 
-  // Frame 1: the typedef itself.
+  // Frame 1: v7.0 introduces the vma_flags_t typedef -- bitmap-wrapping struct.
   frames.push(makeFrame(
     1,
-    'Typedef: vma_flags_t',
-    'include/linux/mm_types.h:880 defines "typedef struct { unsigned long __bits; } vma_flags_t;" wrapping the flag bits in a struct. Because vma_flags_t is no longer a bare integer, assignments like "vma->vm_flags = 0" no longer compile -- callers must use helper accessors such as vma_flags_empty() at include/linux/mm_types.h:885. This prevents accidental integer arithmetic on flags.',
+    'v7.0 typedef: vma_flags_t wraps a bitmap',
+    'Linux 7.0 introduces "typedef struct { DECLARE_BITMAP(__vma_flags, NUM_VMA_FLAG_BITS); } vma_flags_t;" at include/linux/mm_types.h:878. struct vm_area_struct keeps the old "const vm_flags_t vm_flags" for legacy read-only callers but co-locates a writable "vma_flags_t flags" at include/linux/mm_types.h:959 inside a union. Because vma_flags_t is now a struct, raw integer operations on it are rejected by the compiler.',
     ['anon'],
     vmas,
-    'vma_flags_empty',
-    'include/linux/mm_types.h:885 vma_flags_empty()',
+    'vma_flags_t',
+    'include/linux/mm_types.h:878 vma_flags_t typedef, include/linux/mm_types.h:959 flags field',
     { vmaFlagsType: 'typed' },
   ));
 
-  // Frame 2: clear helper -- replaces vma->vm_flags = 0
+  // Frame 2: typed test helper -- how the pre-v7.0 bug is now unrepresentable.
   frames.push(makeFrame(
     2,
-    'Helper: vma_flags_clear_all()',
-    'Pre-7.0 code wrote "vma->vm_flags = 0" to zero all flags. In 7.0 the equivalent is vma_flags_clear_all(vma) at include/linux/mm_types.h:1078, which stores a zeroed vma_flags_t through the accessor. This keeps the write centralized so instrumentation (e.g., lockdep on the vma write lock) can verify the caller holds the proper lock before mutating flags.',
+    'Typed guard: vma_flags_test(&vma->flags, VMA_WRITE_BIT)',
+    'The replacement for "vma->vm_flags & VM_WRITE" is vma_flags_test() at include/linux/mm.h:1128. It takes a const vma_flags_t pointer and a vma_flag_t enum value, returning bool via test_bit(). A call like "vma_flags_test(&vma->flags, 2)" fails to compile because 2 is not of type vma_flag_t. The same rigor applies at include/linux/mm.h:1306 where the vm_flags wrapper now simply calls vma_flags_test(&vma->flags, bit).',
     ['anon'],
     vmas,
-    'vma_flags_clear_all',
-    'include/linux/mm_types.h:1078 vma_flags_clear_all()',
+    'vma_flags_test',
+    'include/linux/mm.h:1128 vma_flags_test(), include/linux/mm.h:1306 vm_flags_test()',
     { vmaFlagsType: 'typed' },
   ));
 
-  // Frame 3: bridge to legacy vm_flags_t for APIs that still take the scalar.
+  // Frame 3: typed mutators -- set / clear / clear-all.
   frames.push(makeFrame(
     3,
-    'Bridge: vma_flags_to_legacy()',
-    'Many in-tree helpers and exported APIs still accept the old scalar vm_flags_t. vma_flags_to_legacy() at include/linux/mm_types.h:1090 returns the underlying unsigned long so those call sites keep working unchanged. New code should prefer vma_flags_has() / vma_flags_set() helpers, but conversions during the 7.0 transition are explicit and auditable.',
+    'Typed mutators: vma_flags_set / vma_flags_clear',
+    'Writes go through macro helpers: vma_flags_set() at include/linux/mm.h:1233 and vma_flags_clear() at include/linux/mm.h:1251 (variadic, taking one or more VMA_*_BIT arguments). The previous "vma->vm_flags = 0" idiom is replaced by vma_flags_clear_all() at include/linux/mm_types.h:1078, which zeroes the bitmap through the accessor so instrumentation (e.g., vma_start_write lock checks) can still observe every flag mutation.',
+    ['anon'],
+    vmas,
+    'vma_flags_set',
+    'include/linux/mm.h:1233 vma_flags_set(), include/linux/mm.h:1251 vma_flags_clear(), include/linux/mm_types.h:1078 vma_flags_clear_all()',
+    { vmaFlagsType: 'typed' },
+  ));
+
+  // Frame 4: bridge to legacy vm_flags_t for APIs that still take the scalar.
+  frames.push(makeFrame(
+    4,
+    'Bridge: vma_flags_to_legacy() for scalar callers',
+    'Many in-tree helpers and exported APIs still accept the old vm_flags_t scalar. vma_flags_to_legacy() at include/linux/mm_types.h:1090 returns the underlying unsigned long. include/linux/mm.h:542 shows the reverse direction in action: "#define VM_STACK_FLAGS vma_flags_to_legacy(VMA_STACK_FLAGS)". New code prefers vma_flags_test / vma_flags_set; conversions during the 7.0 transition are explicit and auditable.',
     ['anon'],
     vmas,
     'vma_flags_to_legacy',
-    'include/linux/mm_types.h:1090 vma_flags_to_legacy()',
+    'include/linux/mm_types.h:1090 vma_flags_to_legacy(), include/linux/mm.h:542 VM_STACK_FLAGS',
     { vmaFlagsType: 'typed' },
   ));
 
-  // Frame 4: unmap begins -- caller in mmap.c builds struct unmap_desc.
-  const unmapDescInit: UnmapDescSnapshot = {
-    start: '0x7f8000000',
-    end: '0x7f8008000',
-    mm: 'current->mm',
-    uf: 'NULL',
+  // Frame 5: struct unmap_desc definition -- walk through the fields.
+  const descEmpty: UnmapDescSnapshot = {
+    start: '',
+    end: '',
+    mm: '',
+    populatedFields: [],
   };
   frames.push(makeFrame(
-    4,
-    'Caller builds: struct unmap_desc unmap',
-    'At mm/mmap.c:1279 the munmap caller now initializes "struct unmap_desc unmap = { .start = start, .end = end, .mm = mm, .uf = uf };" in one declaration. Before 7.0 these arguments were passed positionally to unmap_region(), making the call site verbose and error-prone. The descriptor groups related fields and documents them by name.',
-    ['anon'],
-    vmas,
-    'do_munmap',
-    'mm/mmap.c:1279 struct unmap_desc unmap',
-    { vmaFlagsType: 'typed', unmapDesc: unmapDescInit },
-  ));
-
-  // Frame 5: the descriptor is passed by pointer to unmap_region().
-  frames.push(makeFrame(
     5,
-    'Pass by pointer: unmap_region(&unmap)',
-    'mm/vma.c:481 is the new signature: "void unmap_region(struct unmap_desc *unmap)". Where the pre-7.0 signature accepted six arguments (mm, mt, vma, start, end, tree_end, uf, mm_wr_locked), the refactor passes a single pointer. This shrinks the ABI surface, keeps the stack small, and lets future fields be added without touching every caller.',
+    'struct unmap_desc at mm/vma.h:162',
+    'v7.0 batches the unmap arguments into "struct unmap_desc" at mm/vma.h:162. Fields: mas (maple state cursor), first (first vma in range), pg_start/pg_end (page-table free floor/ceiling), vma_start/vma_end (the actual unmap range), tree_end (search limit), tree_reset (where to reset the vma-tree walk), and mm_wr_locked (is mmap_lock held write?). Pre-v7.0 these nine values were positional arguments to unmap_region().',
     ['anon'],
     vmas,
-    'unmap_region',
-    'mm/vma.c:481 unmap_region()',
-    { vmaFlagsType: 'typed', unmapDesc: unmapDescInit },
+    'unmap_desc',
+    'mm/vma.h:162 struct unmap_desc',
+    { vmaFlagsType: 'typed', unmapDesc: descEmpty },
   ));
 
-  // Frame 6: unmap_region() uses descriptor fields internally.
+  // Frame 6: caller populates descriptor field by field via unmap_all_init().
+  // Real helper: unmap_all_init() at mm/vma.h:178 is called from exit_mmap
+  // (mm/mmap.c:1295). We illustrate the field-by-field population.
+  const descPopulating: UnmapDescSnapshot = {
+    start: '0x7f8000000',
+    end: '0x7f8008000',
+    mm: 'mm',
+    mas: '&vmi->mas',
+    first: 'vma(anon)',
+    pgStart: 'FIRST_USER_ADDRESS',
+    pgEnd: 'USER_PGTABLES_CEILING',
+    vmaStart: '0',
+    vmaEnd: 'ULONG_MAX',
+    treeEnd: 'ULONG_MAX',
+    treeReset: 'vma->vm_end',
+    mmWrLocked: false,
+    populatedFields: [
+      'mas',
+      'first',
+      'pg_start',
+      'pg_end',
+      'vma_start',
+      'vma_end',
+      'tree_end',
+      'tree_reset',
+      'mm_wr_locked',
+    ],
+  };
+  frames.push(makeFrame(
+    6,
+    'Caller builds: unmap_all_init(&unmap, &vmi, vma)',
+    'exit_mmap() at mm/mmap.c:1279 declares "struct unmap_desc unmap;" then at mm/mmap.c:1295 calls unmap_all_init() (defined at mm/vma.h:178). The helper sets every field: mas = &vmi->mas, first = vma, pg_start = FIRST_USER_ADDRESS, pg_end = USER_PGTABLES_CEILING, vma_start = 0, vma_end = ULONG_MAX, tree_end = ULONG_MAX, tree_reset = vma->vm_end, mm_wr_locked = false. A single call replaces nine positional arguments.',
+    ['anon'],
+    vmas,
+    'exit_mmap',
+    'mm/mmap.c:1279 struct unmap_desc unmap, mm/vma.h:178 unmap_all_init()',
+    { vmaFlagsType: 'typed', unmapDesc: descPopulating },
+  ));
+
+  // Frame 7: unmap_region(&unmap) -- the single-call replacement.
   const vmasMarkedForRemoval = vmas.map(v =>
     v.id === 'anon' ? { ...v, state: 'removed' as const } : { ...v },
   );
   frames.push(makeFrame(
-    6,
-    'Descriptor-driven unmap inside unmap_region()',
-    'Inside unmap_region() at mm/vma.c:481, the body reads unmap->start, unmap->end, unmap->mm, and unmap->uf directly, then walks the VMA tree clearing PTEs. Because all inputs live on the descriptor, helper calls like unmap_vmas() and free_pgtables() can be refactored without changing their callers -- only unmap_desc gains a field.',
+    7,
+    'Single call: unmap_region(&unmap)',
+    'unmap_region() at mm/vma.c:481 has the new signature "void unmap_region(struct unmap_desc *unmap)". Its body uses unmap->first->vm_mm, calls tlb_gather_mmu(&tlb, mm), update_hiwater_rss(mm), unmap_vmas(&tlb, unmap), mas_set(unmap->mas, unmap->tree_reset), free_pgtables(&tlb, unmap), and tlb_finish_mmu(&tlb). The descriptor flows through every helper: the ABI shrinks from eight-plus arguments to one pointer.',
     ['anon'],
     vmasMarkedForRemoval,
     'unmap_region',
     'mm/vma.c:481 unmap_region()',
-    { vmaFlagsType: 'typed', unmapDesc: unmapDescInit },
+    { vmaFlagsType: 'typed', unmapDesc: descPopulating },
   ));
 
-  // Frame 7: another caller in vma.c -- consistency across call sites.
+  // Frame 8: unmap_vmas(&tlb, unmap) -- descriptor propagates.
   frames.push(makeFrame(
-    7,
-    'Second call site: mm/vma.c:1278',
-    'mm/vma.c:1278 shows the same pattern inside vms_clear_ptes(): "struct unmap_desc unmap = { .start = vms->start, .end = vms->end, .mm = mm, .uf = vms->uf };" followed by unmap_region(&unmap). Both call sites use the identical descriptor shape, so a reader only has to learn the layout once to understand every unmap path.',
+    8,
+    'Propagation: unmap_vmas(&tlb, unmap)',
+    'unmap_vmas() at mm/memory.c:2145 takes "struct unmap_desc *unmap" directly. It reads unmap->first, unmap->vma_start, unmap->vma_end to build an mmu_notifier_range_init range, then iterates with mas_find(unmap->mas, unmap->tree_end - 1) to walk every vma in the unmap range and zap its PTEs. Because the descriptor carries both the traversal cursor (mas) and the address range, the callee is fully self-contained -- no extra plumbing parameters.',
+    ['anon'],
+    vmasMarkedForRemoval,
+    'unmap_vmas',
+    'mm/memory.c:2145 unmap_vmas()',
+    { vmaFlagsType: 'typed', unmapDesc: descPopulating },
+  ));
+
+  // Frame 9: free_pgtables(&tlb, unmap) -- same descriptor, page-table phase.
+  frames.push(makeFrame(
+    9,
+    'Propagation: free_pgtables(&tlb, unmap)',
+    'free_pgtables() at mm/memory.c:373 also accepts the descriptor. It reads unmap->mas to walk vmas, unmap->first to start iteration, and unmap->pg_start/pg_end as the page-table free range (floor/ceiling). Because pg_start/pg_end can differ from vma_start/vma_end on some architectures (see unmap_pgtable_init() at mm/vma.h:202 for ARM-style outside-vma mappings), keeping them as named descriptor fields makes the asymmetry explicit.',
+    ['anon'],
+    vmasMarkedForRemoval,
+    'free_pgtables',
+    'mm/memory.c:373 free_pgtables()',
+    { vmaFlagsType: 'typed', unmapDesc: descPopulating },
+  ));
+
+  // Frame 10: second call site -- vms_clear_ptes() populates its own descriptor.
+  const descClearPtes: UnmapDescSnapshot = {
+    start: 'vms->start',
+    end: 'vms->end',
+    mm: 'mm',
+    mas: 'mas_detach',
+    first: 'vms->vma',
+    pgStart: 'vms->unmap_start',
+    pgEnd: 'vms->unmap_end',
+    vmaStart: 'vms->start',
+    vmaEnd: 'vms->end',
+    treeEnd: 'vms->vma_count',
+    treeReset: '1',
+    mmWrLocked: true,
+    populatedFields: [
+      'mas',
+      'first',
+      'pg_start',
+      'pg_end',
+      'vma_start',
+      'vma_end',
+      'tree_reset',
+      'tree_end',
+      'mm_wr_locked',
+    ],
+  };
+  frames.push(makeFrame(
+    10,
+    'Second call site: mm/vma.c:1278 vms_clear_ptes()',
+    'mm/vma.c:1278 inside vms_clear_ptes() builds a different descriptor: "struct unmap_desc unmap = { .mas = mas_detach, .first = vms->vma, .pg_start = vms->unmap_start, .pg_end = vms->unmap_end, .vma_start = vms->start, .vma_end = vms->end, .tree_reset = 1, .tree_end = vms->vma_count, .mm_wr_locked = mm_wr_locked };" -- a side-tree walk with tree_reset=1 because the detached tree starts at index 1, not vm_end. Same struct shape, different values.',
     ['anon'],
     vmasMarkedForRemoval,
     'vms_clear_ptes',
     'mm/vma.c:1278 struct unmap_desc unmap',
-    { vmaFlagsType: 'typed', unmapDesc: unmapDescInit },
+    { vmaFlagsType: 'typed', unmapDesc: descClearPtes },
   ));
 
-  // Frame 8: contrast before/after -- refactor benefit.
+  // Frame 11: refactor benefit summary -- before/after contrast.
   const vmasFinal = vmas.filter(v => v.id !== 'anon');
   frames.push(makeFrame(
-    8,
+    11,
     'Refactor benefit: before vs after',
-    'Before 7.0: unmap_region(mm, &mt, vma, start, end, tree_end, uf, mm_wr_locked) -- eight positional arguments with easy-to-swap neighbors. After 7.0: unmap_region(&unmap) -- one pointer; fields are self-documenting and a new field (e.g., a reason code for tracing) can be added by extending struct unmap_desc without touching callers. Combined with vma_flags_t, the VMA subsystem presents a more typed, descriptor-driven API.',
+    'Call path: do_munmap -> vms_clear_ptes (builds unmap_desc) -> unmap_region(&unmap) -> unmap_vmas(&tlb, unmap) -> free_pgtables(&tlb, unmap). Pre-v7.0 each transition carried eight-plus positional arguments (mm, mt, vma, start, end, tree_end, uf, mm_wr_locked, ...), trivially swappable. Post-v7.0 every helper accepts struct unmap_desc *unmap; adding a new field (e.g., a trace reason) requires zero caller changes. Combined with vma_flags_t, the VMA subsystem now presents a fully typed, descriptor-driven API.',
     [],
     vmasFinal,
     'unmap_region',

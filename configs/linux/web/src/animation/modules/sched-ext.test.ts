@@ -326,6 +326,10 @@ describe('Sched Ext', () => {
       expect(frames.length).toBeLessThanOrEqual(12);
     });
 
+    it('generates at least 10 frames (deepened contrast scenario)', () => {
+      expect(frames.length).toBeGreaterThanOrEqual(10);
+    });
+
     it('first frame has step 0', () => {
       expect(frames[0].step).toBe(0);
     });
@@ -349,9 +353,11 @@ describe('Sched Ext', () => {
     });
 
     it('all srcRefs follow path:line func() format', () => {
+      // DL-server scenario spans both ext.c (SCX integration) and deadline.c
+      // (DL reservation/replenish primitives), so accept either file.
       frames.forEach(f => {
         const data = f.data as SchedExtState;
-        expect(data.srcRef).toMatch(/kernel\/sched\/ext\.c:\d+\s+\w+/);
+        expect(data.srcRef).toMatch(/kernel\/sched\/(?:ext|deadline)\.c:\d+\s+\w+/);
       });
     });
 
@@ -458,6 +464,122 @@ describe('Sched Ext', () => {
       expect(phases).toContain('enqueue');
       expect(phases).toContain('pick');
     });
+
+    it('contrasts pre-v7.0 era with v7.0 era in dlServer metadata', () => {
+      const pre = frames.find(f => (f.data as SchedExtState).dlServer?.era === 'pre-v7.0');
+      const post = frames.find(f => (f.data as SchedExtState).dlServer?.era === 'v7.0');
+      expect(pre).toBeDefined();
+      expect(post).toBeDefined();
+    });
+
+    it('pre-v7.0 frames come before v7.0 frames (narrative ordering)', () => {
+      const lastPreIdx = frames.findIndex(f => (f.data as SchedExtState).dlServer?.era === 'v7.0') - 1;
+      const firstPostIdx = frames.findIndex(f => (f.data as SchedExtState).dlServer?.era === 'v7.0');
+      expect(firstPostIdx).toBeGreaterThan(lastPreIdx);
+      expect(firstPostIdx).toBeGreaterThan(0);
+    });
+
+    it('dlServer exposes dlRuntime and dlPeriod (50ms / 1s reservation)', () => {
+      const active = frames.find(f => (f.data as SchedExtState).dlServer?.active === true);
+      expect(active).toBeDefined();
+      const ds = (active!.data as SchedExtState).dlServer!;
+      expect(ds.dlRuntime).toBe(50_000_000);
+      expect(ds.dlPeriod).toBe(1_000_000_000);
+    });
+
+    it('dlServer enters throttled state when runtime reaches 0', () => {
+      const throttled = frames.find(f => (f.data as SchedExtState).dlServer?.throttled === true);
+      expect(throttled).toBeDefined();
+      const ds = (throttled!.data as SchedExtState).dlServer!;
+      expect(ds.runtime).toBe(0);
+    });
+
+    it('dlServer replenishes back to dlRuntime after throttle', () => {
+      const throttleIdx = frames.findIndex(f => (f.data as SchedExtState).dlServer?.throttled === true);
+      expect(throttleIdx).toBeGreaterThanOrEqual(0);
+      const laterFull = frames.slice(throttleIdx + 1).find(f => {
+        const ds = (f.data as SchedExtState).dlServer;
+        return ds !== undefined && ds.runtime === ds.dlRuntime && !ds.throttled;
+      });
+      expect(laterFull).toBeDefined();
+    });
+
+    it('cpuTimeline shows RT-only monopoly in pre-v7.0 frames', () => {
+      const preFrame = frames.find(f => {
+        const data = f.data as SchedExtState;
+        return data.dlServer?.era === 'pre-v7.0' && (data.cpuTimeline?.length ?? 0) > 0;
+      });
+      expect(preFrame).toBeDefined();
+      const timeline = (preFrame!.data as SchedExtState).cpuTimeline!;
+      expect(timeline.every(s => s.kind === 'RT')).toBe(true);
+    });
+
+    it('cpuTimeline contains SCX slices in v7.0 frames', () => {
+      const postFrame = frames.find(f => {
+        const data = f.data as SchedExtState;
+        return data.dlServer?.era === 'v7.0' && (data.cpuTimeline?.some(s => s.kind === 'SCX') ?? false);
+      });
+      expect(postFrame).toBeDefined();
+    });
+
+    it('rtLatencyMs is infinity in pre-v7.0 starvation frame', () => {
+      const preFrame = frames.find(f => (f.data as SchedExtState).dlServer?.era === 'pre-v7.0');
+      expect(preFrame).toBeDefined();
+      const data = preFrame!.data as SchedExtState;
+      expect(data.rtLatencyMs).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it('rtLatencyMs is bounded (<= dl_period) in v7.0 running frame', () => {
+      const running = frames.find(f => {
+        const data = f.data as SchedExtState;
+        return data.dlServer?.era === 'v7.0' && data.phase === 'running' && (data.rtLatencyMs ?? 0) > 0;
+      });
+      expect(running).toBeDefined();
+      const data = running!.data as SchedExtState;
+      expect(data.rtLatencyMs).toBeLessThanOrEqual(1000);
+      expect(Number.isFinite(data.rtLatencyMs!)).toBe(true);
+    });
+
+    it('references update_curr_dl_se (runtime accounting)', () => {
+      const hasRef = frames.some(f =>
+        f.description.includes('update_curr_dl_se') ||
+        (f.data as SchedExtState).srcRef.includes('update_curr_dl_se'),
+      );
+      expect(hasRef).toBe(true);
+    });
+
+    it('references dl_server_timer (period replenishment)', () => {
+      const hasRef = frames.some(f =>
+        f.description.includes('dl_server_timer') ||
+        (f.data as SchedExtState).srcRef.includes('dl_server_timer'),
+      );
+      expect(hasRef).toBe(true);
+    });
+
+    it('references replenish_dl_new_period (budget refill)', () => {
+      const hasRef = frames.some(f => f.description.includes('replenish_dl_new_period'));
+      expect(hasRef).toBe(true);
+    });
+
+    it('references init_dl_entity (DL entity setup)', () => {
+      const hasRef = frames.some(f =>
+        f.description.includes('init_dl_entity') ||
+        (f.data as SchedExtState).srcRef.includes('init_dl_entity'),
+      );
+      expect(hasRef).toBe(true);
+    });
+
+    it('cloneState preserves dlServer.era and new fields', () => {
+      frames.forEach(f => {
+        const data = f.data as SchedExtState;
+        if (data.dlServer) {
+          expect(data.dlServer.era === 'pre-v7.0' || data.dlServer.era === 'v7.0').toBe(true);
+          expect(typeof data.dlServer.dlRuntime).toBe('number');
+          expect(typeof data.dlServer.dlPeriod).toBe('number');
+          expect(typeof data.dlServer.throttled).toBe('boolean');
+        }
+      });
+    });
   });
 
   describe('renderFrame', () => {
@@ -526,6 +648,26 @@ describe('Sched Ext', () => {
         const dsqEntries = svg.querySelectorAll('.anim-dsq-entry');
         expect(dsqEntries.length).toBeGreaterThan(0);
       }
+    });
+
+    it('renders DL server budget bar for dl-server frames', () => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const frames = schedExt.generateFrames('scx-dl-server');
+      const activeFrame = frames.find(f => (f.data as SchedExtState).dlServer?.active === true);
+      expect(activeFrame).toBeDefined();
+      schedExt.renderFrame(svg, activeFrame!, 900, 520);
+      const budgetEls = svg.querySelectorAll('.anim-dl-budget');
+      expect(budgetEls.length).toBeGreaterThan(0);
+    });
+
+    it('renders CPU timeline strip for dl-server frames', () => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const frames = schedExt.generateFrames('scx-dl-server');
+      const timelineFrame = frames.find(f => ((f.data as SchedExtState).cpuTimeline?.length ?? 0) > 0);
+      expect(timelineFrame).toBeDefined();
+      schedExt.renderFrame(svg, timelineFrame!, 900, 520);
+      const timelineEls = svg.querySelectorAll('.anim-cpu-timeline');
+      expect(timelineEls.length).toBeGreaterThan(0);
     });
   });
 });

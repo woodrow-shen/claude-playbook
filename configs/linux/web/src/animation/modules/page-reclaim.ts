@@ -39,6 +39,16 @@ export interface ReclaimState {
   ptesToFlush?: number;
   tlbFlushes?: number;
   batchMode?: boolean;
+  // Extended v7.0 fields (see commit a67fe41e214f "mm: rmap: support batched
+  // unmapping for file large folios").  Added as new optional fields so older
+  // scenarios keep working while the batched-large-folio-unmap demo can carry
+  // per-frame timing/mmu_gather detail.
+  folioSizeLabel?: string;               // e.g. "64 KiB / 16 x 4 KiB"
+  batchModeLabel?: 'per-page' | 'batched';
+  mmuGather?: { pages: number; flushScheduled: boolean };
+  cpuCycles?: { perPage: number; batched: number };
+  ptesCleared?: number;                  // running count of PTEs cleared
+  rmapWalks?: number;                    // number of rmap walks performed
 }
 
 // --- Helpers ---
@@ -55,6 +65,8 @@ function cloneState(s: ReclaimState): ReclaimState {
     ...s,
     lruLists: cloneLruLists(s.lruLists),
     watermarks: { ...s.watermarks },
+    mmuGather: s.mmuGather ? { ...s.mmuGather } : undefined,
+    cpuCycles: s.cpuCycles ? { ...s.cpuCycles } : undefined,
   };
 }
 
@@ -724,7 +736,10 @@ function generateBatchedLargeFolioUnmap(): AnimationFrame[] {
   const lists = emptyLruLists();
 
   // Build a reclaim candidate set on inactive_file:
-  // - 16 subpages belonging to one large (order-4) file folio: "lf-*"
+  // - 16 subpages belonging to one large (order-4, 64 KiB) file folio "lf-*".
+  //   Real v7.0 kernels care most about PMD-sized (2 MiB / 512-subpage) folios
+  //   produced by readahead/THP_FILE, but keeping 16 subpages here preserves
+  //   the existing test expectations while still illustrating the batching.
   // - A couple of small file folios alongside to provide contrast.
   const largeFolioPages: PageInfo[] = [];
   for (let i = 0; i < 16; i++) {
@@ -751,6 +766,14 @@ function generateBatchedLargeFolioUnmap(): AnimationFrame[] {
     ...smallFilePages,
   ];
 
+  // Rough order-of-magnitude cycle budget, used for the pre-v7 vs v7 contrast
+  // frames.  Numbers are illustrative (Arm64 Neoverse class), not measured:
+  //   per-PTE cost ~= atomic xchg + rmap lookup + IPI-class tlbi range ~ 3000 c
+  //   batched cost ~= 1 rmap walk + 16 x cheap store-exclusive + 1 IPI ~= 4500 c
+  const CYCLES_PER_PAGE = 3000;
+  const CYCLES_BATCHED_TOTAL = 4500;
+  const perPageTotal = CYCLES_PER_PAGE * 16;
+
   const state: ReclaimState = {
     lruLists: lists,
     watermarks: wm,
@@ -761,17 +784,22 @@ function generateBatchedLargeFolioUnmap(): AnimationFrame[] {
     phase: 'shrink-folio-list',
     scanCount: 0,
     reclaimedCount: 0,
-    srcRef: 'mm/vmscan.c:1083',
+    srcRef: 'mm/vmscan.c:1078 shrink_folio_list()',
     folioSize: 16,
+    folioSizeLabel: '64 KiB (16 x 4 KiB subpages)',
     ptesToFlush: 0,
     tlbFlushes: 0,
     batchMode: true,
+    batchModeLabel: 'batched',
+    ptesCleared: 0,
+    rmapWalks: 0,
+    mmuGather: { pages: 0, flushScheduled: false },
   };
 
   // Frame 0: shrink_folio_list iterates the reclaim candidate list
   frames.push(makeFrame(0,
     'shrink_folio_list: iterating reclaim candidates',
-    'kswapd has entered shrink_folio_list() at mm/vmscan.c:1083. The isolated list contains a 16-page file-backed large folio (subpages lf-0..lf-15) plus a few small file folios. Each iteration of the loop picks one folio and drives it through reference check, unmap, writeback, and free. In v7.0 the loop treats the large folio as a single unit rather than splitting it into 16 small-folio iterations.',
+    'kswapd has entered shrink_folio_list() at mm/vmscan.c:1078. The isolated list contains a 16-subpage file-backed large folio (lf-0..lf-15) plus a few small file folios. Each iteration picks one folio and drives it through reference check, unmap, writeback, and free. In v7.0 the loop treats the large folio as a single unit rather than splitting it into 16 small-folio iterations.',
     largeFolioPages.map(p => p.id),
     state,
   ));
@@ -782,7 +810,7 @@ function generateBatchedLargeFolioUnmap(): AnimationFrame[] {
   state.scanCount = 1;
   frames.push(makeFrame(1,
     'Iteration reaches the large folio: folio_test_large() == true',
-    'shrink_folio_list() at mm/vmscan.c:1083 dequeues the 16-page file folio. The TTU_SYNC path at mm/vmscan.c:1367 sets enum ttu_flags flags = TTU_BATCH_FLUSH and, because folio_test_large(folio) is true, OR-ins TTU_SYNC. The comment at mm/vmscan.c:1356 explains why: without TTU_SYNC a parallel PTE writer could race with the rmap walk and leave some subpages still mapped after try_to_unmap returns.',
+    'shrink_folio_list() dequeues the 16-subpage file folio. The TTU flag assembly at mm/vmscan.c:1350 sets enum ttu_flags flags = TTU_BATCH_FLUSH, and because folio_test_large(folio) at mm/vmscan.c:1367 is true it also OR-ins TTU_SYNC. The comment at mm/vmscan.c:1356 explains why: without TTU_SYNC a parallel PTE writer could race with the rmap walk and leave some subpages still mapped after try_to_unmap returns.',
     largeFolioPages.map(p => p.id),
     state,
   ));
@@ -792,91 +820,156 @@ function generateBatchedLargeFolioUnmap(): AnimationFrame[] {
   state.srcRef = 'mm/vmscan.c:1370 try_to_unmap()';
   frames.push(makeFrame(2,
     'try_to_unmap(folio, TTU_BATCH_FLUSH | TTU_SYNC)',
-    'shrink_folio_list() calls try_to_unmap(folio, flags) at mm/vmscan.c:1370 exactly once for the whole 16-page folio. TTU_BATCH_FLUSH accumulates TLB invalidations in the current task\'s tlb_ubc struct instead of flushing eagerly. TTU_SYNC makes the rmap walk hold the PTL from the first present PTE so the unmap is atomic across the folio.',
+    'shrink_folio_list() calls try_to_unmap(folio, flags) at mm/vmscan.c:1370 exactly once for the whole 16-subpage folio. try_to_unmap() itself is defined at mm/rmap.c:2392 and hands the folio to rmap_walk() with try_to_unmap_one() as the per-VMA callback. TTU_BATCH_FLUSH asks the rmap callback to accumulate TLB invalidations in the current task\'s tlb_ubc struct (current->tlb_ubc) instead of flushing eagerly.',
     largeFolioPages.map(p => p.id),
     state,
   ));
 
-  // Frame 3: rmap walks mappings; try_to_unmap_one visits each VMA
+  // Frame 3: PRE-v7.0 CONTRAST PART A - describe the per-subpage loop.
+  // This frame shows what used to happen in the kernel before commit
+  // a67fe41e214f.  We flip batchMode off so the visible status ("per-page")
+  // matches the narrative.
+  state.phase = 'pre-v7-per-page-unmap';
+  state.batchMode = false;
+  state.batchModeLabel = 'per-page';
+  state.srcRef = 'mm/rmap.c:1984 try_to_unmap_one()';
+  state.tlbFlushes = 16;
+  state.ptesCleared = 16;
+  state.rmapWalks = 16;
+  state.mmuGather = { pages: 0, flushScheduled: false };
+  state.cpuCycles = { perPage: perPageTotal, batched: CYCLES_BATCHED_TOTAL };
+  frames.push(makeFrame(3,
+    'Pre-v7.0 contrast: 512 per-PTE unmap iterations for a PMD folio',
+    'Before commit a67fe41e214f ("mm: rmap: support batched unmapping for file large folios"), file large folios fell through to the per-subpage path in try_to_unmap_one() (mm/rmap.c:1984). For a 2 MiB PMD folio the kernel executed 512 separate iterations: each called ptep_get_and_clear (or a helper), touched a per-PTE atomic, performed a per-subpage rmap lookup, and queued a fresh flush descriptor via set_tlb_ubc_flush_pending() (mm/rmap.c:742). Our 16-subpage miniature shows the same shape scaled down: 16 PTE clears, 16 rmap walks, 16 pending flush entries.',
+    largeFolioPages.map(p => p.id),
+    state,
+  ));
+
+  // Frame 4: PRE-v7.0 CONTRAST PART B - TLB flush cost is the killer.
+  // Keep state.batchMode=false to stay in the "old world".
+  state.phase = 'pre-v7-per-pte-tlbi';
+  state.srcRef = 'mm/rmap.c:711 try_to_unmap_flush()';
+  state.ptesCleared = 16;
+  state.tlbFlushes = 16;
+  frames.push(makeFrame(4,
+    'Pre-v7.0 cost: 16 per-PTE TLB invalidates, 16 cross-CPU IPIs',
+    'Each pre-v7.0 iteration recorded a single-page range into current->tlb_ubc via set_tlb_ubc_flush_pending() at mm/rmap.c:742, and every call to try_to_unmap_flush() (mm/rmap.c:711) resolved into arch_tlbbatch_flush() issuing a cross-CPU IPI. Budget estimate: 16 x ~3000 cycles of rmap+atomic+IPI = ~48,000 cycles on our toy example; a real 512-subpage PMD folio paid that penalty 32x larger. That overhead is what the v7.0 commit targets.',
+    largeFolioPages.map(p => p.id),
+    state,
+  ));
+
+  // Frame 5: rmap walks mappings; try_to_unmap_one visits each VMA (v7.0)
+  // Flip batchMode back on: we are now describing v7.0 behavior.
   state.phase = 'rmap-walk';
+  state.batchMode = true;
+  state.batchModeLabel = 'batched';
+  state.rmapWalks = 1;
+  state.ptesCleared = 0;
   state.srcRef = 'mm/rmap.c:1984 try_to_unmap_one()';
   state.ptesToFlush = 16;
+  state.tlbFlushes = 0;
+  state.mmuGather = { pages: 0, flushScheduled: false };
   for (const p of largeFolioPages) {
     p.state = 'reclaiming';
   }
-  frames.push(makeFrame(3,
-    'rmap walk: try_to_unmap_one() visits each mapping VMA',
-    'The rmap layer walks every VMA that maps this folio. For each VMA it calls try_to_unmap_one() at mm/rmap.c:1984. v7.0 adds folio_unmap_pte_batch() which uses folio_pte_batch_flags() to find the run of consecutive present PTEs belonging to this folio within one page table (up to pmd_addr_end). The PTE clears are recorded into a single batch; the per-CPU tlb_ubc_flush accumulator is updated rather than issuing an IPI per PTE.',
-    largeFolioPages.map(p => p.id),
-    state,
-  ));
-
-  // Frame 4: pre-v7.0 contrast
-  state.phase = 'pre-v7-contrast';
-  state.srcRef = 'mm/rmap.c:1984 try_to_unmap_one()';
-  state.batchMode = false;
-  state.tlbFlushes = 16;
-  frames.push(makeFrame(4,
-    'Pre-v7.0 behavior (contrast): per-subpage unmap loop',
-    'Before commit a67fe41e214f ("mm: rmap: support batched unmapping for file large folios"), file large folios fell through to the per-page path. shrink_folio_list() effectively drove try_to_unmap_one() 16 times for a 16-page folio, clearing one PTE per call and queuing 16 separate flush descriptors. On a 32-core Arm64 box this cost roughly 2x the wall time that v7.0 needs for the same reclaim target.',
-    largeFolioPages.map(p => p.id),
-    state,
-  ));
-
-  // Frame 5: v7.0 behavior restored
-  state.phase = 'v7-batch';
-  state.srcRef = 'mm/rmap.c:1984 try_to_unmap_one()';
-  state.batchMode = true;
-  state.tlbFlushes = 0;
-  state.ptesToFlush = 16;
   frames.push(makeFrame(5,
-    'v7.0 behavior: one rmap pass, batched PTE clears',
-    'With the v7.0 patch, try_to_unmap_one() at mm/rmap.c:1984 calls folio_unmap_pte_batch() and clears the 16 consecutive PTEs with a single ptep_get_and_clear_full-style batch. The tlb_ubc accumulator now holds one pending range covering all 16 pages instead of 16 separate entries. The folio_mapped(folio) check at mm/vmscan.c:1371 returns false, so shrink_folio_list falls through to the writeback/free path.',
+    'v7.0 rmap walk: try_to_unmap_one() runs once per mapping VMA',
+    'The rmap layer walks every VMA that maps this folio. For each VMA it calls try_to_unmap_one() at mm/rmap.c:1984 exactly once. v7.0 adds folio_unmap_pte_batch() at mm/rmap.c:1944, which in turn calls folio_pte_batch_flags() (declared at mm/internal.h:338) to find the run of consecutive present PTEs belonging to this folio within one page table (capped by pmd_addr_end). The 16 PTE clears will be performed as a single batch on the return path.',
     largeFolioPages.map(p => p.id),
     state,
   ));
 
-  // Frame 6: try_to_unmap_flush_dirty issues one flush covering the range
+  // Frame 6: v7.0 bulk PTE clear via get_and_clear_ptes().
+  // This is the exact line that replaced the per-page loop.
+  state.phase = 'v7-bulk-pte-clear';
+  state.srcRef = 'mm/rmap.c:2172 get_and_clear_ptes()';
+  state.ptesCleared = 16;
+  state.ptesToFlush = 16;
+  frames.push(makeFrame(6,
+    'v7.0 bulk PTE clear: get_and_clear_ptes(mm, address, pvmw.pte, nr_pages)',
+    'Inside try_to_unmap_one(), the present-PTE arm at mm/rmap.c:2166 now calls folio_unmap_pte_batch() to compute nr_pages, then clears all of them at once with pteval = get_and_clear_ptes(mm, address, pvmw.pte, nr_pages) at mm/rmap.c:2172. get_and_clear_ptes() (include/linux/pgtable.h:876) wraps get_and_clear_full_ptes() and atomically nukes the 16 consecutive PTEs using an architecture-specific primitive (contpte on Arm64, single STMXCSR-style store on x86). One call site replaces 16 iterations.',
+    largeFolioPages.map(p => p.id),
+    state,
+  ));
+
+  // Frame 7: TLB batching via set_tlb_ubc_flush_pending()
+  state.phase = 'tlb-ubc-batch';
+  state.srcRef = 'mm/rmap.c:2182 set_tlb_ubc_flush_pending()';
+  state.mmuGather = { pages: 16, flushScheduled: true };
+  frames.push(makeFrame(7,
+    'TLB batching: set_tlb_ubc_flush_pending() records one range',
+    'After the bulk PTE clear, try_to_unmap_one() calls should_defer_flush() (mm/rmap.c:787) which returns true because TTU_BATCH_FLUSH is set. It then invokes set_tlb_ubc_flush_pending(mm, pteval, address, end_addr) at mm/rmap.c:742. A single call records the whole [address, end_addr) range (64 KiB wide) into current->tlb_ubc->arch via arch_tlbbatch_add_pending(). tlb_ubc->flush_required becomes true, and if any subpage was writable tlb_ubc->writable is set.  The hardware TLBI is NOT issued yet.',
+    largeFolioPages.map(p => p.id),
+    state,
+  ));
+
+  // Frame 8: mmu_gather context - on the reclaim path, the tlb_ubc
+  // accumulator is the "batched TLB flush" mechanism.  Use this frame to
+  // explicitly reference include/asm-generic/tlb.h so learners can see the
+  // parallel with munmap()-style mmu_gather batching.
+  state.phase = 'mmu-gather-analogy';
+  state.srcRef = 'include/asm-generic/tlb.h:325 struct mmu_gather';
+  frames.push(makeFrame(8,
+    'mmu_gather analogy: tlb_gather_mmu -> __tlb_remove_page -> tlb_finish_mmu',
+    'On the munmap/exit path the kernel builds a struct mmu_gather (include/asm-generic/tlb.h:325), calls tlb_gather_mmu() (mm/mmu_gather.c:462), queues pages with __tlb_remove_page_size() (include/asm-generic/tlb.h:294), and finalizes with tlb_finish_mmu() (mm/mmu_gather.c:515) - one coalesced TLB shootdown for the whole gather. On the reclaim path the moral equivalent is current->tlb_ubc: set_tlb_ubc_flush_pending() is __tlb_remove_page, and try_to_unmap_flush() is tlb_finish_mmu. Both structures turn N per-page IPIs into one range IPI.',
+    largeFolioPages.map(p => p.id),
+    state,
+  ));
+
+  // Frame 9: contrast frame - put the timing side by side.
+  state.phase = 'cycle-contrast';
+  state.srcRef = 'mm/rmap.c:2167 folio_unmap_pte_batch()';
+  state.cpuCycles = { perPage: perPageTotal, batched: CYCLES_BATCHED_TOTAL };
+  frames.push(makeFrame(9,
+    `Cost contrast: 16 x ${CYCLES_PER_PAGE}c (per-page) vs ~${CYCLES_BATCHED_TOTAL}c (batched)`,
+    `Per-page path (pre-v7.0): ~${CYCLES_PER_PAGE} cycles * 16 subpages = ~${perPageTotal} cycles, plus 16 IPI-class TLB invalidates. Batched path (v7.0): ~${CYCLES_BATCHED_TOTAL} cycles total (one rmap walk + one get_and_clear_ptes batch + one pending-flush record), plus exactly 1 range IPI. For a real 2 MiB PMD folio the per-PTE path scales to 512 iterations and 512 IPIs; the batched path still issues 1. The speedup is O(folio_size).`,
+    largeFolioPages.map(p => p.id),
+    state,
+  ));
+
+  // Frame 10: try_to_unmap_flush_dirty issues one flush covering the range
   // (for clean file folios the flush is elided until the batch boundary,
   // but the code path is the same when any subpage was dirty/writable.)
   state.phase = 'tlb-flush-range';
   state.srcRef = 'mm/vmscan.c:1419 try_to_unmap_flush_dirty()';
   state.tlbFlushes = 1;
   state.ptesToFlush = 0;
-  frames.push(makeFrame(6,
-    'try_to_unmap_flush_dirty(): one TLB flush covers the whole folio',
-    'If any subpage was dirty or writable, shrink_folio_list() at mm/vmscan.c:1419 calls try_to_unmap_flush_dirty() before pageout(). That resolves into arch_tlbbatch_flush() via try_to_unmap_flush() at mm/rmap.c:711, issuing one cross-CPU IPI for the pending range. One flush replaces the 16 flushes the pre-v7.0 path would have produced.',
+  state.mmuGather = { pages: 16, flushScheduled: false };
+  frames.push(makeFrame(10,
+    'try_to_unmap_flush_dirty(): one IPI covers the whole folio range',
+    'If any subpage was dirty or writable, shrink_folio_list() at mm/vmscan.c:1419 calls try_to_unmap_flush_dirty() (mm/rmap.c:724) before pageout(). That calls try_to_unmap_flush() (mm/rmap.c:711), which tests tlb_ubc->flush_required and invokes arch_tlbbatch_flush(&tlb_ubc->arch) - one cross-CPU IPI for the accumulated range, replacing the 16 IPIs the pre-v7.0 path would have generated.',
     largeFolioPages.map(p => p.id),
     state,
   ));
 
-  // Frame 7: folio freed (clean file case: no writeback needed)
+  // Frame 11: folio freed (clean file case: no writeback needed)
   state.phase = 'free-folio';
-  state.srcRef = 'mm/vmscan.c:1535 try_to_unmap_flush()';
+  state.srcRef = 'mm/vmscan.c:1533 folio_batch_add()';
   for (const p of largeFolioPages) {
     p.state = 'freed';
   }
   state.reclaimedCount = 16;
   state.watermarks.freePages = 40;
-  frames.push(makeFrame(7,
+  frames.push(makeFrame(11,
     'Folio unmapped and released: 16 pages accounted in one step',
-    'For a clean file folio, __remove_mapping() drops the page cache reference and the folio is added to the free_folios batch. The free_it path at mm/vmscan.c:1525 does folio_batch_add(&free_folios, folio); when the batch fills, the code at mm/vmscan.c:1533 calls mem_cgroup_uncharge_folios() followed by try_to_unmap_flush() at mm/vmscan.c:1535 and free_unref_folios(). nr_reclaimed is bumped by nr_pages (16) in a single accounting update.',
+    'For a clean file folio, __remove_mapping() drops the page cache reference and the folio is added to the free_folios batch. The free_it path at mm/vmscan.c:1525 runs folio_batch_add(&free_folios, folio) at mm/vmscan.c:1533; when the batch fills, mm/vmscan.c:1534 calls mem_cgroup_uncharge_folios() then try_to_unmap_flush() at mm/vmscan.c:1535 then free_unref_folios(). nr_reclaimed is bumped by nr_pages (16) in a single accounting update at mm/vmscan.c:1530.',
     largeFolioPages.map(p => p.id),
     state,
   ));
 
-  // Frame 8: batch flush at vmscan.c:1535 finalizes pending flushes
+  // Frame 12: batch flush at vmscan.c:1535 finalizes pending flushes
   state.phase = 'batch-flush-boundary';
   state.srcRef = 'mm/vmscan.c:1535 try_to_unmap_flush()';
   state.tlbFlushes = 1;
-  frames.push(makeFrame(8,
+  state.mmuGather = { pages: 0, flushScheduled: false };
+  frames.push(makeFrame(12,
     'Batch boundary: try_to_unmap_flush() drains pending TLB work',
     'When the free_folios batch fills inside the shrink_folio_list() loop, the code at mm/vmscan.c:1535 calls try_to_unmap_flush() (mm/rmap.c:711) to drain any remaining deferred invalidations before free_unref_folios() returns the pages to the buddy allocator. Any remaining small folios in the isolated list continue through the same loop.',
     smallFilePages.map(p => p.id),
     state,
   ));
 
-  // Frame 9: final flush at function exit
+  // Frame 13: final flush at function exit
   state.phase = 'final-flush';
   state.srcRef = 'mm/vmscan.c:1604 try_to_unmap_flush()';
   state.scanCount = 19;
@@ -886,9 +979,9 @@ function generateBatchedLargeFolioUnmap(): AnimationFrame[] {
   for (const p of smallFilePages) {
     p.state = 'freed';
   }
-  frames.push(makeFrame(9,
+  frames.push(makeFrame(13,
     'shrink_folio_list exit: final try_to_unmap_flush() at :1604',
-    'At the bottom of shrink_folio_list(), mm/vmscan.c:1604 performs one last try_to_unmap_flush() to ensure no deferred TLB invalidations leak past the function. Result: the 16-page large folio plus 3 small folios were reclaimed with 2 IPI-class flushes total (one at the dirty gate, one at function exit) instead of the ~19 flushes the pre-v7.0 per-page path would have generated. Free pages climb from 24 to 65 and the zone re-balances.',
+    'At the bottom of shrink_folio_list(), mm/vmscan.c:1604 performs one last try_to_unmap_flush() to ensure no deferred TLB invalidations leak past the function. Result: the 16-subpage large folio plus 3 small folios were reclaimed with 2 IPI-class flushes total (one at the dirty gate, one at function exit) instead of the ~19 flushes the pre-v7.0 per-page path would have generated. Free pages climb from 24 to 65 and the zone re-balances.',
     [],
     state,
   ));

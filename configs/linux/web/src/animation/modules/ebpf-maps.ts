@@ -38,6 +38,11 @@ export interface EbpfMapsState {
   perCpuValues?: number[];
   updateMode?: 'current' | 'cpu' | 'all_cpus';
   targetCpu?: number;
+  // v7.0 deepening: per-CPU slots written in the current frame (for per-syscall
+  // visualization of the pre-v7 loop), API path selector, and syscall cost.
+  cpuMask?: number[];
+  apiMode?: 'pre-v7' | 'single-cpu' | 'all-cpus';
+  syscallCount?: number;
 }
 
 function cloneState(s: EbpfMapsState): EbpfMapsState {
@@ -62,6 +67,9 @@ function cloneState(s: EbpfMapsState): EbpfMapsState {
     perCpuValues: s.perCpuValues ? [...s.perCpuValues] : undefined,
     updateMode: s.updateMode,
     targetCpu: s.targetCpu,
+    cpuMask: s.cpuMask ? [...s.cpuMask] : undefined,
+    apiMode: s.apiMode,
+    syscallCount: s.syscallCount,
   };
 }
 
@@ -503,124 +511,193 @@ function generateBpfFCpuFlags(): AnimationFrame[] {
     perCpuValues: [10, 20, 30, 40],
     updateMode: 'current',
     targetCpu: undefined,
+    cpuMask: undefined,
+    apiMode: undefined,
+    syscallCount: 0,
   };
 
   // Frame 0: Initial per-CPU array with 4 CPUs holding distinct values
   state.phase = 'init';
-  state.srcRef = 'kernel/bpf/hashtab.c:542 htab_map_alloc()';
+  state.srcRef = 'kernel/bpf/arraymap.c:84 array_map_alloc()';
   frames.push({
     step: 0,
     label: 'BPF_MAP_TYPE_PERCPU_ARRAY with 4 CPUs',
-    description: 'A BPF_MAP_TYPE_PERCPU_ARRAY maintains a distinct value slot per CPU. At kernel/bpf/hashtab.c:1796, htab_map_alloc() extends allowed_flags with BPF_F_CPU for per-CPU hash maps in v7.0 (batch operations). Per-CPU arrays use the same convention: each of the 4 CPUs owns an independent slot (here 10, 20, 30, 40). Before v7.0, the only way to write a specific CPU was to run the update on that CPU. Pre-v7.0 userspace had no way to target a remote CPU slot from a single syscall.',
+    description: 'A BPF_MAP_TYPE_PERCPU_ARRAY is allocated by array_map_alloc() at kernel/bpf/arraymap.c:84. Each of the 4 CPUs owns an independent value slot (here 10, 20, 30, 40) accessed through per-CPU pointers in array->pptrs[]. Before v7.0, a BPF program update with BPF_ANY could only reach the CURRENT CPU (this_cpu_ptr), and userspace batch reads/writes used a buffer sized round_up(value_size, 8) * num_possible_cpus() holding every slot at once — see bpf_map_value_size() at kernel/bpf/syscall.c:137.',
     highlights: ['percpu'],
     data: cloneState(state),
   });
 
-  // Frame 1: Userspace issues update with no per-CPU flag - legacy current-CPU semantics
+  // Frame 1: Pre-v7 userspace loop — one syscall per CPU
   state.phase = 'update';
+  state.apiMode = 'pre-v7';
   state.updateMode = 'current';
   state.targetCpu = undefined;
   state.currentValue = '99';
-  state.srcRef = 'kernel/bpf/hashtab.c:1028 pcpu_copy_value()';
+  state.syscallCount = 4;
+  state.cpuMask = [0, 1, 2, 3];
+  state.srcRef = 'kernel/bpf/syscall.c:1766 map_update_elem()';
   frames.push({
     step: 1,
-    label: 'Legacy update: bpf_map_update_elem(fd, &key, &val, BPF_ANY)',
-    description: 'Userspace calls bpf_map_update_elem() with flags=BPF_ANY (no per-CPU flag). In pcpu_copy_value() at kernel/bpf/hashtab.c:1028, when onallcpus is false the kernel takes the this_cpu_ptr(pptr) branch and copies the value into the CURRENT CPU only. The BPF program has no portable way to target a specific remote CPU slot with this legacy path. Value 99 will land on whichever CPU the syscall happens to run on.',
+    label: 'Pre-v7.0: N syscalls, N user-kernel copies',
+    description: 'Before v7.0 there was no kernel-side broadcast or remote-CPU target. To update every slot, userspace had to loop over num_possible_cpus() and either (a) pin itself to each CPU and issue bpf(BPF_MAP_UPDATE_ELEM) per CPU, or (b) build a full num_possible_cpus()*round_up(value_size,8) buffer and submit it through the syscall path at kernel/bpf/syscall.c:1766 map_update_elem(). With 4 CPUs this is 4 syscalls (or one large syscall with 4 * value_size bytes of copy_from_user). The BPF_F_CPU and BPF_F_ALL_CPUS flags added in v7.0 collapse both patterns into a single syscall.',
     highlights: ['percpu'],
     data: cloneState(state),
   });
 
-  // Frame 2: v7.0 BPF_F_CPU flag encoding - upper 32 bits hold the cpu number
-  state.phase = 'encode';
+  // Frame 2: Legacy BPF_ANY update (no per-CPU flag) — current-CPU semantics
+  state.phase = 'update';
+  state.apiMode = undefined;
+  state.updateMode = 'current';
+  state.targetCpu = undefined;
+  state.currentValue = '99';
+  state.syscallCount = 1;
+  state.cpuMask = undefined;
+  state.srcRef = 'kernel/bpf/hashtab.c:1028 pcpu_copy_value()';
+  frames.push({
+    step: 2,
+    label: 'Legacy update: bpf_map_update_elem(fd, &key, &val, BPF_ANY)',
+    description: 'When flags=BPF_ANY (no per-CPU flag), the percpu hash map helper pcpu_copy_value() at kernel/bpf/hashtab.c:1028 takes the this_cpu_ptr(pptr) branch at line 1020 and copies the value into the CURRENT CPU only. The percpu array equivalent array_map_update_elem() at kernel/bpf/arraymap.c:386 also uses this_cpu_ptr. A BPF program has no portable way to target a specific remote CPU slot with this legacy path: value 99 lands on whichever CPU the syscall happens to run on.',
+    highlights: ['percpu'],
+    data: cloneState(state),
+  });
+
+  // Frame 3: v7.0 syscall entry — map_update_elem -> bpf_map_update_value
+  state.phase = 'update';
+  state.apiMode = 'single-cpu';
   state.updateMode = 'cpu';
   state.targetCpu = 2;
   state.currentValue = '77';
-  state.srcRef = 'kernel/bpf/arraymap.c:433 bpf_percpu_array_update()';
+  state.syscallCount = 1;
+  state.cpuMask = [2];
+  state.srcRef = 'kernel/bpf/syscall.c:1788 map_update_elem() -> kernel/bpf/syscall.c:274 bpf_map_update_value()';
   frames.push({
-    step: 2,
-    label: 'v7.0: build flags = BPF_F_CPU | (target_cpu << 32)',
-    description: 'Linux v7.0 adds BPF_F_CPU = 8 at include/uapi/linux/bpf.h:1396 with the comment "cpu flag for percpu maps, upper 32-bit of flags is a cpu number". Userspace packs u64 map_flags = BPF_F_CPU | ((u64)target_cpu << 32). The low 32 bits hold the flag bit, the high 32 bits hold the target CPU index. Here target_cpu=2 so flags = 0x0000000200000008. The kernel decoder in bpf_percpu_array_update() at kernel/bpf/arraymap.c:433 reads cpu = map_flags >> 32.',
+    step: 3,
+    label: 'Syscall path: copy_from_user -> bpf_map_update_value -> bpf_percpu_array_update',
+    description: 'A single bpf(BPF_MAP_UPDATE_ELEM) with flags = BPF_F_CPU | ((u64)2 << 32) enters map_update_elem() at kernel/bpf/syscall.c:1766. Line 1788 calls bpf_map_check_op_flags(map, attr->flags, ~0) to accept any flag combo and let the map-specific code validate. bpf_map_value_size() at kernel/bpf/syscall.c:137 returns just map->value_size (no N*value_size multiplication) because BPF_F_CPU is set. copy_from_user copies one value_size buffer, then bpf_map_update_value() at kernel/bpf/syscall.c:274 dispatches to bpf_percpu_array_update().',
     highlights: ['percpu'],
     data: cloneState(state),
   });
 
-  // Frame 3: Kernel validation path
+  // Frame 4: Flag encoding
+  state.phase = 'encode';
+  state.srcRef = 'include/uapi/linux/bpf.h:1396 BPF_F_CPU -> kernel/bpf/arraymap.c:434 bpf_percpu_array_update()';
+  frames.push({
+    step: 4,
+    label: 'v7.0: build flags = BPF_F_CPU | (target_cpu << 32)',
+    description: 'Linux v7.0 defines BPF_F_CPU = 8 at include/uapi/linux/bpf.h:1396 with the comment "cpu flag for percpu maps, upper 32-bit of flags is a cpu number". Userspace packs u64 map_flags = BPF_F_CPU | ((u64)target_cpu << 32): low 32 bits hold the flag bit, high 32 bits hold the target CPU index. For target_cpu=2 the encoded value is 0x0000000200000008. Inside bpf_percpu_array_update() the kernel decodes this at kernel/bpf/arraymap.c:434 with cpu = map_flags >> 32.',
+    highlights: ['percpu'],
+    data: cloneState(state),
+  });
+
+  // Frame 5: Flag validation
   state.phase = 'validate';
   state.srcRef = 'kernel/bpf/arraymap.c:412 bpf_percpu_array_update()';
   frames.push({
-    step: 3,
+    step: 5,
     label: 'Validation: (u32)map_flags > BPF_F_ALL_CPUS rejects bad combos',
-    description: 'bpf_percpu_array_update() at kernel/bpf/arraymap.c:412 performs flag validation before acting: if ((map_flags & BPF_F_LOCK) || (u32)map_flags > BPF_F_ALL_CPUS) return -EINVAL. The cast to u32 masks off the upper 32 bits (the CPU index), so only the low 32-bit flag bits are compared. BPF_F_LOCK is invalid for per-CPU maps (no shared value to lock), and any flag value above BPF_F_ALL_CPUS=16 in the low 32 bits is an invalid combo that gets rejected.',
+    description: 'bpf_percpu_array_update() at kernel/bpf/arraymap.c:412 validates: if ((map_flags & BPF_F_LOCK) || (u32)map_flags > BPF_F_ALL_CPUS) return -EINVAL. The cast to u32 masks off the upper 32 bits (the CPU index), so only the low 32-bit flag bits are compared against BPF_F_ALL_CPUS=16. BPF_F_LOCK is invalid for per-CPU maps (no shared value to lock), and any unknown flag in the low 32 bits is rejected. The batch variant at kernel/bpf/hashtab.c:1348 performs an identical check, and the syscall-entry check at kernel/bpf/syscall.c:1723 passes BPF_F_LOCK | BPF_F_CPU as the allowed mask for lookup.',
     highlights: ['percpu'],
     data: cloneState(state),
   });
 
-  // Frame 4: BPF_F_CPU branch - write only to CPU 2
+  // Frame 6: BPF_F_CPU branch — write only to CPU 2
   state.phase = 'applied';
+  state.apiMode = 'single-cpu';
   state.updateMode = 'cpu';
   state.targetCpu = 2;
   state.perCpuValues = [10, 20, 77, 40];
+  state.cpuMask = [2];
+  state.syscallCount = 1;
   state.srcRef = 'kernel/bpf/arraymap.c:433 bpf_percpu_array_update()';
   frames.push({
-    step: 4,
+    step: 6,
     label: 'BPF_F_CPU branch: per_cpu_ptr(pptr, cpu) writes only CPU 2',
-    description: 'At kernel/bpf/arraymap.c:433 the BPF_F_CPU branch executes: cpu = map_flags >> 32 at line 434, ptr = per_cpu_ptr(pptr, cpu) at line 435, then copy_map_value() writes the value into CPU 2\'s slot ONLY. CPUs 0, 1, and 3 keep their previous values (10, 20, 40). The goto unlock at line 438 skips the for_each_possible_cpu broadcast loop. Net effect: 77 appears only on CPU 2.',
+    description: 'At kernel/bpf/arraymap.c:433 the BPF_F_CPU branch runs: cpu = map_flags >> 32 at line 434, ptr = per_cpu_ptr(pptr, cpu) at line 435, copy_map_value(map, ptr, value) at line 436 writes into CPU 2\'s slot, then goto unlock at line 438 skips the for_each_possible_cpu broadcast at line 440. CPUs 0, 1, and 3 keep their prior values (10, 20, 40). One syscall, one value_size copy_from_user, one per_cpu_ptr write — versus the pre-v7 4-syscall or 4*value_size pattern.',
     highlights: ['cpu-2'],
     data: cloneState(state),
   });
 
-  // Frame 5: BPF_F_ALL_CPUS - broadcast mode
+  // Frame 7: BPF_F_ALL_CPUS encoding
   state.phase = 'encode';
+  state.apiMode = 'all-cpus';
   state.updateMode = 'all_cpus';
   state.targetCpu = undefined;
   state.currentValue = '55';
-  state.srcRef = 'kernel/bpf/arraymap.c:442 bpf_percpu_array_update()';
+  state.cpuMask = [0, 1, 2, 3];
+  state.syscallCount = 1;
+  state.srcRef = 'include/uapi/linux/bpf.h:1397 BPF_F_ALL_CPUS -> kernel/bpf/arraymap.c:442 bpf_percpu_array_update()';
   frames.push({
-    step: 5,
+    step: 7,
     label: 'Broadcast: flags = BPF_F_ALL_CPUS (single value for all CPUs)',
-    description: 'Linux v7.0 also adds BPF_F_ALL_CPUS = 16 at include/uapi/linux/bpf.h:1397, documented as "update value across all CPUs for percpu maps". Userspace sets flags = BPF_F_ALL_CPUS with no CPU index in the upper 32 bits. In bpf_percpu_array_update() at kernel/bpf/arraymap.c:442 the for_each_possible_cpu loop runs, and val = (map_flags & BPF_F_ALL_CPUS) ? value : value + size * cpu collapses to a single source pointer for every CPU. This replaces the old open-coded userspace loop that had to allocate num_possible_cpus()*value_size bytes.',
+    description: 'Linux v7.0 adds BPF_F_ALL_CPUS = 16 at include/uapi/linux/bpf.h:1397, "update value across all CPUs for percpu maps". Userspace sets flags = BPF_F_ALL_CPUS with no CPU index in the upper 32 bits. In bpf_percpu_array_update() at kernel/bpf/arraymap.c:442 the for_each_possible_cpu loop runs, and val = (map_flags & BPF_F_ALL_CPUS) ? value : value + size * cpu collapses to the same source pointer for every CPU. A single map->value_size copy_from_user replaces the old num_possible_cpus()*round_up(value_size,8) buffer; one syscall replaces N syscalls.',
     highlights: ['percpu'],
     data: cloneState(state),
   });
 
-  // Frame 6: All CPU slots written simultaneously
+  // Frame 8: Broadcast applied
   state.phase = 'applied';
+  state.apiMode = 'all-cpus';
   state.updateMode = 'all_cpus';
   state.perCpuValues = [55, 55, 55, 55];
-  state.srcRef = 'kernel/bpf/arraymap.c:442 bpf_percpu_array_update()';
+  state.cpuMask = [0, 1, 2, 3];
+  state.syscallCount = 1;
+  state.srcRef = 'kernel/bpf/arraymap.c:440 bpf_percpu_array_update()';
   frames.push({
-    step: 6,
+    step: 8,
     label: 'All 4 CPU slots receive the same value',
-    description: 'After the for_each_possible_cpu loop at kernel/bpf/arraymap.c:440 completes, every CPU slot holds 55. Because BPF_F_ALL_CPUS is set, val points at the same source buffer on each iteration instead of advancing by size*cpu. This is a single syscall broadcast rather than num_possible_cpus() syscalls. The hash map equivalent lives at kernel/bpf/hashtab.c:1038 inside pcpu_copy_value() with identical semantics.',
+    description: 'After the for_each_possible_cpu loop at kernel/bpf/arraymap.c:440 completes, every CPU slot holds 55. Because BPF_F_ALL_CPUS is set, val points at the same source buffer on each iteration instead of advancing by size*cpu. The hash map equivalent lives at kernel/bpf/hashtab.c:1038 inside pcpu_copy_value() with identical (map_flags & BPF_F_ALL_CPUS) semantics. Kernel does the N-CPU iteration internally, so userspace pays one syscall regardless of cpu count.',
     highlights: ['cpu-0', 'cpu-1', 'cpu-2', 'cpu-3'],
     data: cloneState(state),
   });
 
-  // Frame 7: Lookup with BPF_F_CPU - fetch from a specific CPU
+  // Frame 9: BPF_F_CPU lookup syscall path
   state.phase = 'lookup';
+  state.apiMode = 'single-cpu';
   state.updateMode = 'cpu';
   state.targetCpu = 2;
   state.currentValue = '55';
-  state.srcRef = 'kernel/bpf/arraymap.c:328 bpf_percpu_array_copy()';
+  state.cpuMask = [2];
+  state.syscallCount = 1;
+  state.srcRef = 'kernel/bpf/syscall.c:1704 map_lookup_elem() -> kernel/bpf/arraymap.c:328 bpf_percpu_array_copy()';
   frames.push({
-    step: 7,
-    label: 'Lookup with BPF_F_CPU: read CPU 2 specifically',
-    description: 'Symmetric read path: bpf_percpu_array_copy() at kernel/bpf/arraymap.c:328 checks (map_flags & BPF_F_CPU) and executes cpu = map_flags >> 32 at line 329, then copy_map_value(map, value, per_cpu_ptr(pptr, cpu)) at line 330. Userspace gets exactly that CPU\'s slot in a single value_size buffer instead of the legacy full num_possible_cpus()*value_size snapshot. Here a lookup with BPF_F_CPU and target CPU 2 returns 55 (after the earlier broadcast). No BPF_F_ALL_CPUS on the read path: reading needs a specific CPU or the legacy full snapshot.',
+    step: 9,
+    label: 'Lookup syscall path: map_lookup_elem -> bpf_percpu_array_copy',
+    description: 'Read path is symmetric. bpf(BPF_MAP_LOOKUP_ELEM) with flags = BPF_F_CPU | ((u64)2 << 32) enters map_lookup_elem() at kernel/bpf/syscall.c:1704. Line 1723 restricts allowed lookup flags to BPF_F_LOCK | BPF_F_CPU (BPF_F_ALL_CPUS is NOT accepted on the read path — there is no way to return N distinct values into one value_size buffer). bpf_map_value_size() returns map->value_size (not N*value_size) because BPF_F_CPU is set. The per-map handler dispatches to bpf_percpu_array_copy() at kernel/bpf/arraymap.c:310.',
     highlights: ['cpu-2'],
     data: cloneState(state),
   });
 
-  // Frame 8: Hash map parity
+  // Frame 10: BPF_F_CPU lookup applied
+  state.phase = 'lookup';
+  state.apiMode = 'single-cpu';
+  state.updateMode = 'cpu';
+  state.targetCpu = 2;
+  state.currentValue = '55';
+  state.cpuMask = [2];
+  state.syscallCount = 1;
+  state.srcRef = 'kernel/bpf/arraymap.c:328 bpf_percpu_array_copy()';
+  frames.push({
+    step: 10,
+    label: 'Lookup with BPF_F_CPU: read CPU 2 specifically',
+    description: 'bpf_percpu_array_copy() at kernel/bpf/arraymap.c:328 tests (map_flags & BPF_F_CPU), executes cpu = map_flags >> 32 at line 329, then copy_map_value(map, value, per_cpu_ptr(pptr, cpu)) at line 330 and goto unlock at line 332. Userspace receives exactly CPU 2\'s slot in a single value_size buffer (55 here, after the earlier broadcast) instead of the legacy full num_possible_cpus()*round_up(value_size,8) snapshot. Any unknown flag above BPF_F_CPU in the low 32 bits would fail the bpf_map_check_op_flags() check earlier in map_lookup_elem().',
+    highlights: ['cpu-2'],
+    data: cloneState(state),
+  });
+
+  // Frame 11: Summary across percpu map family
   state.phase = 'summary';
+  state.apiMode = undefined;
   state.updateMode = undefined;
   state.targetCpu = undefined;
+  state.cpuMask = undefined;
+  state.syscallCount = undefined;
   state.currentValue = '';
   state.currentKey = '';
-  state.srcRef = 'kernel/bpf/hashtab.c:1028 pcpu_copy_value()';
+  state.srcRef = 'kernel/bpf/hashtab.c:1796 __htab_map_lookup_and_delete_batch()';
   frames.push({
-    step: 8,
+    step: 11,
     label: 'Applies to all per-CPU map types',
-    description: 'The BPF_F_CPU / BPF_F_ALL_CPUS mechanism is consistent across every per-CPU map type: BPF_MAP_TYPE_PERCPU_ARRAY (kernel/bpf/arraymap.c), BPF_MAP_TYPE_PERCPU_HASH and BPF_MAP_TYPE_LRU_PERCPU_HASH (pcpu_copy_value() at kernel/bpf/hashtab.c:1028), and BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE. The batch-lookup path in __htab_map_lookup_and_delete_batch() at kernel/bpf/hashtab.c:1796 gates BPF_F_CPU behind !do_delete && is_percpu. Across the whole family, upper-32 cpu encoding and the (u32)map_flags > BPF_F_ALL_CPUS validator are identical.',
+    description: 'BPF_F_CPU / BPF_F_ALL_CPUS is consistent across every per-CPU map type: BPF_MAP_TYPE_PERCPU_ARRAY (kernel/bpf/arraymap.c), BPF_MAP_TYPE_PERCPU_HASH and BPF_MAP_TYPE_LRU_PERCPU_HASH (pcpu_copy_value() at kernel/bpf/hashtab.c:1028), and BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE. The batch path __htab_map_lookup_and_delete_batch() at kernel/bpf/hashtab.c:1770 extends allowed_flags with BPF_F_CPU at line 1796 only when !do_delete && is_percpu, preserving safety on delete batches. Across the whole family, the upper-32 CPU encoding (map_flags >> 32) and the (u32)map_flags > BPF_F_ALL_CPUS validator are identical.',
     highlights: [],
     data: cloneState(state),
   });
@@ -887,14 +964,20 @@ function renderFrame(container: SVGGElement, frame: AnimationFrame, width: numbe
     else if (data.updateMode === 'all_cpus') modeText += 'BPF_F_ALL_CPUS (broadcast)';
     else if (data.updateMode === 'current') modeText += 'Legacy (current CPU only)';
     else modeText += '(init)';
+    if (data.apiMode) modeText += `  |  API: ${data.apiMode}`;
+    if (typeof data.syscallCount === 'number' && data.syscallCount > 0) {
+      modeText += `  |  syscalls=${data.syscallCount}`;
+    }
     modeLabel.textContent = modeText;
     container.appendChild(modeLabel);
 
     data.perCpuValues.forEach((val, i) => {
       const sx = margin.left + i * (slotWidth + 10);
+      const inMask = !!(data.cpuMask && data.cpuMask.includes(i));
       const isTarget =
         (data.updateMode === 'cpu' && data.targetCpu === i) ||
-        (data.updateMode === 'all_cpus' && data.phase === 'applied');
+        (data.updateMode === 'all_cpus' && data.phase === 'applied') ||
+        inMask;
       const isHighlighted = frame.highlights.includes(`cpu-${i}`);
 
       const rect = document.createElementNS(NS, 'rect');

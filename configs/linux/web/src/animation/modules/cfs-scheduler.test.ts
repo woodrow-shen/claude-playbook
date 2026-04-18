@@ -107,9 +107,9 @@ describe('CFS Scheduler', () => {
   describe('generateFrames - cross-class-preempt', () => {
     const frames = cfsScheduler.generateFrames('cross-class-preempt');
 
-    it('generates between 8 and 12 frames', () => {
-      expect(frames.length).toBeGreaterThanOrEqual(8);
-      expect(frames.length).toBeLessThanOrEqual(12);
+    it('generates a detailed frame sequence (>=15 frames)', () => {
+      expect(frames.length).toBeGreaterThanOrEqual(15);
+      expect(frames.length).toBeLessThanOrEqual(30);
     });
 
     it('frames have sequential step numbers', () => {
@@ -122,11 +122,11 @@ describe('CFS Scheduler', () => {
       expect(data.runningPid).toBe(101);
     });
 
-    it('every frame has a v7.0 srcRef into kernel/sched/core.c', () => {
+    it('every frame has a v7.0 srcRef into kernel/sched', () => {
       frames.forEach(f => {
         const data = f.data as CfsState;
         expect(data.srcRef).toBeDefined();
-        expect(data.srcRef).toMatch(/kernel\/sched\/core\.c:\d+/);
+        expect(data.srcRef).toMatch(/kernel\/sched\//);
       });
     });
 
@@ -160,6 +160,34 @@ describe('CFS Scheduler', () => {
       expect(hasIdle).toBe(true);
     });
 
+    it('includes try_to_wake_up entry (core.c:4152)', () => {
+      const has = frames.some(f => (f.data as CfsState).srcRef?.includes('core.c:4152'));
+      expect(has).toBe(true);
+    });
+
+    it('includes ttwu_do_activate (core.c:3705 or :3726)', () => {
+      const has = frames.some(f => {
+        const r = (f.data as CfsState).srcRef ?? '';
+        return r.includes('core.c:3705') || r.includes('core.c:3726');
+      });
+      expect(has).toBe(true);
+    });
+
+    it('includes resched_curr reference (core.c:1212 or :2252)', () => {
+      const has = frames.some(f => {
+        const r = (f.data as CfsState).srcRef ?? '';
+        return r.includes('core.c:1212') || r.includes('core.c:2252');
+      });
+      expect(has).toBe(true);
+    });
+
+    it('references class-specific handlers across fair/rt/dl', () => {
+      const allRefs = frames.map(f => (f.data as CfsState).srcRef ?? '').join('\n');
+      expect(allRefs).toContain('fair.c');
+      expect(allRefs).toContain('rt.c');
+      expect(allRefs).toContain('deadline.c');
+    });
+
     it('upgrades rq->next_class to rt when RT task wakes up', () => {
       const hasRt = frames.some(f => (f.data as CfsState).nextClass === 'rt');
       expect(hasRt).toBe(true);
@@ -185,11 +213,63 @@ describe('CFS Scheduler', () => {
       expect(skipFrame).toBeDefined();
     });
 
+    it('labels a same-class, an upgrade, and a below-skip preemptPath', () => {
+      const paths = new Set(
+        frames
+          .map(f => (f.data as CfsState).preemptPath)
+          .filter((p): p is NonNullable<CfsState['preemptPath']> => !!p)
+      );
+      expect(paths.has('same-class')).toBe(true);
+      expect(paths.has('upgrade')).toBe(true);
+      expect(paths.has('below-skip')).toBe(true);
+    });
+
+    it('records which class handler ran on upgrade frames', () => {
+      const handlers = new Set(
+        frames
+          .map(f => (f.data as CfsState).classHandler)
+          .filter((h): h is NonNullable<CfsState['classHandler']> => !!h)
+      );
+      expect(handlers.has('wakeup_preempt_fair')).toBe(true);
+      expect(handlers.has('wakeup_preempt_rt')).toBe(true);
+      expect(handlers.has('wakeup_preempt_dl')).toBe(true);
+    });
+
+    it('sets reschedFired and needResched on at least one upgrade frame', () => {
+      const fired = frames.find(f => {
+        const d = f.data as CfsState;
+        return d.reschedFired === true && d.needResched === true;
+      });
+      expect(fired).toBeDefined();
+    });
+
+    it('propagates WF_TTWU through wakeFlags on wakeup frames', () => {
+      const ttwuFrame = frames.find(f => (f.data as CfsState).wakeFlags?.ttwu === true);
+      expect(ttwuFrame).toBeDefined();
+    });
+
+    it('marks at least one frame as v7Divergence (pre-v7 vs v7 contrast)', () => {
+      const div = frames.filter(f => (f.data as CfsState).v7Divergence === true);
+      expect(div.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('includes callPath breadcrumbs for the core call chain', () => {
+      const allPaths = frames
+        .map(f => (f.data as CfsState).callPath ?? '')
+        .join('|');
+      expect(allPaths).toContain('try_to_wake_up');
+      expect(allPaths).toContain('ttwu_do_activate');
+      expect(allPaths).toContain('wakeup_preempt');
+      expect(allPaths).toContain('resched_curr');
+    });
+
     it('descriptions mention key v7.0 terminology', () => {
       const allText = frames.map(f => f.description).join('\n');
       expect(allText).toContain('sched_class_above');
       expect(allText).toContain('rq->next_class');
       expect(allText).toContain('wakeup_preempt');
+      expect(allText).toContain('TIF_NEED_RESCHED');
+      expect(allText).toContain('WF_TTWU');
     });
 
     it('renderFrame works on the cross-class-preempt frames', () => {

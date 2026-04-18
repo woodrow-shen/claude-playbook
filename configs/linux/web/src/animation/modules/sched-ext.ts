@@ -9,11 +9,31 @@ export interface SchedExtState {
   errorState: string | null;
   srcRef: string;
   dlServer?: {
+    /** Current remaining runtime budget in nanoseconds (drains under ticks). */
     runtime: number;
+    /** Replenishment budget -- dl_runtime (reset to this on each period). */
+    dlRuntime: number;
+    /** Period in nanoseconds (1_000_000_000 = 1s, default for ext_server). */
+    dlPeriod: number;
+    /** Absolute deadline (rq_clock + dl_period on replenish). */
     deadline: number;
+    /** dl_server_active flag -- true between dl_server_start and dl_server_stop. */
     active: boolean;
+    /** Set while ext_server_pick_task is running. */
     picking: boolean;
+    /** Throttled means runtime drained to 0 and awaiting replenish/period timer. */
+    throttled: boolean;
+    /** Kernel version label for contrast frames ('pre-v7.0' shows the bug). */
+    era: 'pre-v7.0' | 'v7.0';
   };
+  /**
+   * Simulated CPU timeline -- sequence of slices showing which class ran. Used
+   * to contrast pre-v7.0 RT starvation with v7.0 DL-server-guaranteed SCX.
+   * Each entry is 5ms in simulated wall time.
+   */
+  cpuTimeline?: Array<{ kind: 'RT' | 'SCX' | 'IDLE'; label: string }>;
+  /** Highest observed SCX wait latency in milliseconds (bound we're proving). */
+  rtLatencyMs?: number;
 }
 
 function cloneState(s: SchedExtState): SchedExtState {
@@ -28,6 +48,12 @@ function cloneState(s: SchedExtState): SchedExtState {
   };
   if (s.dlServer) {
     copy.dlServer = { ...s.dlServer };
+  }
+  if (s.cpuTimeline) {
+    copy.cpuTimeline = s.cpuTimeline.map(slot => ({ ...slot }));
+  }
+  if (s.rtLatencyMs !== undefined) {
+    copy.rtLatencyMs = s.rtLatencyMs;
   }
   return copy;
 }
@@ -387,6 +413,12 @@ function generateScxErrorRecovery(): AnimationFrame[] {
 // ---------------------------------------------------------------------------
 function generateScxDlServer(): AnimationFrame[] {
   const frames: AnimationFrame[] = [];
+
+  // Default replenishment parameters match sched_init_dl_servers() at
+  // kernel/sched/deadline.c:1843-1844 (50ms runtime / 1000ms period).
+  const DL_RUNTIME = 50_000_000;
+  const DL_PERIOD = 1_000_000_000;
+
   const state: SchedExtState = {
     phase: 'running',
     bpfOps: { enqueue: true, dispatch: true, select_cpu: true, init_task: true, running: true, stopping: true },
@@ -395,112 +427,260 @@ function generateScxDlServer(): AnimationFrame[] {
     scxEnabled: true,
     errorState: null,
     srcRef: '',
-    dlServer: { runtime: 0, deadline: 0, active: false, picking: false },
+    dlServer: {
+      runtime: 0,
+      dlRuntime: DL_RUNTIME,
+      dlPeriod: DL_PERIOD,
+      deadline: 0,
+      active: false,
+      picking: false,
+      throttled: false,
+      era: 'pre-v7.0',
+    },
+    cpuTimeline: [],
+    rtLatencyMs: 0,
   };
 
-  // Frame 0: SCX enabled but RT tasks saturate the CPU -- starvation risk
-  state.srcRef = 'kernel/sched/ext.c:3144 ext_server_init()';
+  // ---------------------------------------------------------------
+  // Act 1 -- Pre-v7.0 starvation timeline (contrast, frames 0..2)
+  // ---------------------------------------------------------------
+
+  // Frame 0: pre-v7.0 world -- no DL server, RT monopolizes
+  state.cpuTimeline = [
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+  ];
+  state.rtLatencyMs = Number.POSITIVE_INFINITY;
+  state.srcRef = 'kernel/sched/ext.c:3121 pick_task_scx()';
   frames.push({
     step: 0,
-    label: 'RT tasks saturate CPU -- SCX tasks at risk of starvation',
-    description: 'The sched_ext scheduler is enabled, but SCHED_FIFO RT tasks are hogging the CPU. Without intervention, rt_sched_class always outranks ext_sched_class in pick_next_task(), so any pending SCX task would never run. Prior to v7.0 this was a real starvation hazard -- BPF schedulers could be preempted indefinitely by userspace RT hogs. v7.0 introduces a dedicated DL (deadline) server per-rq via ext_server_init() at kernel/sched/ext.c:3144 to guarantee SCX tasks a bounded share of CPU time.',
-    highlights: ['task-list'],
+    label: 'Pre-v7.0 contrast -- RT monopolizes CPU, SCX stars',
+    description: 'Before Linux v7.0, sched_ext was strictly lower priority than rt_sched_class. pick_next_task() walks classes in order (stop -> dl -> rt -> fair -> ext -> idle), so if two SCHED_FIFO hogs are runnable on a CPU, pick_task_scx() at kernel/sched/ext.c:3121 never even gets a chance to return. A BPF scheduler could be starved indefinitely -- the CPU timeline shows rt_hog slices back-to-back with no SCX gap. Worst-case SCX latency was unbounded (infinity in the visualization).',
+    highlights: ['task-list', 'error-indicator'],
     data: cloneState(state),
   });
 
-  // Frame 1: ext_server_init() sets up dl_se on the rq
-  state.srcRef = 'kernel/sched/ext.c:3144 ext_server_init()';
-  state.dlServer = { runtime: 0, deadline: 0, active: false, picking: false };
+  // Frame 1: starvation consequence -- scx_worker never runs
+  state.tasks = ['rt_hog[101] (running, SCHED_FIFO)', 'rt_hog[102] (SCHED_FIFO)', 'scx_worker[777] (starved)'];
+  state.dispatchQueue = ['scx_worker[777] -> SCX_DSQ_LOCAL (never picked)'];
+  state.srcRef = 'kernel/sched/ext.c:3121 pick_task_scx()';
   frames.push({
     step: 1,
-    label: 'ext_server_init() initializes per-rq DL entity',
-    description: 'During runqueue bring-up, ext_server_init() at kernel/sched/ext.c:3144 is invoked for every runqueue. It takes a pointer to rq->ext_server (a struct sched_dl_entity embedded in struct rq) and calls init_dl_entity(dl_se) to zero-initialize the DL entity fields (dl_runtime, dl_deadline, dl_period, flags). This reserves a dedicated DL slot on every CPU that the SCX class can use to borrow deadline-class priority without requiring userspace SCHED_DEADLINE tasks.',
+    label: 'Pre-v7.0 -- scx_worker queued in local DSQ but unreachable',
+    description: 'scx_worker[777] is sitting in rq->scx.local_dsq. pick_task_scx() would happily return it if invoked, but pick_next_task() short-circuits inside pick_next_task_rt() because rt_rq->rt_nr_running > 0. No watchdog inside sched_ext itself can raise SCX priority above RT -- rt_sched_class is hard-coded higher. The only workaround was userspace-enforced bandwidth (e.g. CPU shielding), which defeats the purpose of a loadable scheduler. This is the starvation bug that v7.0 fixes.',
+    highlights: ['dsq-queue', 'error-indicator'],
+    data: cloneState(state),
+  });
+
+  // Frame 2: v7.0 enters -- ext_server_init wires up a DL reservation
+  state.dlServer = {
+    runtime: 0,
+    dlRuntime: DL_RUNTIME,
+    dlPeriod: DL_PERIOD,
+    deadline: 0,
+    active: false,
+    picking: false,
+    throttled: false,
+    era: 'v7.0',
+  };
+  state.cpuTimeline = [];
+  state.rtLatencyMs = 0;
+  state.srcRef = 'kernel/sched/ext.c:3144 ext_server_init()';
+  frames.push({
+    step: 2,
+    label: 'v7.0 cure -- ext_server_init() reserves DL bandwidth per rq',
+    description: 'Linux v7.0 introduces a per-runqueue DL (deadline) server dedicated to sched_ext. At CPU onlining, ext_server_init() at kernel/sched/ext.c:3144 is called. It takes &rq->ext_server (a struct sched_dl_entity embedded in struct rq) and calls init_dl_entity(dl_se) at kernel/sched/deadline.c:3737 to zero-init the rb_node, DL timers, and DL params. Later, sched_init_dl_servers() at kernel/sched/deadline.c:1836 applies dl_runtime=50ms / dl_period=1s and sets dl_se->dl_server = 1.',
     highlights: ['phase-flow'],
     data: cloneState(state),
   });
 
-  // Frame 2: dl_server_init registers ext_server_pick_task callback
-  state.srcRef = 'kernel/sched/ext.c:3150 dl_server_init(dl_se, rq, ext_server_pick_task)';
+  // ---------------------------------------------------------------
+  // Act 2 -- v7.0 DL server wiring (frames 3..4)
+  // ---------------------------------------------------------------
+
+  // Frame 3: dl_server_init registers ext_server_pick_task callback
+  state.srcRef = 'kernel/sched/ext.c:3150 dl_server_init()';
   frames.push({
-    step: 2,
-    label: 'dl_server_init() registers ext_server_pick_task callback',
-    description: 'Next, ext_server_init() calls dl_server_init(dl_se, rq, ext_server_pick_task) at kernel/sched/ext.c:3150. This stores ext_server_pick_task as dl_se->server_pick_task -- the callback that the DL scheduler core will invoke when this DL entity is selected. ext_server_pick_task() at kernel/sched/ext.c:3133 is a thin wrapper that checks scx_enabled() and then defers to do_pick_task_scx(dl_se->rq, rf, true), ensuring the DL server always hands back a sched_ext task when asked.',
+    step: 3,
+    label: 'dl_server_init() registers ext_server_pick_task() callback',
+    description: 'ext_server_init() calls dl_server_init(dl_se, rq, ext_server_pick_task) at kernel/sched/ext.c:3150. dl_server_init() at kernel/sched/deadline.c:1829 simply stores dl_se->rq and dl_se->server_pick_task. The callback ext_server_pick_task() at kernel/sched/ext.c:3133 checks scx_enabled() and then tail-calls do_pick_task_scx(dl_se->rq, rf, true) with force_scx=true -- so when the DL core asks "who runs now?", the answer is always the next SCX task from the local DSQ.',
     highlights: ['ops-callback'],
     data: cloneState(state),
   });
 
-  // Frame 3: first SCX task is enqueued -- dl_server_start fires
+  // Frame 4: First SCX task wakes -- dl_server_start arms the reservation
   state.phase = 'enqueue';
   state.tasks = ['rt_hog[101] (SCHED_FIFO)', 'rt_hog[102] (SCHED_FIFO)', 'scx_worker[777]'];
   state.dispatchQueue = ['scx_worker[777] -> SCX_DSQ_LOCAL'];
-  state.dlServer = { runtime: 50_000_000, deadline: 1_000_000_000, active: true, picking: false };
-  state.srcRef = 'kernel/sched/ext.c:1956 dl_server_start(&rq->ext_server)';
+  state.dlServer = {
+    runtime: DL_RUNTIME,
+    dlRuntime: DL_RUNTIME,
+    dlPeriod: DL_PERIOD,
+    deadline: DL_PERIOD,
+    active: true,
+    picking: false,
+    throttled: false,
+    era: 'v7.0',
+  };
+  state.cpuTimeline = [];
+  state.rtLatencyMs = 0;
+  state.srcRef = 'kernel/sched/ext.c:1956 dl_server_start()';
   frames.push({
-    step: 3,
+    step: 4,
     label: 'First SCX task enqueued -- dl_server_start() arms the server',
-    description: 'When the first SCX task becomes runnable on this rq, enqueue_task_scx() notices rq->scx.nr_running == 1 and calls dl_server_start(&rq->ext_server) at kernel/sched/ext.c:1956. This hands rq->ext_server to the DL core, which inserts dl_se into the runqueue dl.root rb-tree with the default dl_runtime/dl_period (the reservation bandwidth for SCX). The server is now visible to pick_next_task_dl() and competes as a DL entity, not as an SCX task.',
+    description: 'enqueue_task_scx() at kernel/sched/ext.c:1920 runs. When rq->scx.nr_running transitions 0 -> 1 (line 1955), it calls dl_server_start(&rq->ext_server) at kernel/sched/ext.c:1956. dl_server_start() at kernel/sched/deadline.c:1791 verifies dl_server(dl_se) and !dl_server_active, sets dl_se->dl_server_active = 1, and calls enqueue_dl_entity(dl_se, ENQUEUE_WAKEUP). The reservation is now an active DL entity on the rq\'s dl.root rb-tree. Runtime=50ms, deadline= rq_clock + 1s.',
     highlights: ['phase-flow'],
     data: cloneState(state),
   });
 
-  // Frame 4: RT task picked and runs (DL server waits but is armed)
+  // ---------------------------------------------------------------
+  // Act 3 -- v7.0 runtime tracking and replenishment (frames 5..9)
+  // ---------------------------------------------------------------
+
+  // Frame 5: RT still runs; dl_server_update ticks down runtime
   state.phase = 'running';
   state.tasks = ['rt_hog[101] (running, SCHED_FIFO)', 'rt_hog[102] (SCHED_FIFO)', 'scx_worker[777] (queued)'];
-  state.dlServer = { runtime: 50_000_000, deadline: 1_000_000_000, active: true, picking: false };
-  state.srcRef = 'kernel/sched/ext.c:1286 dl_server_update(&rq->ext_server, delta_exec)';
+  state.dlServer = {
+    runtime: 35_000_000,  // drained 15ms of the 50ms budget
+    dlRuntime: DL_RUNTIME,
+    dlPeriod: DL_PERIOD,
+    deadline: DL_PERIOD,
+    active: true,
+    picking: false,
+    throttled: false,
+    era: 'v7.0',
+  };
+  state.cpuTimeline = [
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+  ];
+  state.rtLatencyMs = 15;
+  state.srcRef = 'kernel/sched/ext.c:1286 dl_server_update()';
   frames.push({
-    step: 4,
-    label: 'RT task runs -- DL server armed but not yet expired',
-    description: 'pick_next_task() still picks the RT task because the DL server has positive runtime remaining (its deadline has not fired). The RT task runs, but every tick update_curr_scx() at kernel/sched/ext.c:1286 calls dl_server_update(&rq->ext_server, delta_exec). This decrements rq->ext_server.runtime by delta_exec. Note that dl_server_update is called from the SCX update path so that CPU time consumed by any task on this CPU counts toward replenishing the server budget fairly.',
+    step: 5,
+    label: 'RT runs; update_curr_scx() drains DL server runtime',
+    description: 'The RT task is still picked (its priority beats a non-expired DL entity). But on every tick, update_curr_scx() at kernel/sched/ext.c:1271 runs and at line 1286 calls dl_server_update(&rq->ext_server, delta_exec). dl_server_update() at kernel/sched/deadline.c:1580 checks dl_server_active && dl_runtime, then calls update_curr_dl_se() at kernel/sched/deadline.c:1420 which does dl_se->runtime -= scaled_delta_exec (line 1437). The 50ms budget drains on each tick of stolen CPU time.',
     highlights: ['task-list'],
     data: cloneState(state),
   });
 
-  // Frame 5: DL server runtime drains to zero / deadline fires
-  state.dlServer = { runtime: 0, deadline: 1_000_000_000, active: true, picking: false };
-  state.srcRef = 'kernel/sched/ext.c:1286 dl_server_update(&rq->ext_server, delta_exec)';
+  // Frame 6: runtime reaches zero -- dl_runtime_exceeded triggers throttle
+  state.dlServer = {
+    runtime: 0,
+    dlRuntime: DL_RUNTIME,
+    dlPeriod: DL_PERIOD,
+    deadline: DL_PERIOD,
+    active: true,
+    picking: false,
+    throttled: true,
+    era: 'v7.0',
+  };
+  state.cpuTimeline = [
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+  ];
+  state.rtLatencyMs = 50;
+  state.srcRef = 'kernel/sched/deadline.c:1501 update_curr_dl_se()';
   frames.push({
-    step: 5,
-    label: 'DL server runtime expires -- SCX now owed CPU time',
-    description: 'After enough ticks dl_server_update() drives rq->ext_server.runtime to zero. The DL core marks the server as "throttled-needs-replenish" and refreshes dl_se->deadline relative to rq_clock(). Because the deadline of a replenished DL entity is earliest among all runnable entities on this CPU, the DL scheduling class now has a pending deadline job that outranks rt_sched_class in pick_next_task() on the next scheduling decision.',
-    highlights: ['error-indicator'],
+    step: 6,
+    label: 'Runtime exhausted -- dl_runtime_exceeded() throttles the server',
+    description: 'After ~50ms of RT monopoly, dl_se->runtime reaches 0. update_curr_dl_se() at kernel/sched/deadline.c:1501 detects dl_runtime_exceeded() and enters the throttle branch: dl_se->dl_throttled = 1 (line 1503), dequeue_dl_entity (line 1510), then replenish_dl_new_period (line 1518) pushes dl_se->deadline forward and start_dl_timer (line 1519) arms the period hrtimer to fire when the reservation window ends. resched_curr(rq) at line 1526 forces pick_next_task() to rerun.',
+    highlights: ['phase-flow', 'error-indicator'],
     data: cloneState(state),
   });
 
-  // Frame 6: DL server is picked over RT -- ext_server_pick_task invoked
+  // Frame 7: DL class outranks RT -- ext_server_pick_task fires
   state.phase = 'pick';
-  state.dlServer = { runtime: 50_000_000, deadline: 2_000_000_000, active: true, picking: true };
+  state.dlServer = {
+    runtime: DL_RUNTIME,
+    dlRuntime: DL_RUNTIME,
+    dlPeriod: DL_PERIOD,
+    deadline: 2 * DL_PERIOD,
+    active: true,
+    picking: true,
+    throttled: false,
+    era: 'v7.0',
+  };
   state.srcRef = 'kernel/sched/ext.c:3133 ext_server_pick_task()';
   frames.push({
-    step: 6,
-    label: 'DL server outranks RT -- ext_server_pick_task() is called',
-    description: 'pick_next_task() walks the sched classes in priority order. The DL class now has a ready entity (rq->ext_server) whose deadline fires before any runnable RT task, so pick_next_task_dl() selects rq->ext_server. Because dl_se->server_pick_task is set, the core invokes ext_server_pick_task(dl_se, rf) at kernel/sched/ext.c:3133. The wrapper verifies scx_enabled() and calls do_pick_task_scx(dl_se->rq, rf, true) -- returning the next runnable SCX task from the local DSQ instead of letting RT run.',
+    step: 7,
+    label: 'DL class outranks RT -- ext_server_pick_task() selects SCX',
+    description: 'With the server replenished and its absolute deadline earlier than any RT task\'s notional deadline, pick_next_task() walks classes and pick_next_task_dl() selects &rq->ext_server from dl.root. Because dl_se->server_pick_task is non-NULL, the DL core invokes it: ext_server_pick_task() at kernel/sched/ext.c:3133 verifies scx_enabled() and tail-calls do_pick_task_scx(dl_se->rq, rf, /*force_scx=*/true). The returned task is scx_worker[777], pulled from the local DSQ. RT is preempted.',
     highlights: ['ops-callback'],
     data: cloneState(state),
   });
 
-  // Frame 7: SCX task runs under the DL server's borrowed slice
+  // Frame 8: SCX runs under the DL server's borrowed priority
   state.phase = 'running';
   state.tasks = ['rt_hog[101] (SCHED_FIFO)', 'rt_hog[102] (SCHED_FIFO)', 'scx_worker[777] (running via DL server)'];
-  state.dlServer = { runtime: 50_000_000, deadline: 2_000_000_000, active: true, picking: false };
+  state.dispatchQueue = [];
+  state.dlServer = {
+    runtime: 40_000_000,  // consumed 10ms of SCX work
+    dlRuntime: DL_RUNTIME,
+    dlPeriod: DL_PERIOD,
+    deadline: 2 * DL_PERIOD,
+    active: true,
+    picking: false,
+    throttled: false,
+    era: 'v7.0',
+  };
+  state.cpuTimeline = [
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+    { kind: 'SCX', label: 'scx_worker[777]' },
+    { kind: 'SCX', label: 'scx_worker[777]' },
+  ];
+  state.rtLatencyMs = 50;
   state.srcRef = 'kernel/sched/ext.c:3133 ext_server_pick_task()';
   frames.push({
-    step: 7,
-    label: 'SCX task runs under DL server slice -- starvation avoided',
-    description: 'The selected SCX task begins executing. From the scheduler core\'s perspective it is running as part of the DL class via rq->ext_server, so it cannot be preempted by RT tasks until the DL entity\'s runtime drains again. set_next_task_scx() is still invoked (ops.running BPF callback fires) because the task itself is a SCHED_EXT task -- only the scheduling credit comes from the DL server. This guarantees the BPF scheduler at least dl_runtime / dl_period worth of CPU per deadline period even under RT pressure.',
+    step: 8,
+    label: 'SCX runs under DL bandwidth -- bounded worst-case latency',
+    description: 'scx_worker[777] executes with scheduling credit charged to the DL server. set_next_task_scx() fires ops.running() so the BPF scheduler observes the task as running. While the SCX task is on-cpu, update_curr_scx() keeps calling dl_server_update() -- but now delta_exec is consumed *by SCX*, so dl_server_update() at deadline.c:1580 decrements runtime against the server\'s own work. The worst-case SCX wait is now bounded by dl_period - dl_runtime = 950ms under perfect RT adversary, and typically much less.',
     highlights: ['task-list'],
     data: cloneState(state),
   });
 
-  // Frame 8: Cycle repeats -- replenishment keeps SCX live
+  // Frame 9: period timer refreshes; cycle repeats with steady guarantee
   state.phase = 'running';
   state.tasks = ['rt_hog[101] (running, SCHED_FIFO)', 'rt_hog[102] (SCHED_FIFO)', 'scx_worker[777] (queued)'];
-  state.dlServer = { runtime: 40_000_000, deadline: 2_000_000_000, active: true, picking: false };
-  state.srcRef = 'kernel/sched/ext.c:1286 dl_server_update(&rq->ext_server, delta_exec)';
+  state.dlServer = {
+    runtime: DL_RUNTIME,
+    dlRuntime: DL_RUNTIME,
+    dlPeriod: DL_PERIOD,
+    deadline: 3 * DL_PERIOD,
+    active: true,
+    picking: false,
+    throttled: false,
+    era: 'v7.0',
+  };
+  state.cpuTimeline = [
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+    { kind: 'SCX', label: 'scx_worker[777]' },
+    { kind: 'SCX', label: 'scx_worker[777]' },
+    { kind: 'RT', label: 'rt_hog[101]' },
+    { kind: 'RT', label: 'rt_hog[102]' },
+  ];
+  state.rtLatencyMs = 50;
+  state.srcRef = 'kernel/sched/deadline.c:1140 dl_server_timer()';
   frames.push({
-    step: 8,
-    label: 'DL server cycles -- periodic SCX bandwidth guarantee',
-    description: 'After the SCX slice is consumed, control returns to pick_next_task(). The DL server either still has budget (SCX keeps running) or is drained and throttled until the next replenishment (RT resumes, dl_server_update continues to account delta_exec against rq->ext_server). Every period, dl_server replenishes runtime and the cycle repeats. Net effect: SCX receives a bounded, deterministic share of CPU even when SCHED_FIFO workers try to monopolize the CPU -- the v7.0 fix for BPF scheduler starvation.',
+    step: 9,
+    label: 'Period timer fires -- runtime replenished, cycle repeats',
+    description: 'When the dl_timer armed earlier expires, dl_server_timer() at kernel/sched/deadline.c:1140 runs. It calls dl_server_update() to flush any in-flight delta, then if the server is still needed it replenishes via replenish_dl_new_period(): dl_se->runtime = dl_runtime (50ms), dl_se->deadline += dl_period (+1s). The server returns to the rb-tree. Steady state: every 1s window, SCX is guaranteed at least 50ms of CPU, and worst-case RT-pressure latency is bounded instead of infinite. When the last SCX task leaves, dl_server_stop() at kernel/sched/deadline.c:1814 disarms the reservation.',
     highlights: ['phase-flow'],
     data: cloneState(state),
   });
@@ -758,6 +938,85 @@ function renderFrame(container: SVGGElement, frame: AnimationFrame, width: numbe
     text.textContent = entry;
     container.appendChild(text);
   });
+
+  // --- DL server budget bar (dl-server scenario) ---
+  const taskRows = Math.ceil((data.tasks.length || 0) / 3);
+  let extraTop = taskTop + 6 + taskRows * (taskEntryH + 2) + 10;
+
+  if (data.dlServer) {
+    const ds = data.dlServer;
+    const budgetLabel = document.createElementNS(NS, 'text');
+    budgetLabel.setAttribute('x', String(margin.left));
+    budgetLabel.setAttribute('y', String(extraTop));
+    budgetLabel.setAttribute('class', 'anim-cpu-label anim-dl-budget');
+    budgetLabel.textContent = `DL server (${ds.era}): runtime ${Math.round(ds.runtime / 1_000_000)}ms / ${Math.round(ds.dlRuntime / 1_000_000)}ms${ds.throttled ? ' (THROTTLED)' : ''}${ds.active ? '' : ' (inactive)'}`;
+    container.appendChild(budgetLabel);
+
+    const barY = extraTop + 4;
+    const barW = Math.min(360, usableWidth);
+    const barH = 10;
+    const barBg = document.createElementNS(NS, 'rect');
+    barBg.setAttribute('x', String(margin.left));
+    barBg.setAttribute('y', String(barY));
+    barBg.setAttribute('width', String(barW));
+    barBg.setAttribute('height', String(barH));
+    barBg.setAttribute('fill', '#21262d');
+    barBg.setAttribute('class', 'anim-block anim-dl-budget');
+    container.appendChild(barBg);
+
+    const fillRatio = ds.dlRuntime > 0 ? Math.max(0, Math.min(1, ds.runtime / ds.dlRuntime)) : 0;
+    const fillW = Math.round(barW * fillRatio);
+    const barFill = document.createElementNS(NS, 'rect');
+    barFill.setAttribute('x', String(margin.left));
+    barFill.setAttribute('y', String(barY));
+    barFill.setAttribute('width', String(fillW));
+    barFill.setAttribute('height', String(barH));
+    barFill.setAttribute('fill', ds.throttled ? '#f85149' : (ds.picking ? '#d29922' : '#3fb950'));
+    barFill.setAttribute('class', 'anim-block anim-dl-budget-fill');
+    container.appendChild(barFill);
+
+    extraTop += barH + 14;
+  }
+
+  // --- CPU timeline strip (pre-v7.0 vs v7.0 contrast) ---
+  if (data.cpuTimeline && data.cpuTimeline.length > 0) {
+    const tlLabel = document.createElementNS(NS, 'text');
+    tlLabel.setAttribute('x', String(margin.left));
+    tlLabel.setAttribute('y', String(extraTop));
+    tlLabel.setAttribute('class', 'anim-cpu-label anim-cpu-timeline');
+    const latencyStr = data.rtLatencyMs === Number.POSITIVE_INFINITY
+      ? 'infinity'
+      : `${data.rtLatencyMs ?? 0}ms`;
+    tlLabel.textContent = `CPU timeline (worst SCX wait: ${latencyStr}):`;
+    container.appendChild(tlLabel);
+
+    const slotY = extraTop + 4;
+    const slotH = 14;
+    const slotCount = data.cpuTimeline.length;
+    const slotW = Math.max(24, Math.min(48, Math.floor(usableWidth / Math.max(slotCount, 1))));
+    data.cpuTimeline.forEach((slot, i) => {
+      const sx = margin.left + i * slotW;
+      const rect = document.createElementNS(NS, 'rect');
+      rect.setAttribute('x', String(sx));
+      rect.setAttribute('y', String(slotY));
+      rect.setAttribute('width', String(slotW - 2));
+      rect.setAttribute('height', String(slotH));
+      rect.setAttribute('class', 'anim-block anim-cpu-timeline');
+      const fill = slot.kind === 'RT' ? '#f85149' : slot.kind === 'SCX' ? '#3fb950' : '#30363d';
+      rect.setAttribute('fill', fill);
+      container.appendChild(rect);
+
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', String(sx + (slotW - 2) / 2));
+      t.setAttribute('y', String(slotY + 10));
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('fill', '#0d1117');
+      t.setAttribute('font-size', '8');
+      t.setAttribute('class', 'anim-cpu-timeline');
+      t.textContent = slot.kind;
+      container.appendChild(t);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

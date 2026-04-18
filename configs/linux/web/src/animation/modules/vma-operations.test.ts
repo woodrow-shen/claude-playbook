@@ -19,7 +19,18 @@ interface VmaState {
     end: string;
     mm: string;
     uf?: string;
+    mas?: string;
+    first?: string;
+    pgStart?: string;
+    pgEnd?: string;
+    vmaStart?: string;
+    vmaEnd?: string;
+    treeEnd?: string;
+    treeReset?: string;
+    mmWrLocked?: boolean;
+    populatedFields?: string[];
   };
+  typeSafetyBug?: boolean;
 }
 
 describe('VmaOperations', () => {
@@ -231,12 +242,15 @@ describe('VmaOperations', () => {
   describe('generateFrames - vma-flags-unmap-desc (v7.0)', () => {
     const frames = vmaOperations.generateFrames('vma-flags-unmap-desc');
 
-    it('generates at least 8 frames', () => {
-      expect(frames.length).toBeGreaterThanOrEqual(8);
+    it('generates at least 10 frames to cover the deepened walkthrough', () => {
+      // Deepened: pre-v7.0 bug + typedef + test + set/clear + bridge
+      // + struct walk + populate + region + unmap_vmas + free_pgtables
+      // + second caller + summary.
+      expect(frames.length).toBeGreaterThanOrEqual(10);
     });
 
-    it('generates at most 12 frames', () => {
-      expect(frames.length).toBeLessThanOrEqual(12);
+    it('generates at most 14 frames', () => {
+      expect(frames.length).toBeLessThanOrEqual(14);
     });
 
     it('frames have sequential step numbers', () => {
@@ -252,17 +266,26 @@ describe('VmaOperations', () => {
       }
     });
 
-    it('at least one frame marks vmaFlagsType as typed (v7.0)', () => {
-      const found = frames.some(f => {
+    it('opens with a legacy frame flagged as a type-safety bug', () => {
+      const first = frames[0].data as VmaState;
+      expect(first.vmaFlagsType).toBe('legacy');
+      expect(first.typeSafetyBug).toBe(true);
+    });
+
+    it('transitions to typed frames after the legacy opener', () => {
+      const typedFrames = frames.filter(f => {
         const data = f.data as VmaState;
         return data.vmaFlagsType === 'typed';
       });
-      expect(found).toBe(true);
+      expect(typedFrames.length).toBeGreaterThanOrEqual(frames.length - 1);
     });
 
     it('references vma_flags_t and helper functions', () => {
       const expectedTokens = [
         'vma_flags_t',
+        'vma_flags_test',
+        'vma_flags_set',
+        'vma_flags_clear',
         'vma_flags_clear_all',
         'vma_flags_to_legacy',
       ];
@@ -283,14 +306,36 @@ describe('VmaOperations', () => {
       }
     });
 
+    it('traces the descriptor through unmap_vmas and free_pgtables', () => {
+      const expectedCallees = ['unmap_vmas', 'free_pgtables'];
+      for (const fn of expectedCallees) {
+        const found = frames.some(f => {
+          const data = f.data as VmaState;
+          return data.currentFunction === fn || f.description.includes(fn);
+        });
+        expect(found, `Expected frame referencing ${fn}`).toBe(true);
+      }
+    });
+
     it('references verified v7.0 srcRef lines', () => {
+      // Each ref is a real location verified by grep against the v7.0 tree.
+      // See report for verification notes.
       const expectedRefs = [
-        'include/linux/mm_types.h:909',
-        'include/linux/mm_types.h:1078',
-        'include/linux/mm_types.h:1090',
-        'mm/vma.c:481',
-        'mm/vma.c:1278',
-        'mm/mmap.c:1279',
+        'include/linux/mm_types.h:878',   // vma_flags_t typedef
+        'include/linux/mm_types.h:958',   // legacy vm_flags field (bug frame)
+        'include/linux/mm_types.h:959',   // vma_flags_t flags field in vm_area_struct
+        'include/linux/mm_types.h:1078',  // vma_flags_clear_all
+        'include/linux/mm_types.h:1090',  // vma_flags_to_legacy
+        'include/linux/mm.h:1128',        // vma_flags_test
+        'include/linux/mm.h:1233',        // vma_flags_set macro
+        'include/linux/mm.h:1251',        // vma_flags_clear macro
+        'mm/vma.h:162',                   // struct unmap_desc
+        'mm/vma.h:178',                   // unmap_all_init
+        'mm/vma.c:481',                   // unmap_region
+        'mm/vma.c:1278',                  // vms_clear_ptes descriptor
+        'mm/mmap.c:1279',                 // exit_mmap descriptor decl
+        'mm/memory.c:373',                // free_pgtables
+        'mm/memory.c:2145',               // unmap_vmas
       ];
       for (const ref of expectedRefs) {
         const found = frames.some(f => {
@@ -302,8 +347,6 @@ describe('VmaOperations', () => {
     });
 
     it('srcRef format includes a function-style suffix', () => {
-      // Each srcRef should end with a function name followed by () or describe
-      // a named field/struct to keep the "path:line ident" convention.
       for (const f of frames) {
         const data = f.data as VmaState;
         expect(data.srcRef).toMatch(/:\d+\s+\S+/);
@@ -321,11 +364,72 @@ describe('VmaOperations', () => {
       expect(found).toBe(true);
     });
 
+    it('at least one frame populates unmap_desc kernel-accurate fields', () => {
+      // The real struct unmap_desc carries mas, first, pg_start, pg_end,
+      // vma_start, vma_end, tree_end, tree_reset, mm_wr_locked.
+      const found = frames.some(f => {
+        const data = f.data as VmaState;
+        const d = data.unmapDesc;
+        return !!d
+          && !!d.mas
+          && !!d.first
+          && !!d.pgStart
+          && !!d.pgEnd
+          && !!d.vmaStart
+          && !!d.vmaEnd
+          && !!d.treeEnd
+          && !!d.treeReset
+          && typeof d.mmWrLocked === 'boolean';
+      });
+      expect(found).toBe(true);
+    });
+
+    it('walks through descriptor field population', () => {
+      // The "caller builds" frame lists every field populated so far.
+      const found = frames.some(f => {
+        const data = f.data as VmaState;
+        const fields = data.unmapDesc?.populatedFields;
+        if (!fields) return false;
+        const required = [
+          'mas',
+          'first',
+          'pg_start',
+          'pg_end',
+          'vma_start',
+          'vma_end',
+          'tree_end',
+          'tree_reset',
+          'mm_wr_locked',
+        ];
+        return required.every(f => fields.includes(f));
+      });
+      expect(found).toBe(true);
+    });
+
+    it('distinct unmap_desc values across the two call sites', () => {
+      // exit_mmap (via unmap_all_init) vs vms_clear_ptes must show different
+      // tree_reset/mm_wr_locked values.
+      const snapshots = frames
+        .map(f => (f.data as VmaState).unmapDesc)
+        .filter((d): d is NonNullable<typeof d> => !!d && !!d.treeReset);
+      const unique = new Set(snapshots.map(d => `${d.treeReset}|${d.mmWrLocked}`));
+      expect(unique.size).toBeGreaterThanOrEqual(2);
+    });
+
     it('shows VMA removal as part of the unmap path', () => {
       const found = frames.some(f => {
         const data = f.data as VmaState;
         return data.vmas.some(v => v.state === 'removed');
       });
+      expect(found).toBe(true);
+    });
+
+    it('mentions the full call path in at least one frame', () => {
+      // The summary frame should reference the descriptor flow.
+      const found = frames.some(f =>
+        f.description.includes('unmap_region')
+        && (f.description.includes('unmap_vmas') || f.description.includes('free_pgtables'))
+      );
       expect(found).toBe(true);
     });
 
