@@ -19,6 +19,7 @@ export interface ControlBarCallbacks {
 export interface ControlBar {
   update(state: PlaybackState): void;
   updateDescription(label: string, detail: string): void;
+  srcRefSlot: HTMLElement;
   destroy(): void;
 }
 
@@ -139,8 +140,11 @@ export function createControlBar(
   descLabel.className = 'animation-desc-label';
   const descDetail = document.createElement('div');
   descDetail.className = 'animation-desc-detail';
+  const srcRefSlot = document.createElement('div');
+  srcRefSlot.className = 'animation-srcref-slot';
   desc.appendChild(descLabel);
   desc.appendChild(descDetail);
+  desc.appendChild(srcRefSlot);
 
   wrapper.appendChild(btnReset);
   wrapper.appendChild(btnBack);
@@ -209,6 +213,8 @@ export function createControlBar(
       descLabel.textContent = label;
       descDetail.textContent = detail;
     },
+
+    srcRefSlot,
 
     destroy(): void {
       document.removeEventListener('keydown', onKeyDown);

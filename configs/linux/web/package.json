@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build-data && vite build",
+    "build": "npm run build-data && npm run build-snippets && vite build",
     "build-data": "tsx scripts/build-skill-data.ts",
+    "build-snippets": "tsx scripts/build-srcref-snippets.ts",
     "sync-paths-docs": "tsx scripts/sync-paths-docs.ts",
     "validate": "tsx scripts/validate-skills.ts && tsx scripts/sync-paths-docs.ts --check",
     "preview": "vite preview",

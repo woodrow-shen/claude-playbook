@@ -1,0 +1,1248 @@
+{
+  "init/main.c:1008": {
+    "path": "init/main.c",
+    "line": 1008,
+    "startLine": 993,
+    "endLine": 1023,
+    "code": "\t\tfirst_space = cutoff;\n\t\twhile (first_space > cmdline && first_space[-1] == ' ')\n\t\t\tfirst_space--;\n\t\tto_print = first_space - cmdline;\n\t\twhile (*cutoff == ' ')\n\t\t\tcutoff++;\n\t\tused = cutoff - cmdline;\n\n\t\t/* If the whole string is used, break and do the final printout */\n\t\tif (len == used)\n\t\t\tbreak;\n\n\t\tif (to_print)\n\t\t\tpr_notice(\"%s%.*s%s\\n\", KERNEL_CMDLINE_PREFIX,\n\t\t\t\t  to_print, cmdline, KERNEL_CMDLINE_CONTINUATION);\n\n\t\tlen -= used;\n\t\tcmdline += used;\n\t}\n\tif (len)\n\t\tpr_notice(\"%s%s\\n\", KERNEL_CMDLINE_PREFIX, cmdline);\n}\n\nasmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\nvoid start_kernel(void)\n{\n\tchar *command_line;\n\tchar *after_dashes;\n\n\tset_task_stack_end_magic(&init_task);\n\tsmp_setup_processor_id();"
+  },
+  "init/main.c:1030": {
+    "path": "init/main.c",
+    "line": 1030,
+    "startLine": 1015,
+    "endLine": 1045,
+    "code": "\nasmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\nvoid start_kernel(void)\n{\n\tchar *command_line;\n\tchar *after_dashes;\n\n\tset_task_stack_end_magic(&init_task);\n\tsmp_setup_processor_id();\n\tdebug_objects_early_init();\n\tinit_vmlinux_build_id();\n\n\tcgroup_init_early();\n\n\tlocal_irq_disable();\n\tearly_boot_irqs_disabled = true;\n\n\t/*\n\t * Interrupts are still disabled. Do necessary setups, then\n\t * enable them.\n\t */\n\tboot_cpu_init();\n\tpage_address_init();\n\tpr_notice(\"%s\", linux_banner);\n\tsetup_arch(&command_line);\n\tmm_core_init_early();\n\t/* Static keys and static calls are needed by LSMs */\n\tjump_label_init();\n\tstatic_call_init();\n\tearly_security_init();\n\tsetup_boot_config();"
+  },
+  "init/main.c:1070": {
+    "path": "init/main.c",
+    "line": 1070,
+    "startLine": 1055,
+    "endLine": 1085,
+    "code": "\tparse_early_param();\n\tafter_dashes = parse_args(\"Booting kernel\",\n\t\t\t\t  static_command_line, __start___param,\n\t\t\t\t  __stop___param - __start___param,\n\t\t\t\t  -1, -1, NULL, &unknown_bootoption);\n\tprint_unknown_bootoptions();\n\tif (!IS_ERR_OR_NULL(after_dashes))\n\t\tparse_args(\"Setting init args\", after_dashes, NULL, 0, -1, -1,\n\t\t\t   NULL, set_init_arg);\n\tif (extra_init_args)\n\t\tparse_args(\"Setting extra init args\", extra_init_args,\n\t\t\t   NULL, 0, -1, -1, NULL, set_init_arg);\n\n\t/* Architectural and non-timekeeping rng init, before allocator init */\n\trandom_init_early(command_line);\n\n\t/*\n\t * These use large bootmem allocations and must precede\n\t * initalization of page allocator\n\t */\n\tsetup_log_buf(0);\n\tvfs_caches_init_early();\n\tsort_main_extable();\n\ttrap_init();\n\tmm_core_init();\n\tmaple_tree_init();\n\tpoking_init();\n\tftrace_init();\n\n\t/* trace_printk can be enabled here */\n\tearly_trace_init();"
+  },
+  "init/main.c:1083": {
+    "path": "init/main.c",
+    "line": 1083,
+    "startLine": 1068,
+    "endLine": 1098,
+    "code": "\t/* Architectural and non-timekeeping rng init, before allocator init */\n\trandom_init_early(command_line);\n\n\t/*\n\t * These use large bootmem allocations and must precede\n\t * initalization of page allocator\n\t */\n\tsetup_log_buf(0);\n\tvfs_caches_init_early();\n\tsort_main_extable();\n\ttrap_init();\n\tmm_core_init();\n\tmaple_tree_init();\n\tpoking_init();\n\tftrace_init();\n\n\t/* trace_printk can be enabled here */\n\tearly_trace_init();\n\n\t/*\n\t * Set up the scheduler prior starting any interrupts (such as the\n\t * timer interrupt). Full topology setup happens at smp_init()\n\t * time - but meanwhile we still have a functioning scheduler.\n\t */\n\tsched_init();\n\n\tif (WARN(!irqs_disabled(),\n\t\t \"Interrupts were enabled *very* early, fixing it\\n\"))\n\t\tlocal_irq_disable();\n\tradix_tree_init();\n"
+  },
+  "init/main.c:1210": {
+    "path": "init/main.c",
+    "line": 1210,
+    "startLine": 1195,
+    "endLine": 1225,
+    "code": "\tproc_caches_init();\n\tuts_ns_init();\n\ttime_ns_init();\n\tkey_init();\n\tsecurity_init();\n\tdbg_late_init();\n\tnet_ns_init();\n\tvfs_caches_init();\n\tpagecache_init();\n\tsignals_init();\n\tseq_file_init();\n\tproc_root_init();\n\tnsfs_init();\n\tpidfs_init();\n\tcpuset_init();\n\tmem_cgroup_init();\n\tcgroup_init();\n\ttaskstats_init_early();\n\tdelayacct_init();\n\n\tacpi_subsystem_init();\n\tarch_post_acpi_subsys_init();\n\tkcsan_init();\n\n\t/* Do the rest non-__init'ed, we're now alive */\n\trest_init();\n\n\t/*\n\t * Avoid stack canaries in callers of boot_init_stack_canary for gcc-10\n\t * and older.\n\t */"
+  },
+  "init/main.c:1573": {
+    "path": "init/main.c",
+    "line": 1573,
+    "startLine": 1558,
+    "endLine": 1588,
+    "code": "\tif (IS_ENABLED(CONFIG_STRICT_KERNEL_RWX) && rodata_enabled) {\n\t\t/*\n\t\t * load_module() results in W+X mappings, which are cleaned\n\t\t * up with init_free_wq. Let's make sure that queued work is\n\t\t * flushed so that we don't hit false positives looking for\n\t\t * insecure pages which are W+X.\n\t\t */\n\t\tflush_module_init_free_work();\n\t\tjump_label_init_ro();\n\t\tmark_rodata_ro();\n\t\tdebug_checkwx();\n\t\trodata_test();\n\t} else if (IS_ENABLED(CONFIG_STRICT_KERNEL_RWX)) {\n\t\tpr_info(\"Kernel memory protection disabled.\\n\");\n\t} else if (IS_ENABLED(CONFIG_ARCH_HAS_STRICT_KERNEL_RWX)) {\n\t\tpr_warn(\"Kernel memory protection not selected by kernel config.\\n\");\n\t} else {\n\t\tpr_warn(\"This architecture does not have kernel memory protection.\\n\");\n\t}\n}\n\nvoid __weak free_initmem(void)\n{\n\tfree_initmem_default(POISON_FREE_INITMEM);\n}\n\nstatic int __ref kernel_init(void *unused)\n{\n\tint ret;\n\n\t/*"
+  },
+  "init/main.c:1663": {
+    "path": "init/main.c",
+    "line": 1663,
+    "startLine": 1648,
+    "endLine": 1678,
+    "code": "\n\tif (!try_to_run_init_process(\"/sbin/init\") ||\n\t    !try_to_run_init_process(\"/etc/init\") ||\n\t    !try_to_run_init_process(\"/bin/init\") ||\n\t    !try_to_run_init_process(\"/bin/sh\"))\n\t\treturn 0;\n\n\tpanic(\"No working init found.  Try passing init= option to kernel. \"\n\t      \"See Linux Documentation/admin-guide/init.rst for guidance.\");\n}\n\n/* Open /dev/console, for stdin/stdout/stderr, this should never fail */\nvoid __init console_on_rootfs(void)\n{\n\tstruct file *file = filp_open(\"/dev/console\", O_RDWR, 0);\n\n\tif (IS_ERR(file)) {\n\t\tpr_err(\"Warning: unable to open an initial console.\\n\");\n\t\treturn;\n\t}\n\tinit_dup(file);\n\tinit_dup(file);\n\tinit_dup(file);\n\tfput(file);\n}\n\nstatic noinline void __init kernel_init_freeable(void)\n{\n\t/* Now the scheduler is fully set up and can do blocking allocations */\n\tgfp_allowed_mask = __GFP_BITS_MASK;\n"
+  },
+  "init/main.c:1591": {
+    "path": "init/main.c",
+    "line": 1591,
+    "startLine": 1576,
+    "endLine": 1606,
+    "code": "\t}\n}\n\nvoid __weak free_initmem(void)\n{\n\tfree_initmem_default(POISON_FREE_INITMEM);\n}\n\nstatic int __ref kernel_init(void *unused)\n{\n\tint ret;\n\n\t/*\n\t * Wait until kthreadd is all set-up.\n\t */\n\twait_for_completion(&kthreadd_done);\n\n\tkernel_init_freeable();\n\t/* need to finish all async __init code before freeing the memory */\n\tasync_synchronize_full();\n\n\tsystem_state = SYSTEM_FREEING_INITMEM;\n\tkprobe_free_init_mem();\n\tftrace_free_init_mem();\n\tkgdb_free_init_mem();\n\texit_boot_config();\n\tfree_initmem();\n\tmark_readonly();\n\n\t/*\n\t * Kernel mappings are now finalized - update the userspace page-table"
+  },
+  "init/main.c:1491": {
+    "path": "init/main.c",
+    "line": 1491,
+    "startLine": 1476,
+    "endLine": 1506,
+    "code": "/*\n * Ok, the machine is now initialized. None of the devices\n * have been touched yet, but the CPU subsystem is up and\n * running, and memory and process management works.\n *\n * Now we can finally start doing some real work..\n */\nstatic void __init do_basic_setup(void)\n{\n\tcpuset_init_smp();\n\tksysfs_init();\n\tdriver_init();\n\tinit_irq_proc();\n\tdo_ctors();\n\tdo_initcalls();\n}\n\nstatic void __init do_pre_smp_initcalls(void)\n{\n\tinitcall_entry_t *fn;\n\n\tdo_trace_initcall_level(\"early\");\n\tfor (fn = __initcall_start; fn < __initcall0_start; fn++)\n\t\tdo_one_initcall(initcall_from_entry(fn));\n}\n\nstatic int run_init_process(const char *init_filename)\n{\n\tconst char *const *p;\n\n\targv_init[0] = init_filename;"
+  },
+  "arch/x86/kernel/setup.c:884": {
+    "path": "arch/x86/kernel/setup.c",
+    "line": 884,
+    "startLine": 869,
+    "endLine": 899,
+    "code": "}\n\n/*\n * Determine if we were loaded by an EFI loader.  If so, then we have also been\n * passed the efi memmap, systab, etc., so we should use these data structures\n * for initialization.  Note, the efi init code path is determined by the\n * global efi_enabled. This allows the same kernel image to be used on existing\n * systems (with a traditional BIOS) as well as on EFI systems.\n */\n/*\n * setup_arch - architecture-specific boot-time initializations\n *\n * Note: On x86_64, fixmaps are ready for use even before this is called.\n */\n\nvoid __init setup_arch(char **cmdline_p)\n{\n#ifdef CONFIG_X86_32\n\tmemcpy(&boot_cpu_data, &new_cpu_data, sizeof(new_cpu_data));\n\n\t/*\n\t * copy kernel address range established so far and switch\n\t * to the proper swapper page table\n\t */\n\tclone_pgd_range(swapper_pg_dir     + KERNEL_PGD_BOUNDARY,\n\t\t\tinitial_page_table + KERNEL_PGD_BOUNDARY,\n\t\t\tKERNEL_PGD_PTRS);\n\n\tload_cr3(swapper_pg_dir);\n\t/*\n\t * Note: Quark X1000 CPUs advertise PGE incorrectly and require"
+  },
+  "init/main.c:1031": {
+    "path": "init/main.c",
+    "line": 1031,
+    "startLine": 1016,
+    "endLine": 1046,
+    "code": "asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\nvoid start_kernel(void)\n{\n\tchar *command_line;\n\tchar *after_dashes;\n\n\tset_task_stack_end_magic(&init_task);\n\tsmp_setup_processor_id();\n\tdebug_objects_early_init();\n\tinit_vmlinux_build_id();\n\n\tcgroup_init_early();\n\n\tlocal_irq_disable();\n\tearly_boot_irqs_disabled = true;\n\n\t/*\n\t * Interrupts are still disabled. Do necessary setups, then\n\t * enable them.\n\t */\n\tboot_cpu_init();\n\tpage_address_init();\n\tpr_notice(\"%s\", linux_banner);\n\tsetup_arch(&command_line);\n\tmm_core_init_early();\n\t/* Static keys and static calls are needed by LSMs */\n\tjump_label_init();\n\tstatic_call_init();\n\tearly_security_init();\n\tsetup_boot_config();\n\tsetup_command_line(command_line);"
+  },
+  "mm/mm_init.c:2694": {
+    "path": "mm/mm_init.c",
+    "line": 2694,
+    "startLine": 2679,
+    "endLine": 2709,
+    "code": "\t\tK(totalcma_pages)\n#ifdef\tCONFIG_HIGHMEM\n\t\t, K(totalhigh_pages())\n#endif\n\t\t);\n}\n\n#ifndef __HAVE_COLOR_ZERO_PAGE\n/*\n * architectures that __HAVE_COLOR_ZERO_PAGE must define this function\n */\nvoid __init __weak arch_setup_zero_pages(void)\n{\n\t__zero_page = virt_to_page(empty_zero_page);\n}\n#endif\n\nstatic void __init init_zero_page_pfn(void)\n{\n\tarch_setup_zero_pages();\n\tzero_page_pfn = page_to_pfn(ZERO_PAGE(0));\n}\n\nvoid __init __weak arch_mm_preinit(void)\n{\n}\n\nvoid __init __weak mem_init(void)\n{\n}\n"
+  },
+  "mm/mm_init.c:2700": {
+    "path": "mm/mm_init.c",
+    "line": 2700,
+    "startLine": 2685,
+    "endLine": 2715,
+    "code": "\n#ifndef __HAVE_COLOR_ZERO_PAGE\n/*\n * architectures that __HAVE_COLOR_ZERO_PAGE must define this function\n */\nvoid __init __weak arch_setup_zero_pages(void)\n{\n\t__zero_page = virt_to_page(empty_zero_page);\n}\n#endif\n\nstatic void __init init_zero_page_pfn(void)\n{\n\tarch_setup_zero_pages();\n\tzero_page_pfn = page_to_pfn(ZERO_PAGE(0));\n}\n\nvoid __init __weak arch_mm_preinit(void)\n{\n}\n\nvoid __init __weak mem_init(void)\n{\n}\n\nvoid __init mm_core_init_early(void)\n{\n\thugetlb_cma_reserve();\n\thugetlb_bootmem_alloc();\n\n\tfree_area_init();"
+  },
+  "mm/mm_init.c:2720": {
+    "path": "mm/mm_init.c",
+    "line": 2720,
+    "startLine": 2705,
+    "endLine": 2735,
+    "code": "\nvoid __init __weak mem_init(void)\n{\n}\n\nvoid __init mm_core_init_early(void)\n{\n\thugetlb_cma_reserve();\n\thugetlb_bootmem_alloc();\n\n\tfree_area_init();\n}\n\n/*\n * Set up kernel memory allocators\n */\nvoid __init mm_core_init(void)\n{\n\tarch_mm_preinit();\n\tinit_zero_page_pfn();\n\n\t/* Initializations relying on SMP setup */\n\tBUILD_BUG_ON(MAX_ZONELISTS > 2);\n\tbuild_all_zonelists(NULL);\n\tpage_alloc_init_cpuhp();\n\talloc_tag_sec_init();\n\t/*\n\t * page_ext requires contiguous pages,\n\t * bigger than MAX_PAGE_ORDER unless SPARSEMEM.\n\t */\n\tpage_ext_init_flatmem();"
+  },
+  "mm/mm_init.c:2721": {
+    "path": "mm/mm_init.c",
+    "line": 2721,
+    "startLine": 2706,
+    "endLine": 2736,
+    "code": "void __init __weak mem_init(void)\n{\n}\n\nvoid __init mm_core_init_early(void)\n{\n\thugetlb_cma_reserve();\n\thugetlb_bootmem_alloc();\n\n\tfree_area_init();\n}\n\n/*\n * Set up kernel memory allocators\n */\nvoid __init mm_core_init(void)\n{\n\tarch_mm_preinit();\n\tinit_zero_page_pfn();\n\n\t/* Initializations relying on SMP setup */\n\tBUILD_BUG_ON(MAX_ZONELISTS > 2);\n\tbuild_all_zonelists(NULL);\n\tpage_alloc_init_cpuhp();\n\talloc_tag_sec_init();\n\t/*\n\t * page_ext requires contiguous pages,\n\t * bigger than MAX_PAGE_ORDER unless SPARSEMEM.\n\t */\n\tpage_ext_init_flatmem();\n\tmem_debugging_and_hardening_init();"
+  },
+  "mm/mm_init.c:2722": {
+    "path": "mm/mm_init.c",
+    "line": 2722,
+    "startLine": 2707,
+    "endLine": 2737,
+    "code": "{\n}\n\nvoid __init mm_core_init_early(void)\n{\n\thugetlb_cma_reserve();\n\thugetlb_bootmem_alloc();\n\n\tfree_area_init();\n}\n\n/*\n * Set up kernel memory allocators\n */\nvoid __init mm_core_init(void)\n{\n\tarch_mm_preinit();\n\tinit_zero_page_pfn();\n\n\t/* Initializations relying on SMP setup */\n\tBUILD_BUG_ON(MAX_ZONELISTS > 2);\n\tbuild_all_zonelists(NULL);\n\tpage_alloc_init_cpuhp();\n\talloc_tag_sec_init();\n\t/*\n\t * page_ext requires contiguous pages,\n\t * bigger than MAX_PAGE_ORDER unless SPARSEMEM.\n\t */\n\tpage_ext_init_flatmem();\n\tmem_debugging_and_hardening_init();\n\tkfence_alloc_pool_and_metadata();"
+  },
+  "mm/mm_init.c:2732": {
+    "path": "mm/mm_init.c",
+    "line": 2732,
+    "startLine": 2717,
+    "endLine": 2747,
+    "code": "\n/*\n * Set up kernel memory allocators\n */\nvoid __init mm_core_init(void)\n{\n\tarch_mm_preinit();\n\tinit_zero_page_pfn();\n\n\t/* Initializations relying on SMP setup */\n\tBUILD_BUG_ON(MAX_ZONELISTS > 2);\n\tbuild_all_zonelists(NULL);\n\tpage_alloc_init_cpuhp();\n\talloc_tag_sec_init();\n\t/*\n\t * page_ext requires contiguous pages,\n\t * bigger than MAX_PAGE_ORDER unless SPARSEMEM.\n\t */\n\tpage_ext_init_flatmem();\n\tmem_debugging_and_hardening_init();\n\tkfence_alloc_pool_and_metadata();\n\treport_meminit();\n\tkmsan_init_shadow();\n\tstack_depot_early_init();\n\n\t/*\n\t * KHO memory setup must happen while memblock is still active, but\n\t * as close as possible to buddy initialization\n\t */\n\tkho_memory_init();\n"
+  },
+  "init/main.c:1140": {
+    "path": "init/main.c",
+    "line": 1140,
+    "startLine": 1125,
+    "endLine": 1155,
+    "code": "\ttick_init();\n\trcu_init_nohz();\n\ttimers_init();\n\tsrcu_init();\n\thrtimers_init();\n\tsoftirq_init();\n\tvdso_setup_data_pages();\n\ttimekeeping_init();\n\ttime_init();\n\n\t/* This must be after timekeeping is initialized */\n\trandom_init();\n\n\t/* These make use of the fully initialized rng */\n\tkfence_init();\n\tboot_init_stack_canary();\n\n\tperf_event_init();\n\tprofile_init();\n\tcall_function_init();\n\tWARN(!irqs_disabled(), \"Interrupts were enabled early\\n\");\n\n\tearly_boot_irqs_disabled = false;\n\tlocal_irq_enable();\n\n\tkmem_cache_init_late();\n\n\t/*\n\t * HACK ALERT! This is early. We're enabling the console before\n\t * we've done PCI setups etc, and console_init() must be aware of\n\t * this. But we do want output early, in case something goes wrong."
+  },
+  "kernel/sched/core.c:8599": {
+    "path": "kernel/sched/core.c",
+    "line": 8599,
+    "startLine": 8584,
+    "endLine": 8614,
+    "code": "\t\t/*\n\t\t * This is the last CPU online operation. So fall through and\n\t\t * restore the original sched domains by considering the\n\t\t * cpuset configurations.\n\t\t */\n\t\tcpuset_force_rebuild();\n\t}\n\tcpuset_update_active_cpus();\n}\n\nstatic void cpuset_cpu_inactive(unsigned int cpu)\n{\n\tif (!cpuhp_tasks_frozen) {\n\t\tcpuset_update_active_cpus();\n\t} else {\n\t\tnum_cpus_frozen++;\n\t\tcpuset_reset_sched_domains();\n\t}\n}\n\nstatic inline void sched_smt_present_inc(int cpu)\n{\n#ifdef CONFIG_SCHED_SMT\n\tif (cpumask_weight(cpu_smt_mask(cpu)) == 2)\n\t\tstatic_branch_inc_cpuslocked(&sched_smt_present);\n#endif\n}\n\nstatic inline void sched_smt_present_dec(int cpu)\n{\n#ifdef CONFIG_SCHED_SMT"
+  },
+  "kernel/sched/core.c:8605": {
+    "path": "kernel/sched/core.c",
+    "line": 8605,
+    "startLine": 8590,
+    "endLine": 8620,
+    "code": "\t}\n\tcpuset_update_active_cpus();\n}\n\nstatic void cpuset_cpu_inactive(unsigned int cpu)\n{\n\tif (!cpuhp_tasks_frozen) {\n\t\tcpuset_update_active_cpus();\n\t} else {\n\t\tnum_cpus_frozen++;\n\t\tcpuset_reset_sched_domains();\n\t}\n}\n\nstatic inline void sched_smt_present_inc(int cpu)\n{\n#ifdef CONFIG_SCHED_SMT\n\tif (cpumask_weight(cpu_smt_mask(cpu)) == 2)\n\t\tstatic_branch_inc_cpuslocked(&sched_smt_present);\n#endif\n}\n\nstatic inline void sched_smt_present_dec(int cpu)\n{\n#ifdef CONFIG_SCHED_SMT\n\tif (cpumask_weight(cpu_smt_mask(cpu)) == 2)\n\t\tstatic_branch_dec_cpuslocked(&sched_smt_present);\n#endif\n}\n\nint sched_cpu_activate(unsigned int cpu)"
+  },
+  "kernel/sched/core.c:8664": {
+    "path": "kernel/sched/core.c",
+    "line": 8664,
+    "startLine": 8649,
+    "endLine": 8679,
+    "code": "\t *\n\t * 2) At runtime, if cpuset_cpu_active() fails to rebuild the\n\t *    domains.\n\t */\n\tsched_set_rq_online(rq, cpu);\n\n\treturn 0;\n}\n\nint sched_cpu_deactivate(unsigned int cpu)\n{\n\tstruct rq *rq = cpu_rq(cpu);\n\tint ret;\n\n\tret = dl_bw_deactivate(cpu);\n\n\tif (ret)\n\t\treturn ret;\n\n\t/*\n\t * Remove CPU from nohz.idle_cpus_mask to prevent participating in\n\t * load balancing when not active\n\t */\n\tnohz_balance_exit_idle(rq);\n\n\tset_cpu_active(cpu, false);\n\n\t/*\n\t * From this point forward, this CPU will refuse to run any task that\n\t * is not: migrate_disable() or KTHREAD_IS_PER_CPU, and will actively\n\t * push those tasks away until this gets cleared, see"
+  },
+  "kernel/sched/core.c:8672": {
+    "path": "kernel/sched/core.c",
+    "line": 8672,
+    "startLine": 8657,
+    "endLine": 8687,
+    "code": "\nint sched_cpu_deactivate(unsigned int cpu)\n{\n\tstruct rq *rq = cpu_rq(cpu);\n\tint ret;\n\n\tret = dl_bw_deactivate(cpu);\n\n\tif (ret)\n\t\treturn ret;\n\n\t/*\n\t * Remove CPU from nohz.idle_cpus_mask to prevent participating in\n\t * load balancing when not active\n\t */\n\tnohz_balance_exit_idle(rq);\n\n\tset_cpu_active(cpu, false);\n\n\t/*\n\t * From this point forward, this CPU will refuse to run any task that\n\t * is not: migrate_disable() or KTHREAD_IS_PER_CPU, and will actively\n\t * push those tasks away until this gets cleared, see\n\t * sched_cpu_dying().\n\t */\n\tbalance_push_set(cpu, true);\n\n\t/*\n\t * We've cleared cpu_active_mask / set balance_push, wait for all\n\t * preempt-disabled and RCU users of this state to go away such that\n\t * all new such users will observe it."
+  },
+  "kernel/sched/core.c:8782": {
+    "path": "kernel/sched/core.c",
+    "line": 8782,
+    "startLine": 8767,
+    "endLine": 8797,
+    "code": "\tif (delta)\n\t\tatomic_long_add(delta, &calc_load_tasks);\n}\n\nstatic void dump_rq_tasks(struct rq *rq, const char *loglvl)\n{\n\tstruct task_struct *g, *p;\n\tint cpu = cpu_of(rq);\n\n\tlockdep_assert_rq_held(rq);\n\n\tprintk(\"%sCPU%d enqueued tasks (%u total):\\n\", loglvl, cpu, rq->nr_running);\n\tfor_each_process_thread(g, p) {\n\t\tif (task_cpu(p) != cpu)\n\t\t\tcontinue;\n\n\t\tif (!task_on_rq_queued(p))\n\t\t\tcontinue;\n\n\t\tprintk(\"%s\\tpid: %d, name: %s\\n\", loglvl, p->pid, p->comm);\n\t}\n}\n\nint sched_cpu_dying(unsigned int cpu)\n{\n\tstruct rq *rq = cpu_rq(cpu);\n\tstruct rq_flags rf;\n\n\t/* Handle pending wakeups and then migrate everything off */\n\tsched_tick_stop(cpu);\n"
+  },
+  "kernel/smp.c:992": {
+    "path": "kernel/smp.c",
+    "line": 992,
+    "startLine": 977,
+    "endLine": 1007,
+    "code": "}\n\nearly_param(\"nr_cpus\", nrcpus);\n\nstatic int __init maxcpus(char *str)\n{\n\tget_option(&str, &setup_max_cpus);\n\tif (setup_max_cpus == 0)\n\t\tarch_disable_smp_support();\n\n\treturn 0;\n}\n\nearly_param(\"maxcpus\", maxcpus);\n\n#if (NR_CPUS > 1) && !defined(CONFIG_FORCE_NR_CPUS)\n/* Setup number of possible processor ids */\nunsigned int nr_cpu_ids __read_mostly = NR_CPUS;\nEXPORT_SYMBOL(nr_cpu_ids);\n#endif\n\n/* An arch may set nr_cpu_ids earlier if needed, so this would be redundant */\nvoid __init setup_nr_cpu_ids(void)\n{\n\tset_nr_cpu_ids(find_last_bit(cpumask_bits(cpu_possible_mask), NR_CPUS) + 1);\n}\n\n/* Called by boot processor to activate the rest. */\nvoid __init smp_init(void)\n{\n\tint num_nodes, num_cpus;"
+  },
+  "kernel/sched/core.c:8544": {
+    "path": "kernel/sched/core.c",
+    "line": 8544,
+    "startLine": 8529,
+    "endLine": 8559,
+    "code": "\n\t\tcpumask_clear_cpu(rq->cpu, rq->rd->online);\n\t\trq->online = 0;\n\t}\n}\n\nstatic inline void sched_set_rq_online(struct rq *rq, int cpu)\n{\n\tstruct rq_flags rf;\n\n\trq_lock_irqsave(rq, &rf);\n\tif (rq->rd) {\n\t\tBUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));\n\t\tset_rq_online(rq);\n\t}\n\trq_unlock_irqrestore(rq, &rf);\n}\n\nstatic inline void sched_set_rq_offline(struct rq *rq, int cpu)\n{\n\tstruct rq_flags rf;\n\n\trq_lock_irqsave(rq, &rf);\n\tif (rq->rd) {\n\t\tBUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));\n\t\tset_rq_offline(rq);\n\t}\n\trq_unlock_irqrestore(rq, &rf);\n}\n\n/*"
+  },
+  "kernel/sched/core.c:8556": {
+    "path": "kernel/sched/core.c",
+    "line": 8556,
+    "startLine": 8541,
+    "endLine": 8571,
+    "code": "\t\tBUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));\n\t\tset_rq_online(rq);\n\t}\n\trq_unlock_irqrestore(rq, &rf);\n}\n\nstatic inline void sched_set_rq_offline(struct rq *rq, int cpu)\n{\n\tstruct rq_flags rf;\n\n\trq_lock_irqsave(rq, &rf);\n\tif (rq->rd) {\n\t\tBUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));\n\t\tset_rq_offline(rq);\n\t}\n\trq_unlock_irqrestore(rq, &rf);\n}\n\n/*\n * used to mark begin/end of suspend/resume:\n */\nstatic int num_cpus_frozen;\n\n/*\n * Update cpusets according to cpu_active mask.  If cpusets are\n * disabled, cpuset_update_active_cpus() becomes a simple wrapper\n * around partition_sched_domains().\n *\n * If we come here as part of a suspend/resume, don't touch cpusets because we\n * want to restore it back to its original state upon resume anyway.\n */"
+  },
+  "kernel/sched/core.c:8570": {
+    "path": "kernel/sched/core.c",
+    "line": 8570,
+    "startLine": 8555,
+    "endLine": 8585,
+    "code": "\t}\n\trq_unlock_irqrestore(rq, &rf);\n}\n\n/*\n * used to mark begin/end of suspend/resume:\n */\nstatic int num_cpus_frozen;\n\n/*\n * Update cpusets according to cpu_active mask.  If cpusets are\n * disabled, cpuset_update_active_cpus() becomes a simple wrapper\n * around partition_sched_domains().\n *\n * If we come here as part of a suspend/resume, don't touch cpusets because we\n * want to restore it back to its original state upon resume anyway.\n */\nstatic void cpuset_cpu_active(void)\n{\n\tif (cpuhp_tasks_frozen) {\n\t\t/*\n\t\t * num_cpus_frozen tracks how many CPUs are involved in suspend\n\t\t * resume sequence. As long as this is not the last online\n\t\t * operation in the resume sequence, just build a single sched\n\t\t * domain, ignoring cpusets.\n\t\t */\n\t\tcpuset_reset_sched_domains();\n\t\tif (--num_cpus_frozen)\n\t\t\treturn;\n\t\t/*\n\t\t * This is the last CPU online operation. So fall through and"
+  },
+  "mm/page_alloc.c:5272": {
+    "path": "mm/page_alloc.c",
+    "line": 5272,
+    "startLine": 5257,
+    "endLine": 5287,
+    "code": "struct page *__alloc_pages_noprof(gfp_t gfp, unsigned int order,\n\t\tint preferred_nid, nodemask_t *nodemask)\n{\n\tstruct page *page;\n\n\tpage = __alloc_frozen_pages_noprof(gfp, order, preferred_nid, nodemask);\n\tif (page)\n\t\tset_page_refcounted(page);\n\treturn page;\n}\nEXPORT_SYMBOL(__alloc_pages_noprof);\n\nstruct folio *__folio_alloc_noprof(gfp_t gfp, unsigned int order, int preferred_nid,\n\t\tnodemask_t *nodemask)\n{\n\tstruct page *page = __alloc_pages_noprof(gfp | __GFP_COMP, order,\n\t\t\t\t\tpreferred_nid, nodemask);\n\treturn page_rmappable_folio(page);\n}\nEXPORT_SYMBOL(__folio_alloc_noprof);\n\n/*\n * Common helper functions. Never use with __GFP_HIGHMEM because the returned\n * address cannot represent highmem pages. Use alloc_pages and then kmap if\n * you need to access high mem.\n */\nunsigned long get_free_pages_noprof(gfp_t gfp_mask, unsigned int order)\n{\n\tstruct page *page;\n\n\tpage = alloc_pages_noprof(gfp_mask & ~__GFP_HIGHMEM, order);"
+  },
+  "mm/page_alloc.c:1932": {
+    "path": "mm/page_alloc.c",
+    "line": 1932,
+    "startLine": 1917,
+    "endLine": 1947,
+    "code": " * This array describes the order lists are fallen back to when\n * the free lists for the desirable migrate type are depleted\n *\n * The other migratetypes do not have fallbacks.\n */\nstatic int fallbacks[MIGRATE_PCPTYPES][MIGRATE_PCPTYPES - 1] = {\n\t[MIGRATE_UNMOVABLE]   = { MIGRATE_RECLAIMABLE, MIGRATE_MOVABLE   },\n\t[MIGRATE_MOVABLE]     = { MIGRATE_RECLAIMABLE, MIGRATE_UNMOVABLE },\n\t[MIGRATE_RECLAIMABLE] = { MIGRATE_UNMOVABLE,   MIGRATE_MOVABLE   },\n};\n\n#ifdef CONFIG_CMA\nstatic __always_inline struct page *__rmqueue_cma_fallback(struct zone *zone,\n\t\t\t\t\tunsigned int order)\n{\n\treturn __rmqueue_smallest(zone, order, MIGRATE_CMA);\n}\n#else\nstatic inline struct page *__rmqueue_cma_fallback(struct zone *zone,\n\t\t\t\t\tunsigned int order) { return NULL; }\n#endif\n\n/*\n * Move all free pages of a block to new type's freelist. Caller needs to\n * change the block type.\n */\nstatic int __move_freepages_block(struct zone *zone, unsigned long start_pfn,\n\t\t\t\t  int old_mt, int new_mt)\n{\n\tstruct page *page;\n\tunsigned long pfn, end_pfn;"
+  },
+  "mm/page_alloc.c:1738": {
+    "path": "mm/page_alloc.c",
+    "line": 1738,
+    "startLine": 1723,
+    "endLine": 1753,
+    "code": "\t\t__add_to_free_list(&page[size], zone, high, migratetype, false);\n\t\tset_buddy_order(&page[size], high);\n\t\tnr_added += size;\n\t}\n\n\treturn nr_added;\n}\n\nstatic __always_inline void page_del_and_expand(struct zone *zone,\n\t\t\t\t\t\tstruct page *page, int low,\n\t\t\t\t\t\tint high, int migratetype)\n{\n\tint nr_pages = 1 << high;\n\n\t__del_page_from_free_list(page, zone, high, migratetype);\n\tnr_pages -= expand(zone, page, low, high, migratetype);\n\taccount_freepages(zone, -nr_pages, migratetype);\n}\n\nstatic void check_new_page_bad(struct page *page)\n{\n\tif (unlikely(PageHWPoison(page))) {\n\t\t/* Don't complain about hwpoisoned pages */\n\t\tif (PageBuddy(page))\n\t\t\t__ClearPageBuddy(page);\n\t\treturn;\n\t}\n\n\tbad_page(page,\n\t\t page_bad_reason(page, PAGE_FLAGS_CHECK_AT_PREP));\n}"
+  },
+  "mm/page_alloc.c:944": {
+    "path": "mm/page_alloc.c",
+    "line": 944,
+    "startLine": 929,
+    "endLine": 959,
+    "code": " * at the bottom level available, and propagating the changes upward\n * as necessary, plus some accounting needed to play nicely with other\n * parts of the VM system.\n * At each level, we keep a list of pages, which are heads of continuous\n * free pages of length of (1 << order) and marked with PageBuddy.\n * Page's order is recorded in page_private(page) field.\n * So when we are allocating or freeing one, we can derive the state of the\n * other.  That is, if we allocate a small block, and both were\n * free, the remainder of the region must be split into blocks.\n * If a block is freed, and its buddy is also free, then this\n * triggers coalescing into a block of larger size.\n *\n * -- nyc\n */\n\nstatic inline void __free_one_page(struct page *page,\n\t\tunsigned long pfn,\n\t\tstruct zone *zone, unsigned int order,\n\t\tint migratetype, fpi_t fpi_flags)\n{\n\tstruct capture_control *capc = task_capc(zone);\n\tunsigned long buddy_pfn = 0;\n\tunsigned long combined_pfn;\n\tstruct page *buddy;\n\tbool to_tail;\n\n\tVM_BUG_ON(!zone_is_initialized(zone));\n\tVM_BUG_ON_PAGE(page->flags.f & PAGE_FLAGS_CHECK_AT_PREP, page);\n\n\tVM_BUG_ON(migratetype == -1);\n\tVM_BUG_ON_PAGE(pfn & ((1 << order) - 1), page);"
+  },
+  "mm/page_alloc.c:998": {
+    "path": "mm/page_alloc.c",
+    "line": 998,
+    "startLine": 983,
+    "endLine": 1013,
+    "code": "\t\t\tbuddy_mt = get_pfnblock_migratetype(buddy, buddy_pfn);\n\n\t\t\tif (migratetype != buddy_mt &&\n\t\t\t    (!migratetype_is_mergeable(migratetype) ||\n\t\t\t     !migratetype_is_mergeable(buddy_mt)))\n\t\t\t\tgoto done_merging;\n\t\t}\n\n\t\t/*\n\t\t * Our buddy is free or it is CONFIG_DEBUG_PAGEALLOC guard page,\n\t\t * merge with it and move up one order.\n\t\t */\n\t\tif (page_is_guard(buddy))\n\t\t\tclear_page_guard(zone, buddy, order);\n\t\telse\n\t\t\t__del_page_from_free_list(buddy, zone, order, buddy_mt);\n\n\t\tif (unlikely(buddy_mt != migratetype)) {\n\t\t\t/*\n\t\t\t * Match buddy type. This ensures that an\n\t\t\t * expand() down the line puts the sub-blocks\n\t\t\t * on the right freelists.\n\t\t\t */\n\t\t\tchange_pageblock_range(buddy, order, migratetype);\n\t\t}\n\n\t\tcombined_pfn = buddy_pfn & pfn;\n\t\tpage = page + (combined_pfn - pfn);\n\t\tpfn = combined_pfn;\n\t\torder++;\n\t}"
+  },
+  "mm/page_alloc.c:1049": {
+    "path": "mm/page_alloc.c",
+    "line": 1049,
+    "startLine": 1034,
+    "endLine": 1064,
+    "code": " * try and check multiple fields with one check. The caller must do a detailed\n * check if necessary.\n */\nstatic inline bool page_expected_state(struct page *page,\n\t\t\t\t\tunsigned long check_flags)\n{\n\tif (unlikely(atomic_read(&page->_mapcount) != -1))\n\t\treturn false;\n\n\tif (unlikely((unsigned long)page->mapping |\n\t\t\tpage_ref_count(page) |\n#ifdef CONFIG_MEMCG\n\t\t\tpage->memcg_data |\n#endif\n\t\t\t(page->flags.f & check_flags)))\n\t\treturn false;\n\n\treturn true;\n}\n\nstatic const char *page_bad_reason(struct page *page, unsigned long flags)\n{\n\tconst char *bad_reason = NULL;\n\n\tif (unlikely(atomic_read(&page->_mapcount) != -1))\n\t\tbad_reason = \"nonzero mapcount\";\n\tif (unlikely(page->mapping != NULL))\n\t\tbad_reason = \"non-NULL mapping\";\n\tif (unlikely(page_ref_count(page) != 0))\n\t\tbad_reason = \"nonzero _refcount\";\n\tif (unlikely(page->flags.f & flags)) {"
+  },
+  "mm/page_alloc.c:91": {
+    "path": "mm/page_alloc.c",
+    "line": 91,
+    "startLine": 76,
+    "endLine": 106,
+    "code": "#define FPI_SKIP_REPORT_NOTIFY\t((__force fpi_t)BIT(0))\n\n/*\n * Place the (possibly merged) page to the tail of the freelist. Will ignore\n * page shuffling (relevant code - e.g., memory onlining - is expected to\n * shuffle the whole zone).\n *\n * Note: No code should rely on this flag for correctness - it's purely\n *       to allow for optimizations when handing back either fresh pages\n *       (memory onlining) or untouched pages (page isolation, free page\n *       reporting).\n */\n#define FPI_TO_TAIL\t\t((__force fpi_t)BIT(1))\n\n/* Free the page without taking locks. Rely on trylock only. */\n#define FPI_TRYLOCK\t\t((__force fpi_t)BIT(2))\n\n/* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */\nstatic DEFINE_MUTEX(pcp_batch_high_lock);\n#define MIN_PERCPU_PAGELIST_HIGH_FRACTION (8)\n\n/*\n * Locking a pcp requires a PCP lookup followed by a spinlock. To avoid\n * a migration causing the wrong PCP to be locked and remote memory being\n * potentially allocated, pin the task to the CPU for the lookup+lock.\n * preempt_disable is used on !RT because it is faster than migrate_disable.\n * migrate_disable is used on RT because otherwise RT spinlock usage is\n * interfered with and a high priority task cannot preempt the allocator.\n */\n#ifndef CONFIG_PREEMPT_RT\n#define pcpu_task_pin()\t\tpreempt_disable()"
+  },
+  "mm/page_alloc.c:1550": {
+    "path": "mm/page_alloc.c",
+    "line": 1550,
+    "startLine": 1535,
+    "endLine": 1565,
+    "code": "\t\t\t\t   unsigned int order)\n{\n\t/* Remember the order */\n\tpage->private = order;\n\t/* Add the page to the free list */\n\tllist_add(&page->pcp_llist, &zone->trylock_free_pages);\n}\n\nstatic void free_one_page(struct zone *zone, struct page *page,\n\t\t\t  unsigned long pfn, unsigned int order,\n\t\t\t  fpi_t fpi_flags)\n{\n\tstruct llist_head *llhead;\n\tunsigned long flags;\n\n\tif (unlikely(fpi_flags & FPI_TRYLOCK)) {\n\t\tif (!spin_trylock_irqsave(&zone->lock, flags)) {\n\t\t\tadd_page_to_zone_llist(zone, page, order);\n\t\t\treturn;\n\t\t}\n\t} else {\n\t\tspin_lock_irqsave(&zone->lock, flags);\n\t}\n\n\t/* The lock succeeded. Process deferred pages. */\n\tllhead = &zone->trylock_free_pages;\n\tif (unlikely(!llist_empty(llhead) && !(fpi_flags & FPI_TRYLOCK))) {\n\t\tstruct llist_node *llnode;\n\t\tstruct page *p, *tmp;\n\n\t\tllnode = llist_del_all(llhead);"
+  },
+  "mm/page_alloc.c:119": {
+    "path": "mm/page_alloc.c",
+    "line": 119,
+    "startLine": 104,
+    "endLine": 134,
+    "code": " */\n#ifndef CONFIG_PREEMPT_RT\n#define pcpu_task_pin()\t\tpreempt_disable()\n#define pcpu_task_unpin()\tpreempt_enable()\n#else\n#define pcpu_task_pin()\t\tmigrate_disable()\n#define pcpu_task_unpin()\tmigrate_enable()\n#endif\n\n/*\n * A helper to lookup and trylock pcp with embedded spinlock.\n * The return value should be used with the unlock helper.\n * NULL return value means the trylock failed.\n */\n#ifdef CONFIG_SMP\n#define pcp_spin_trylock(ptr)\t\t\t\t\t\t\\\n({\t\t\t\t\t\t\t\t\t\\\n\tstruct per_cpu_pages *_ret;\t\t\t\t\t\\\n\tpcpu_task_pin();\t\t\t\t\t\t\\\n\t_ret = this_cpu_ptr(ptr);\t\t\t\t\t\\\n\tif (!spin_trylock(&_ret->lock)) {\t\t\t\t\\\n\t\tpcpu_task_unpin();\t\t\t\t\t\\\n\t\t_ret = NULL;\t\t\t\t\t\t\\\n\t}\t\t\t\t\t\t\t\t\\\n\t_ret;\t\t\t\t\t\t\t\t\\\n})\n\n#define pcp_spin_unlock(ptr)\t\t\t\t\t\t\\\n({\t\t\t\t\t\t\t\t\t\\\n\tspin_unlock(&ptr->lock);\t\t\t\t\t\\\n\tpcpu_task_unpin();\t\t\t\t\t\t\\"
+  },
+  "mm/page_alloc.c:144": {
+    "path": "mm/page_alloc.c",
+    "line": 144,
+    "startLine": 129,
+    "endLine": 159,
+    "code": "})\n\n#define pcp_spin_unlock(ptr)\t\t\t\t\t\t\\\n({\t\t\t\t\t\t\t\t\t\\\n\tspin_unlock(&ptr->lock);\t\t\t\t\t\\\n\tpcpu_task_unpin();\t\t\t\t\t\t\\\n})\n\n/*\n * On CONFIG_SMP=n the UP implementation of spin_trylock() never fails and thus\n * is not compatible with our locking scheme. However we do not need pcp for\n * scalability in the first place, so just make all the trylocks fail and take\n * the slow path unconditionally.\n */\n#else\n#define pcp_spin_trylock(ptr)\t\t\\\n\t\tNULL\n\n#define pcp_spin_unlock(ptr)\t\t\\\n\t\tBUG_ON(1)\n#endif\n\n/*\n * In some cases we do not need to pin the task to the CPU because we are\n * already given a specific cpu's pcp pointer.\n */\n#define pcp_spin_lock_nopin(ptr)\t\t\t\\\n\t\tspin_lock(&(ptr)->lock)\n#define pcp_spin_unlock_nopin(ptr)\t\t\t\\\n\t\tspin_unlock(&(ptr)->lock)\n"
+  },
+  "mm/page_alloc.c:1408": {
+    "path": "mm/page_alloc.c",
+    "line": 1408,
+    "startLine": 1393,
+    "endLine": 1423,
+    "code": "\n\tif (is_check_pages_enabled()) {\n\t\tif (free_page_is_bad(page))\n\t\t\tbad++;\n\t\tif (bad)\n\t\t\treturn false;\n\t}\n\n\tpage_cpupid_reset_last(page);\n\tpage->flags.f &= ~PAGE_FLAGS_CHECK_AT_PREP;\n\tpage->private = 0;\n\treset_page_owner(page, order);\n\tpage_table_check_free(page, order);\n\tpgalloc_tag_sub(page, 1 << order);\n\n\tif (!PageHighMem(page) && !(fpi_flags & FPI_TRYLOCK)) {\n\t\tdebug_check_no_locks_freed(page_address(page),\n\t\t\t\t\t   PAGE_SIZE << order);\n\t\tdebug_check_no_obj_freed(page_address(page),\n\t\t\t\t\t   PAGE_SIZE << order);\n\t}\n\n\tkernel_poison_pages(page, 1 << order);\n\n\t/*\n\t * As memory initialization might be integrated into KASAN,\n\t * KASAN poisoning and memory initialization code must be\n\t * kept together to avoid discrepancies in behavior.\n\t *\n\t * With hardware tag-based KASAN, memory tags must be set before the\n\t * page becomes unavailable via debug_pagealloc or arch_free_page."
+  },
+  "mm/page_alloc.c:124": {
+    "path": "mm/page_alloc.c",
+    "line": 124,
+    "startLine": 109,
+    "endLine": 139,
+    "code": "#define pcpu_task_pin()\t\tmigrate_disable()\n#define pcpu_task_unpin()\tmigrate_enable()\n#endif\n\n/*\n * A helper to lookup and trylock pcp with embedded spinlock.\n * The return value should be used with the unlock helper.\n * NULL return value means the trylock failed.\n */\n#ifdef CONFIG_SMP\n#define pcp_spin_trylock(ptr)\t\t\t\t\t\t\\\n({\t\t\t\t\t\t\t\t\t\\\n\tstruct per_cpu_pages *_ret;\t\t\t\t\t\\\n\tpcpu_task_pin();\t\t\t\t\t\t\\\n\t_ret = this_cpu_ptr(ptr);\t\t\t\t\t\\\n\tif (!spin_trylock(&_ret->lock)) {\t\t\t\t\\\n\t\tpcpu_task_unpin();\t\t\t\t\t\\\n\t\t_ret = NULL;\t\t\t\t\t\t\\\n\t}\t\t\t\t\t\t\t\t\\\n\t_ret;\t\t\t\t\t\t\t\t\\\n})\n\n#define pcp_spin_unlock(ptr)\t\t\t\t\t\t\\\n({\t\t\t\t\t\t\t\t\t\\\n\tspin_unlock(&ptr->lock);\t\t\t\t\t\\\n\tpcpu_task_unpin();\t\t\t\t\t\t\\\n})\n\n/*\n * On CONFIG_SMP=n the UP implementation of spin_trylock() never fails and thus\n * is not compatible with our locking scheme. However we do not need pcp for"
+  },
+  "mm/page_alloc.c:1540": {
+    "path": "mm/page_alloc.c",
+    "line": 1540,
+    "startLine": 1525,
+    "endLine": 1555,
+    "code": "\n\t\t__free_one_page(page, pfn, zone, order, mt, fpi);\n\t\tpfn += 1 << order;\n\t\tif (pfn == end)\n\t\t\tbreak;\n\t\tpage = pfn_to_page(pfn);\n\t} while (1);\n}\n\nstatic void add_page_to_zone_llist(struct zone *zone, struct page *page,\n\t\t\t\t   unsigned int order)\n{\n\t/* Remember the order */\n\tpage->private = order;\n\t/* Add the page to the free list */\n\tllist_add(&page->pcp_llist, &zone->trylock_free_pages);\n}\n\nstatic void free_one_page(struct zone *zone, struct page *page,\n\t\t\t  unsigned long pfn, unsigned int order,\n\t\t\t  fpi_t fpi_flags)\n{\n\tstruct llist_head *llhead;\n\tunsigned long flags;\n\n\tif (unlikely(fpi_flags & FPI_TRYLOCK)) {\n\t\tif (!spin_trylock_irqsave(&zone->lock, flags)) {\n\t\t\tadd_page_to_zone_llist(zone, page, order);\n\t\t\treturn;\n\t\t}\n\t} else {"
+  },
+  "mm/page_alloc.c:1534": {
+    "path": "mm/page_alloc.c",
+    "line": 1534,
+    "startLine": 1519,
+    "endLine": 1549,
+    "code": "\n\tif (order > pageblock_order)\n\t\torder = pageblock_order;\n\n\tdo {\n\t\tint mt = get_pfnblock_migratetype(page, pfn);\n\n\t\t__free_one_page(page, pfn, zone, order, mt, fpi);\n\t\tpfn += 1 << order;\n\t\tif (pfn == end)\n\t\t\tbreak;\n\t\tpage = pfn_to_page(pfn);\n\t} while (1);\n}\n\nstatic void add_page_to_zone_llist(struct zone *zone, struct page *page,\n\t\t\t\t   unsigned int order)\n{\n\t/* Remember the order */\n\tpage->private = order;\n\t/* Add the page to the free list */\n\tllist_add(&page->pcp_llist, &zone->trylock_free_pages);\n}\n\nstatic void free_one_page(struct zone *zone, struct page *page,\n\t\t\t  unsigned long pfn, unsigned int order,\n\t\t\t  fpi_t fpi_flags)\n{\n\tstruct llist_head *llhead;\n\tunsigned long flags;\n"
+  },
+  "mm/page_alloc.c:1561": {
+    "path": "mm/page_alloc.c",
+    "line": 1561,
+    "startLine": 1546,
+    "endLine": 1576,
+    "code": "{\n\tstruct llist_head *llhead;\n\tunsigned long flags;\n\n\tif (unlikely(fpi_flags & FPI_TRYLOCK)) {\n\t\tif (!spin_trylock_irqsave(&zone->lock, flags)) {\n\t\t\tadd_page_to_zone_llist(zone, page, order);\n\t\t\treturn;\n\t\t}\n\t} else {\n\t\tspin_lock_irqsave(&zone->lock, flags);\n\t}\n\n\t/* The lock succeeded. Process deferred pages. */\n\tllhead = &zone->trylock_free_pages;\n\tif (unlikely(!llist_empty(llhead) && !(fpi_flags & FPI_TRYLOCK))) {\n\t\tstruct llist_node *llnode;\n\t\tstruct page *p, *tmp;\n\n\t\tllnode = llist_del_all(llhead);\n\t\tllist_for_each_entry_safe(p, tmp, llnode, pcp_llist) {\n\t\t\tunsigned int p_order = p->private;\n\n\t\t\tsplit_large_buddy(zone, p, page_to_pfn(p), p_order, fpi_flags);\n\t\t\t__count_vm_events(PGFREE, 1 << p_order);\n\t\t}\n\t}\n\tsplit_large_buddy(zone, page, pfn, order, fpi_flags);\n\tspin_unlock_irqrestore(&zone->lock, flags);\n\n\t__count_vm_events(PGFREE, 1 << order);"
+  },
+  "mm/page_alloc.c:1569": {
+    "path": "mm/page_alloc.c",
+    "line": 1569,
+    "startLine": 1554,
+    "endLine": 1584,
+    "code": "\t\t}\n\t} else {\n\t\tspin_lock_irqsave(&zone->lock, flags);\n\t}\n\n\t/* The lock succeeded. Process deferred pages. */\n\tllhead = &zone->trylock_free_pages;\n\tif (unlikely(!llist_empty(llhead) && !(fpi_flags & FPI_TRYLOCK))) {\n\t\tstruct llist_node *llnode;\n\t\tstruct page *p, *tmp;\n\n\t\tllnode = llist_del_all(llhead);\n\t\tllist_for_each_entry_safe(p, tmp, llnode, pcp_llist) {\n\t\t\tunsigned int p_order = p->private;\n\n\t\t\tsplit_large_buddy(zone, p, page_to_pfn(p), p_order, fpi_flags);\n\t\t\t__count_vm_events(PGFREE, 1 << p_order);\n\t\t}\n\t}\n\tsplit_large_buddy(zone, page, pfn, order, fpi_flags);\n\tspin_unlock_irqrestore(&zone->lock, flags);\n\n\t__count_vm_events(PGFREE, 1 << order);\n}\n\nstatic void __free_pages_ok(struct page *page, unsigned int order,\n\t\t\t    fpi_t fpi_flags)\n{\n\tunsigned long pfn = page_to_pfn(page);\n\tstruct zone *zone = page_zone(page);\n"
+  },
+  "mm/page_alloc.c:131": {
+    "path": "mm/page_alloc.c",
+    "line": 131,
+    "startLine": 116,
+    "endLine": 146,
+    "code": " * NULL return value means the trylock failed.\n */\n#ifdef CONFIG_SMP\n#define pcp_spin_trylock(ptr)\t\t\t\t\t\t\\\n({\t\t\t\t\t\t\t\t\t\\\n\tstruct per_cpu_pages *_ret;\t\t\t\t\t\\\n\tpcpu_task_pin();\t\t\t\t\t\t\\\n\t_ret = this_cpu_ptr(ptr);\t\t\t\t\t\\\n\tif (!spin_trylock(&_ret->lock)) {\t\t\t\t\\\n\t\tpcpu_task_unpin();\t\t\t\t\t\\\n\t\t_ret = NULL;\t\t\t\t\t\t\\\n\t}\t\t\t\t\t\t\t\t\\\n\t_ret;\t\t\t\t\t\t\t\t\\\n})\n\n#define pcp_spin_unlock(ptr)\t\t\t\t\t\t\\\n({\t\t\t\t\t\t\t\t\t\\\n\tspin_unlock(&ptr->lock);\t\t\t\t\t\\\n\tpcpu_task_unpin();\t\t\t\t\t\t\\\n})\n\n/*\n * On CONFIG_SMP=n the UP implementation of spin_trylock() never fails and thus\n * is not compatible with our locking scheme. However we do not need pcp for\n * scalability in the first place, so just make all the trylocks fail and take\n * the slow path unconditionally.\n */\n#else\n#define pcp_spin_trylock(ptr)\t\t\\\n\t\tNULL\n"
+  },
+  "mm/page_alloc.c:155": {
+    "path": "mm/page_alloc.c",
+    "line": 155,
+    "startLine": 140,
+    "endLine": 170,
+    "code": " * scalability in the first place, so just make all the trylocks fail and take\n * the slow path unconditionally.\n */\n#else\n#define pcp_spin_trylock(ptr)\t\t\\\n\t\tNULL\n\n#define pcp_spin_unlock(ptr)\t\t\\\n\t\tBUG_ON(1)\n#endif\n\n/*\n * In some cases we do not need to pin the task to the CPU because we are\n * already given a specific cpu's pcp pointer.\n */\n#define pcp_spin_lock_nopin(ptr)\t\t\t\\\n\t\tspin_lock(&(ptr)->lock)\n#define pcp_spin_unlock_nopin(ptr)\t\t\t\\\n\t\tspin_unlock(&(ptr)->lock)\n\n#ifdef CONFIG_USE_PERCPU_NUMA_NODE_ID\nDEFINE_PER_CPU(int, numa_node);\nEXPORT_PER_CPU_SYMBOL(numa_node);\n#endif\n\nDEFINE_STATIC_KEY_TRUE(vm_numa_stat_key);\n\n#ifdef CONFIG_HAVE_MEMORYLESS_NODES\n/*\n * N.B., Do NOT reference the '_numa_mem_' per cpu variable directly.\n * It will not be defined when CONFIG_HAVE_MEMORYLESS_NODES is not defined."
+  },
+  "include/linux/mmzone.h:138": {
+    "path": "include/linux/mmzone.h",
+    "line": 138,
+    "startLine": 123,
+    "endLine": 153,
+    "code": "\tMIGRATE_HIGHATOMIC = MIGRATE_PCPTYPES,\n#ifdef CONFIG_CMA\n\t/*\n\t * MIGRATE_CMA migration type is designed to mimic the way\n\t * ZONE_MOVABLE works.  Only movable pages can be allocated\n\t * from MIGRATE_CMA pageblocks and page allocator never\n\t * implicitly change migration type of MIGRATE_CMA pageblock.\n\t *\n\t * The way to use it is to change migratetype of a range of\n\t * pageblocks to MIGRATE_CMA which can be done by\n\t * __free_pageblock_cma() function.\n\t */\n\tMIGRATE_CMA,\n\t__MIGRATE_TYPE_END = MIGRATE_CMA,\n#else\n\t__MIGRATE_TYPE_END = MIGRATE_HIGHATOMIC,\n#endif\n#ifdef CONFIG_MEMORY_ISOLATION\n\tMIGRATE_ISOLATE,\t/* can't allocate from here */\n#endif\n\tMIGRATE_TYPES\n};\n\n/* In mm/page_alloc.c; keep in sync also with show_migration_types() there */\nextern const char * const migratetype_names[MIGRATE_TYPES];\n\n#ifdef CONFIG_CMA\n#  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)\n#  define is_migrate_cma_page(_page) (get_pageblock_migratetype(_page) == MIGRATE_CMA)\n/*\n * __dump_folio() in mm/debug.c passes a folio pointer to on-stack struct folio,"
+  },
+  "mm/page_alloc.c:1904": {
+    "path": "mm/page_alloc.c",
+    "line": 1904,
+    "startLine": 1889,
+    "endLine": 1919,
+    "code": "static __always_inline\nstruct page *__rmqueue_smallest(struct zone *zone, unsigned int order,\n\t\t\t\t\t\tint migratetype)\n{\n\tunsigned int current_order;\n\tstruct free_area *area;\n\tstruct page *page;\n\n\t/* Find a page of the appropriate size in the preferred list */\n\tfor (current_order = order; current_order < NR_PAGE_ORDERS; ++current_order) {\n\t\tarea = &(zone->free_area[current_order]);\n\t\tpage = get_page_from_free_area(area, migratetype);\n\t\tif (!page)\n\t\t\tcontinue;\n\n\t\tpage_del_and_expand(zone, page, order, current_order,\n\t\t\t\t    migratetype);\n\t\ttrace_mm_page_alloc_zone_locked(page, order, migratetype,\n\t\t\t\tpcp_allowed_order(order) &&\n\t\t\t\tmigratetype < MIGRATE_PCPTYPES);\n\t\treturn page;\n\t}\n\n\treturn NULL;\n}\n\n\n/*\n * This array describes the order lists are fallen back to when\n * the free lists for the desirable migrate type are depleted\n *"
+  },
+  "kernel/sched/fair.c:1032": {
+    "path": "kernel/sched/fair.c",
+    "line": 1032,
+    "startLine": 1017,
+    "endLine": 1047,
+    "code": "\trb_erase_augmented_cached(&se->run_node, &cfs_rq->tasks_timeline,\n\t\t\t\t  &min_vruntime_cb);\n\tsum_w_vruntime_sub(cfs_rq, se);\n}\n\nstruct sched_entity *__pick_root_entity(struct cfs_rq *cfs_rq)\n{\n\tstruct rb_node *root = cfs_rq->tasks_timeline.rb_root.rb_node;\n\n\tif (!root)\n\t\treturn NULL;\n\n\treturn __node_2_se(root);\n}\n\nstruct sched_entity *__pick_first_entity(struct cfs_rq *cfs_rq)\n{\n\tstruct rb_node *left = rb_first_cached(&cfs_rq->tasks_timeline);\n\n\tif (!left)\n\t\treturn NULL;\n\n\treturn __node_2_se(left);\n}\n\n/*\n * Set the vruntime up to which an entity can run before looking\n * for another entity to pick.\n * In case of run to parity, we use the shortest slice of the enqueued\n * entities to set the protected period.\n * When run to parity is disabled, we give a minimum quantum to the running"
+  },
+  "kernel/sched/fair.c:1378": {
+    "path": "kernel/sched/fair.c",
+    "line": 1378,
+    "startLine": 1363,
+    "endLine": 1393,
+    "code": "}\n\nstatic void set_next_buddy(struct sched_entity *se);\n\n/*\n * Used by other classes to account runtime.\n */\ns64 update_curr_common(struct rq *rq)\n{\n\treturn update_se(rq, &rq->donor->se);\n}\n\n/*\n * Update the current task's runtime statistics.\n */\nstatic void update_curr(struct cfs_rq *cfs_rq)\n{\n\t/*\n\t * Note: cfs_rq->curr corresponds to the task picked to\n\t * run (ie: rq->donor.se) which due to proxy-exec may\n\t * not necessarily be the actual task running\n\t * (rq->curr.se). This is easy to confuse!\n\t */\n\tstruct sched_entity *curr = cfs_rq->curr;\n\tstruct rq *rq = rq_of(cfs_rq);\n\ts64 delta_exec;\n\tbool resched;\n\n\tif (unlikely(!curr))\n\t\treturn;\n"
+  },
+  "kernel/sched/fair.c:297": {
+    "path": "kernel/sched/fair.c",
+    "line": 297,
+    "startLine": 282,
+    "endLine": 312,
+    "code": "\t\tfact >>= fs;\n\t}\n\n\treturn mul_u64_u32_shr(delta_exec, fact, shift);\n}\n#else\nstatic u64 __calc_delta(u64 delta_exec, unsigned long weight, struct load_weight *lw)\n{\n\treturn (delta_exec * weight) / lw->weight;\n}\n#endif\n\n/*\n * delta /= w\n */\nstatic inline u64 calc_delta_fair(u64 delta, struct sched_entity *se)\n{\n\tif (unlikely(se->load.weight != NICE_0_LOAD))\n\t\tdelta = __calc_delta(delta, NICE_0_LOAD, &se->load);\n\n\treturn delta;\n}\n\nconst struct sched_class fair_sched_class;\n\n/**************************************************************\n * CFS operations on generic schedulable entities:\n */\n\n#ifdef CONFIG_FAIR_GROUP_SCHED\n"
+  },
+  "kernel/sched/fair.c:5352": {
+    "path": "kernel/sched/fair.c",
+    "line": 5352,
+    "startLine": 5337,
+    "endLine": 5367,
+    "code": "\tstruct sched_entity *se = &p->se;\n\n\tp->static_prio = NICE_TO_PRIO(attr->sched_nice);\n\tif (attr->sched_runtime) {\n\t\tse->custom_slice = 1;\n\t\tse->slice = clamp_t(u64, attr->sched_runtime,\n\t\t\t\t      NSEC_PER_MSEC/10,   /* HZ=1000 * 10 */\n\t\t\t\t      NSEC_PER_MSEC*100); /* HZ=100  / 10 */\n\t} else {\n\t\tse->custom_slice = 0;\n\t\tse->slice = sysctl_sched_base_slice;\n\t}\n}\n\nstatic void\nplace_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)\n{\n\tu64 vslice, vruntime = avg_vruntime(cfs_rq);\n\tbool update_zero = false;\n\ts64 lag = 0;\n\n\tif (!se->custom_slice)\n\t\tse->slice = sysctl_sched_base_slice;\n\tvslice = calc_delta_fair(se->slice, se);\n\n\t/*\n\t * Due to how V is constructed as the weighted average of entities,\n\t * adding tasks with positive lag, or removing tasks with negative lag\n\t * will move 'time' backwards, this can screw around with the lag of\n\t * other tasks.\n\t *"
+  },
+  "kernel/sched/core.c:7105": {
+    "path": "kernel/sched/core.c",
+    "line": 7105,
+    "startLine": 7090,
+    "endLine": 7120,
+    "code": "\t} else if (!preempt && prev_state) {\n\t\t/*\n\t\t * We pass task_is_blocked() as the should_block arg\n\t\t * in order to keep mutex-blocked tasks on the runqueue\n\t\t * for slection with proxy-exec (without proxy-exec\n\t\t * task_is_blocked() will always be false).\n\t\t */\n\t\ttry_to_block_task(rq, prev, &prev_state,\n\t\t\t\t  !task_is_blocked(prev));\n\t\tswitch_count = &prev->nvcsw;\n\t}\n\npick_again:\n\tassert_balance_callbacks_empty(rq);\n\tnext = pick_next_task(rq, rq->donor, &rf);\n\trq->next_class = next->sched_class;\n\tif (sched_proxy_exec()) {\n\t\tstruct task_struct *prev_donor = rq->donor;\n\n\t\trq_set_donor(rq, next);\n\t\tif (unlikely(next->blocked_on)) {\n\t\t\tnext = find_proxy_task(rq, next, &rf);\n\t\t\tif (!next) {\n\t\t\t\tzap_balance_callbacks(rq);\n\t\t\t\tgoto pick_again;\n\t\t\t}\n\t\t\tif (next == rq->idle) {\n\t\t\t\tzap_balance_callbacks(rq);\n\t\t\t\tgoto keep_resched;\n\t\t\t}\n\t\t}"
+  },
+  "kernel/cgroup/cgroup.c:5942": {
+    "path": "kernel/cgroup/cgroup.c",
+    "line": 5942,
+    "startLine": 5927,
+    "endLine": 5957,
+    "code": "\tfor (cgroup = parent; cgroup; cgroup = cgroup_parent(cgroup)) {\n\t\tif (cgroup->nr_descendants >= cgroup->max_descendants)\n\t\t\tgoto fail;\n\n\t\tif (level >= cgroup->max_depth)\n\t\t\tgoto fail;\n\n\t\tlevel++;\n\t}\n\n\tret = true;\nfail:\n\treturn ret;\n}\n\nint cgroup_mkdir(struct kernfs_node *parent_kn, const char *name, umode_t mode)\n{\n\tstruct cgroup *parent, *cgrp;\n\tint ret;\n\n\t/* do not accept '\\n' to prevent making /proc/<pid>/cgroup unparsable */\n\tif (strchr(name, '\\n'))\n\t\treturn -EINVAL;\n\n\tparent = cgroup_kn_lock_live(parent_kn, false);\n\tif (!parent)\n\t\treturn -ENODEV;\n\n\tif (!cgroup_check_hierarchy_limits(parent)) {\n\t\tret = -EAGAIN;\n\t\tgoto out_unlock;"
+  },
+  "mm/memcontrol.c:4502": {
+    "path": "mm/memcontrol.c",
+    "line": 4502,
+    "startLine": 4487,
+    "endLine": 4517,
+    "code": "\n\t\tif (!reclaimed && !nr_retries--)\n\t\t\tbreak;\n\t}\nout:\n\tmemcg_wb_domain_size_changed(memcg);\n\treturn nbytes;\n}\n\nstatic int memory_max_show(struct seq_file *m, void *v)\n{\n\treturn seq_puts_memcg_tunable(m,\n\t\tREAD_ONCE(mem_cgroup_from_seq(m)->memory.max));\n}\n\nstatic ssize_t memory_max_write(struct kernfs_open_file *of,\n\t\t\t\tchar *buf, size_t nbytes, loff_t off)\n{\n\tstruct mem_cgroup *memcg = mem_cgroup_from_css(of_css(of));\n\tunsigned int nr_reclaims = MAX_RECLAIM_RETRIES;\n\tbool drained = false;\n\tunsigned long max;\n\tint err;\n\n\tbuf = strstrip(buf);\n\terr = page_counter_memparse(buf, \"max\", &max);\n\tif (err)\n\t\treturn err;\n\n\txchg(&memcg->memory.max, max);\n"
+  },
+  "kernel/cgroup/cgroup.c:3411": {
+    "path": "kernel/cgroup/cgroup.c",
+    "line": 3411,
+    "startLine": 3396,
+    "endLine": 3426,
+    "code": " * 2. Update ->subtree_control masks in the subtree as desired.\n * 3. Call cgroup_apply_control() to apply the changes.\n * 4. Optionally perform other related operations.\n * 5. Call cgroup_finalize_control() to finish up.\n *\n * This function implements step 3 and propagates the mask changes\n * throughout @cgrp's subtree, updates csses accordingly and perform\n * process migrations.\n */\nstatic int cgroup_apply_control(struct cgroup *cgrp)\n{\n\tint ret;\n\n\tcgroup_propagate_control(cgrp);\n\n\tret = cgroup_apply_control_enable(cgrp);\n\tif (ret)\n\t\treturn ret;\n\n\t/*\n\t * At this point, cgroup_e_css_by_mask() results reflect the new csses\n\t * making the following cgroup_update_dfl_csses() properly update\n\t * css associations of all tasks in the subtree.\n\t */\n\treturn cgroup_update_dfl_csses(cgrp);\n}\n\n/**\n * cgroup_finalize_control - finalize control mask update\n * @cgrp: root of the target subtree\n * @ret: the result of the update"
+  },
+  "kernel/fork.c:1967": {
+    "path": "kernel/fork.c",
+    "line": 1967,
+    "startLine": 1952,
+    "endLine": 1982,
+    "code": "static bool need_futex_hash_allocate_default(u64 clone_flags)\n{\n\tif ((clone_flags & (CLONE_THREAD | CLONE_VM)) != (CLONE_THREAD | CLONE_VM))\n\t\treturn false;\n\treturn true;\n}\n\n/*\n * This creates a new process as a copy of the old one,\n * but does not actually start it yet.\n *\n * It copies the registers, and all the appropriate\n * parts of the process environment (as per the clone\n * flags). The actual kick-off is left to the caller.\n */\n__latent_entropy struct task_struct *copy_process(\n\t\t\t\t\tstruct pid *pid,\n\t\t\t\t\tint trace,\n\t\t\t\t\tint node,\n\t\t\t\t\tstruct kernel_clone_args *args)\n{\n\tint pidfd = -1, retval;\n\tstruct task_struct *p;\n\tstruct multiprocess_signals delayed;\n\tstruct file *pidfile = NULL;\n\tconst u64 clone_flags = args->flags;\n\tstruct nsproxy *nsp = current->nsproxy;\n\n\t/*\n\t * Don't allow sharing the root directory with processes in a different\n\t * namespace"
+  },
+  "mm/memory.c:1208": {
+    "path": "mm/memory.c",
+    "line": 1208,
+    "startLine": 1193,
+    "endLine": 1223,
+    "code": "\t\tnew_folio = vma_alloc_folio(GFP_HIGHUSER_MOVABLE, 0, vma, addr);\n\n\tif (!new_folio)\n\t\treturn NULL;\n\n\tif (mem_cgroup_charge(new_folio, src_mm, GFP_KERNEL)) {\n\t\tfolio_put(new_folio);\n\t\treturn NULL;\n\t}\n\tfolio_throttle_swaprate(new_folio, GFP_KERNEL);\n\n\treturn new_folio;\n}\n\nstatic int\ncopy_pte_range(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma,\n\t       pmd_t *dst_pmd, pmd_t *src_pmd, unsigned long addr,\n\t       unsigned long end)\n{\n\tstruct mm_struct *dst_mm = dst_vma->vm_mm;\n\tstruct mm_struct *src_mm = src_vma->vm_mm;\n\tpte_t *orig_src_pte, *orig_dst_pte;\n\tpte_t *src_pte, *dst_pte;\n\tpmd_t dummy_pmdval;\n\tpte_t ptent;\n\tspinlock_t *src_ptl, *dst_ptl;\n\tint progress, max_nr, ret = 0;\n\tint rss[NR_MM_COUNTERS];\n\tsoftleaf_t entry = softleaf_mk_none();\n\tstruct folio *prealloc = NULL;\n\tint nr;"
+  },
+  "mm/memory.c:4228": {
+    "path": "mm/memory.c",
+    "line": 4228,
+    "startLine": 4213,
+    "endLine": 4243,
+    "code": " * shared-page counter for the old page.\n *\n * Note that this routine assumes that the protection checks have been\n * done by the caller (the low-level page fault routine in most cases).\n * Thus, with FAULT_FLAG_WRITE, we can safely just mark it writable once we've\n * done any necessary COW.\n *\n * In case of FAULT_FLAG_WRITE, we also mark the page dirty at this point even\n * though the page will change only once the write actually happens. This\n * avoids a few races, and potentially makes it more efficient.\n *\n * We enter with non-exclusive mmap_lock (to exclude vma changes,\n * but allow concurrent faults), with pte both mapped and locked.\n * We return with mmap_lock still held, but pte unmapped and unlocked.\n */\nstatic vm_fault_t do_wp_page(struct vm_fault *vmf)\n\t__releases(vmf->ptl)\n{\n\tconst bool unshare = vmf->flags & FAULT_FLAG_UNSHARE;\n\tstruct vm_area_struct *vma = vmf->vma;\n\tstruct folio *folio = NULL;\n\tpte_t pte;\n\n\tif (likely(!unshare)) {\n\t\tif (userfaultfd_pte_wp(vma, ptep_get(vmf->pte))) {\n\t\t\tif (!userfaultfd_wp_async(vma)) {\n\t\t\t\tpte_unmap_unlock(vmf->pte, vmf->ptl);\n\t\t\t\treturn handle_userfault(vmf, VM_UFFD_WP);\n\t\t\t}\n\n\t\t\t/*"
+  },
+  "mm/memory.c:3837": {
+    "path": "mm/memory.c",
+    "line": 3837,
+    "startLine": 3822,
+    "endLine": 3852,
+    "code": " * either due to COW or unsharing.\n *\n * Called with mmap_lock locked and the old page referenced, but\n * without the ptl held.\n *\n * High level logic flow:\n *\n * - Allocate a page, copy the content of the old page to the new one.\n * - Handle book keeping and accounting - cgroups, mmu-notifiers, etc.\n * - Take the PTL. If the pte changed, bail out and release the allocated page\n * - If the pte is still the way we remember it, update the page table and all\n *   relevant references. This includes dropping the reference the page-table\n *   held to the old page, as well as updating the rmap.\n * - In any case, unlock the PTL and drop the reference we took to the old page.\n */\nstatic vm_fault_t wp_page_copy(struct vm_fault *vmf)\n{\n\tconst bool unshare = vmf->flags & FAULT_FLAG_UNSHARE;\n\tstruct vm_area_struct *vma = vmf->vma;\n\tstruct mm_struct *mm = vma->vm_mm;\n\tstruct folio *old_folio = NULL;\n\tstruct folio *new_folio = NULL;\n\tpte_t entry;\n\tint page_copied = 0;\n\tstruct mmu_notifier_range range;\n\tvm_fault_t ret;\n\tbool pfn_is_zero;\n\n\tdelayacct_wpcopy_start();\n\n\tif (vmf->page)"
+  },
+  "mm/mmap.c:1731": {
+    "path": "mm/mmap.c",
+    "line": 1731,
+    "startLine": 1716,
+    "endLine": 1746,
+    "code": "\t}\n\n\tif (!(new_vma->vm_flags & VM_GROWSDOWN))\n\t\treturn false;\n\n\tmmap_write_lock(mm);\n\tif (expand_downwards(new_vma, addr)) {\n\t\tmmap_write_unlock(mm);\n\t\treturn false;\n\t}\n\n\tmmap_write_downgrade(mm);\n\treturn true;\n}\n\n__latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)\n{\n\tstruct vm_area_struct *mpnt, *tmp;\n\tint retval;\n\tunsigned long charge = 0;\n\tLIST_HEAD(uf);\n\tVMA_ITERATOR(vmi, mm, 0);\n\n\tif (mmap_write_lock_killable(oldmm))\n\t\treturn -EINTR;\n\tflush_cache_dup_mm(oldmm);\n\tuprobe_dup_mmap(oldmm, mm);\n\t/*\n\t * Not linked in yet - no deadlock potential:\n\t */\n\tmmap_write_lock_nested(mm, SINGLE_DEPTH_NESTING);"
+  },
+  "mm/memory.c:1491": {
+    "path": "mm/memory.c",
+    "line": 1491,
+    "startLine": 1476,
+    "endLine": 1506,
+    "code": "\t * tables which naturally cannot be reconstituted on page fault.\n\t */\n\tif (src_vma->anon_vma)\n\t\treturn true;\n\n\t/*\n\t * Don't copy ptes where a page fault will fill them correctly.  Fork\n\t * becomes much lighter when there are big shared or private readonly\n\t * mappings. The tradeoff is that copy_page_range is more efficient\n\t * than faulting.\n\t */\n\treturn false;\n}\n\nint\ncopy_page_range(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma)\n{\n\tpgd_t *src_pgd, *dst_pgd;\n\tunsigned long addr = src_vma->vm_start;\n\tunsigned long end = src_vma->vm_end;\n\tstruct mm_struct *dst_mm = dst_vma->vm_mm;\n\tstruct mm_struct *src_mm = src_vma->vm_mm;\n\tstruct mmu_notifier_range range;\n\tunsigned long next;\n\tbool is_cow;\n\tint ret;\n\n\tif (!vma_needs_copy(dst_vma, src_vma))\n\t\treturn 0;\n\n\tif (is_vm_hugetlb_page(src_vma))"
+  },
+  "kernel/bpf/syscall.c:6210": {
+    "path": "kernel/bpf/syscall.c",
+    "line": 6210,
+    "startLine": 6195,
+    "endLine": 6225,
+    "code": "\tif (map->map_type != BPF_MAP_TYPE_STRUCT_OPS) {\n\t\tret = -EINVAL;\n\t\tgoto put_map;\n\t}\n\n\tret = bpf_prog_assoc_struct_ops(prog, map);\n\nput_map:\n\tbpf_map_put(map);\nput_prog:\n\tbpf_prog_put(prog);\n\treturn ret;\n}\n\nstatic int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size)\n{\n\tunion bpf_attr attr;\n\tint err;\n\n\terr = bpf_check_uarg_tail_zero(uattr, sizeof(attr), size);\n\tif (err)\n\t\treturn err;\n\tsize = min_t(u32, size, sizeof(attr));\n\n\t/* copy attributes from user space, may be less than sizeof(bpf_attr) */\n\tmemset(&attr, 0, sizeof(attr));\n\tif (copy_from_bpfptr(&attr, uattr, size) != 0)\n\t\treturn -EFAULT;\n\n\terr = security_bpf(cmd, &attr, size, uattr.is_kernel);\n\tif (err < 0)"
+  },
+  "kernel/bpf/syscall.c:3093": {
+    "path": "kernel/bpf/syscall.c",
+    "line": 3093,
+    "startLine": 3078,
+    "endLine": 3108,
+    "code": "\tif (err)\n\t\tgoto free_prog_sec;\n\n\t/* run eBPF verifier */\n\terr = bpf_check(&prog, attr, uattr, uattr_size);\n\tif (err < 0)\n\t\tgoto free_used_maps;\n\n\terr = bpf_prog_mark_insn_arrays_ready(prog);\n\tif (err < 0)\n\t\tgoto free_used_maps;\n\n\terr = bpf_prog_alloc_id(prog);\n\tif (err)\n\t\tgoto free_used_maps;\n\n\t/* Upon success of bpf_prog_alloc_id(), the BPF prog is\n\t * effectively publicly exposed. However, retrieving via\n\t * bpf_prog_get_fd_by_id() will take another reference,\n\t * therefore it cannot be gone underneath us.\n\t *\n\t * Only for the time /after/ successful bpf_prog_new_fd()\n\t * and before returning to userspace, we might just hold\n\t * one reference and any parallel close on that fd could\n\t * rip everything out. Hence, below notifications must\n\t * happen before bpf_prog_new_fd().\n\t *\n\t * Also, any failure handling from this point onwards must\n\t * be using bpf_prog_put() given the program is exposed.\n\t */\n\tbpf_prog_kallsyms_add(prog);"
+  },
+  "kernel/bpf/verifier.c:17626": {
+    "path": "kernel/bpf/verifier.c",
+    "line": 17626,
+    "startLine": 17611,
+    "endLine": 17641,
+    "code": "\t\t\tif (env->cur_state->active_locks) {\n\t\t\t\tif ((insn->src_reg == BPF_REG_0 &&\n\t\t\t\t     insn->imm != BPF_FUNC_spin_unlock &&\n\t\t\t\t     insn->imm != BPF_FUNC_kptr_xchg) ||\n\t\t\t\t    (insn->src_reg == BPF_PSEUDO_KFUNC_CALL &&\n\t\t\t\t     (insn->off != 0 || !kfunc_spin_allowed(insn->imm)))) {\n\t\t\t\t\tverbose(env,\n\t\t\t\t\t\t\"function calls are not allowed while holding a lock\\n\");\n\t\t\t\t\treturn -EINVAL;\n\t\t\t\t}\n\t\t\t}\n\t\t\tmark_reg_scratched(env, BPF_REG_0);\n\t\t\tif (insn->src_reg == BPF_PSEUDO_CALL)\n\t\t\t\treturn check_func_call(env, insn, &env->insn_idx);\n\t\t\tif (insn->src_reg == BPF_PSEUDO_KFUNC_CALL)\n\t\t\t\treturn check_kfunc_call(env, insn, &env->insn_idx);\n\t\t\treturn check_helper_call(env, insn, &env->insn_idx);\n\t\t} else if (opcode == BPF_JA) {\n\t\t\tif (BPF_SRC(insn->code) == BPF_X)\n\t\t\t\treturn check_indirect_jump(env, insn);\n\n\t\t\tif (class == BPF_JMP)\n\t\t\t\tenv->insn_idx += insn->off + 1;\n\t\t\telse\n\t\t\t\tenv->insn_idx += insn->imm + 1;\n\t\t\treturn INSN_IDX_UPDATED;\n\t\t} else if (opcode == BPF_EXIT) {\n\t\t\treturn process_bpf_exit_full(env, do_print_state, false);\n\t\t}\n\t\treturn check_cond_jmp_op(env, insn, &env->insn_idx);\n\t}"
+  },
+  "fs/exec.c:1778": {
+    "path": "fs/exec.c",
+    "line": 1778,
+    "startLine": 1763,
+    "endLine": 1793,
+    "code": "\t * If past the point of no return ensure the code never\n\t * returns to the userspace process.  Use an existing fatal\n\t * signal if present otherwise terminate the process with\n\t * SIGSEGV.\n\t */\n\tif (bprm->point_of_no_return && !fatal_signal_pending(current))\n\t\tforce_fatal_sig(SIGSEGV);\n\n\tsched_mm_cid_after_execve(current);\n\trseq_force_update();\n\tcurrent->in_execve = 0;\n\n\treturn retval;\n}\n\nstatic int do_execveat_common(int fd, struct filename *filename,\n\t\t\t      struct user_arg_ptr argv,\n\t\t\t      struct user_arg_ptr envp,\n\t\t\t      int flags)\n{\n\tint retval;\n\n\t/*\n\t * We move the actual failure in case of RLIMIT_NPROC excess from\n\t * set*uid() to execve() because too many poorly written programs\n\t * don't check setuid() return code.  Here we additionally recheck\n\t * whether NPROC limit is still exceeded.\n\t */\n\tif ((current->flags & PF_NPROC_EXCEEDED) &&\n\t    is_rlimit_overlimit(current_ucounts(), UCOUNT_RLIMIT_NPROC, rlimit(RLIMIT_NPROC)))\n\t\treturn -EAGAIN;"
+  },
+  "fs/ext4/inode.c:696": {
+    "path": "fs/ext4/inode.c",
+    "line": 696,
+    "startLine": 681,
+    "endLine": 711,
+    "code": " *\n * Otherwise it takes the write lock of the i_data_sem and allocate blocks\n * and store the allocated blocks in the result buffer head and mark it\n * mapped.\n *\n * If file type is extents based, it will call ext4_ext_map_blocks(),\n * Otherwise, call with ext4_ind_map_blocks() to handle indirect mapping\n * based files\n *\n * On success, it returns the number of blocks being mapped or allocated.\n * If flags doesn't contain EXT4_GET_BLOCKS_CREATE the blocks are\n * pre-allocated and unwritten, the resulting @map is marked as unwritten.\n * If the flags contain EXT4_GET_BLOCKS_CREATE, it will mark @map as mapped.\n *\n * It returns 0 if plain look up failed (blocks have not been allocated), in\n * that case, @map is returned as unmapped but we still do fill map->m_len to\n * indicate the length of a hole starting at map->m_lblk.\n *\n * It returns the error in case of allocation failure.\n */\nint ext4_map_blocks(handle_t *handle, struct inode *inode,\n\t\t    struct ext4_map_blocks *map, int flags)\n{\n\tstruct extent_status es;\n\tint retval;\n\tint ret = 0;\n\tunsigned int orig_mlen = map->m_len;\n#ifdef ES_AGGRESSIVE_TEST\n\tstruct ext4_map_blocks orig_map;\n\n\tmemcpy(&orig_map, map, sizeof(*map));"
+  },
+  "fs/ext4/inode.c:3115": {
+    "path": "fs/ext4/inode.c",
+    "line": 3115,
+    "startLine": 3100,
+    "endLine": 3130,
+    "code": "static int ext4_nonda_switch(struct super_block *sb)\n{\n\ts64 free_clusters, dirty_clusters;\n\tstruct ext4_sb_info *sbi = EXT4_SB(sb);\n\n\t/*\n\t * switch to non delalloc mode if we are running low\n\t * on free block. The free block accounting via percpu\n\t * counters can get slightly wrong with percpu_counter_batch getting\n\t * accumulated on each CPU without updating global counters\n\t * Delalloc need an accurate free block accounting. So switch\n\t * to non delalloc when we are near to error range.\n\t */\n\tfree_clusters =\n\t\tpercpu_counter_read_positive(&sbi->s_freeclusters_counter);\n\tdirty_clusters =\n\t\tpercpu_counter_read_positive(&sbi->s_dirtyclusters_counter);\n\t/*\n\t * Start pushing delalloc when 1/2 of free blocks are dirty.\n\t */\n\tif (dirty_clusters && (free_clusters < 2 * dirty_clusters))\n\t\ttry_to_writeback_inodes_sb(sb, WB_REASON_FS_FREE_SPACE);\n\n\tif (2 * free_clusters < 3 * dirty_clusters ||\n\t    free_clusters < (dirty_clusters + EXT4_FREECLUSTERS_WATERMARK)) {\n\t\t/*\n\t\t * free block count is less than 150% of dirty blocks\n\t\t * or free blocks is less than watermark\n\t\t */\n\t\treturn 1;\n\t}"
+  },
+  "fs/ext4/ext4_jbd2.h:225": {
+    "path": "fs/ext4/ext4_jbd2.h",
+    "line": 225,
+    "startLine": 210,
+    "endLine": 240,
+    "code": "\t\t\t\t\t\t    int blocks)\n{\n\t/* Freeing each metadata block can result in freeing one cluster */\n\treturn blocks * EXT4_SB(sb)->s_cluster_ratio;\n}\n\nstatic inline int ext4_trans_default_revoke_credits(struct super_block *sb)\n{\n\treturn ext4_free_metadata_revoke_credits(sb, 8);\n}\n\n#define ext4_journal_start_sb(sb, type, nblocks)\t\t\t\\\n\t__ext4_journal_start_sb(NULL, (sb), __LINE__, (type), (nblocks), 0,\\\n\t\t\t\text4_trans_default_revoke_credits(sb))\n\n#define ext4_journal_start(inode, type, nblocks)\t\t\t\\\n\t__ext4_journal_start((inode), __LINE__, (type), (nblocks), 0,\t\\\n\t\t\t     ext4_trans_default_revoke_credits((inode)->i_sb))\n\n#define ext4_journal_start_with_reserve(inode, type, blocks, rsv_blocks)\\\n\t__ext4_journal_start((inode), __LINE__, (type), (blocks), (rsv_blocks),\\\n\t\t\t     ext4_trans_default_revoke_credits((inode)->i_sb))\n\n#define ext4_journal_start_with_revoke(inode, type, blocks, revoke_creds) \\\n\t__ext4_journal_start((inode), __LINE__, (type), (blocks), 0,\t\\\n\t\t\t     (revoke_creds))\n\nstatic inline handle_t *__ext4_journal_start(struct inode *inode,\n\t\t\t\t\t     unsigned int line, int type,\n\t\t\t\t\t     int blocks, int rsv_blocks,\n\t\t\t\t\t     int revoke_creds)"
+  },
+  "kernel/futex/syscalls.c:188": {
+    "path": "kernel/futex/syscalls.c",
+    "line": 188,
+    "startLine": 173,
+    "endLine": 203,
+    "code": "\nstatic __always_inline int\nfutex_init_timeout(u32 cmd, u32 op, struct timespec64 *ts, ktime_t *t)\n{\n\tif (!timespec64_valid(ts))\n\t\treturn -EINVAL;\n\n\t*t = timespec64_to_ktime(*ts);\n\tif (cmd == FUTEX_WAIT)\n\t\t*t = ktime_add_safe(ktime_get(), *t);\n\telse if (cmd != FUTEX_LOCK_PI && !(op & FUTEX_CLOCK_REALTIME))\n\t\t*t = timens_ktime_to_host(CLOCK_MONOTONIC, *t);\n\treturn 0;\n}\n\nSYSCALL_DEFINE6(futex, u32 __user *, uaddr, int, op, u32, val,\n\t\tconst struct __kernel_timespec __user *, utime,\n\t\tu32 __user *, uaddr2, u32, val3)\n{\n\tint ret, cmd = op & FUTEX_CMD_MASK;\n\tktime_t t, *tp = NULL;\n\tstruct timespec64 ts;\n\n\tif (utime && futex_cmd_has_timeout(cmd)) {\n\t\tif (unlikely(should_fail_futex(!(op & FUTEX_PRIVATE_FLAG))))\n\t\t\treturn -EFAULT;\n\t\tif (get_timespec64(&ts, utime))\n\t\t\treturn -EFAULT;\n\t\tret = futex_init_timeout(cmd, op, &ts, &t);\n\t\tif (ret)\n\t\t\treturn ret;"
+  },
+  "kernel/futex/pi.c:918": {
+    "path": "kernel/futex/pi.c",
+    "line": 918,
+    "startLine": 903,
+    "endLine": 933,
+    "code": "\n\t/*\n\t * Paranoia check. If we did not take the lock, then we should not be\n\t * the owner of the rt_mutex. Warn and establish consistent state.\n\t */\n\tif (WARN_ON_ONCE(rt_mutex_owner(&q->pi_state->pi_mutex) == current))\n\t\treturn fixup_pi_state_owner(uaddr, q, current);\n\n\treturn 0;\n}\n\n/*\n * Userspace tried a 0 -> TID atomic transition of the futex value\n * and failed. The kernel side here does the whole locking operation:\n * if there are waiters then it will block as a consequence of relying\n * on rt-mutexes, it does PI, etc. (Due to races the kernel might see\n * a 0 value of the futex too.).\n *\n * Also serves as futex trylock_pi()'ing, and due semantics.\n */\nint futex_lock_pi(u32 __user *uaddr, unsigned int flags, ktime_t *time, int trylock)\n{\n\tstruct hrtimer_sleeper timeout, *to;\n\tstruct task_struct *exiting;\n\tstruct rt_mutex_waiter rt_waiter;\n\tstruct futex_q q = futex_q_init;\n\tDEFINE_WAKE_Q(wake_q);\n\tint res, ret;\n\n\tif (!IS_ENABLED(CONFIG_FUTEX_PI))\n\t\treturn -ENOSYS;"
+  },
+  "virt/kvm/kvm_main.c:4405": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 4405,
+    "startLine": 4390,
+    "endLine": 4420,
+    "code": "\t * Acquire and release the vCPU's mutex to wait for vCPU creation to\n\t * complete (kvm_vm_ioctl_create_vcpu() holds the mutex until the vCPU\n\t * is fully online).\n\t */\n\tif (mutex_lock_killable(&vcpu->mutex))\n\t\treturn -EINTR;\n\n\tmutex_unlock(&vcpu->mutex);\n\n\tif (WARN_ON_ONCE(!kvm_get_vcpu(kvm, vcpu->vcpu_idx)))\n\t\treturn -EIO;\n\n\treturn 0;\n}\n\nstatic long kvm_vcpu_ioctl(struct file *filp,\n\t\t\t   unsigned int ioctl, unsigned long arg)\n{\n\tstruct kvm_vcpu *vcpu = filp->private_data;\n\tvoid __user *argp = (void __user *)arg;\n\tint r;\n\tstruct kvm_fpu *fpu = NULL;\n\tstruct kvm_sregs *kvm_sregs = NULL;\n\n\tif (vcpu->kvm->mm != current->mm || vcpu->kvm->vm_dead)\n\t\treturn -EIO;\n\n\tif (unlikely(_IOC_TYPE(ioctl) != KVMIO))\n\t\treturn -EINVAL;\n\n\t/*"
+  },
+  "arch/x86/kvm/x86.c:12014": {
+    "path": "arch/x86/kvm/x86.c",
+    "line": 12014,
+    "startLine": 11999,
+    "endLine": 12029,
+    "code": "\t */\n\tif (WARN_ON_ONCE(vcpu->arch.mp_state == KVM_MP_STATE_SIPI_RECEIVED))\n\t\treturn -EINVAL;\n\n\t/*\n\t * Disallow running the vCPU if userspace forced it into an impossible\n\t * MP_STATE, e.g. if the vCPU is in WFS but SIPI is blocked.\n\t */\n\tif (vcpu->arch.mp_state == KVM_MP_STATE_INIT_RECEIVED &&\n\t    !kvm_apic_init_sipi_allowed(vcpu))\n\t\treturn -EINVAL;\n\n\treturn kvm_x86_call(vcpu_pre_run)(vcpu);\n}\n\nint kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)\n{\n\tstruct kvm_queued_exception *ex = &vcpu->arch.exception;\n\tstruct kvm_run *kvm_run = vcpu->run;\n\tu64 sync_valid_fields;\n\tint r;\n\n\tr = kvm_mmu_post_init_vm(vcpu->kvm);\n\tif (r)\n\t\treturn r;\n\n\tvcpu_load(vcpu);\n\tkvm_sigset_activate(vcpu);\n\tkvm_run->flags = 0;\n\tkvm_load_guest_fpu(vcpu);\n"
+  },
+  "virt/kvm/kvm_main.c:5522": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 5522,
+    "startLine": 5507,
+    "endLine": 5537,
+    "code": "\t * cases it will be called by the final fput(file) and will take\n\t * care of doing kvm_put_kvm(kvm).\n\t */\n\tkvm_uevent_notify_change(KVM_EVENT_CREATE_VM, kvm);\n\n\tfd_install(fd, file);\n\treturn fd;\n\nput_kvm:\n\tkvm_put_kvm(kvm);\nput_fd:\n\tput_unused_fd(fd);\n\treturn r;\n}\n\nstatic long kvm_dev_ioctl(struct file *filp,\n\t\t\t  unsigned int ioctl, unsigned long arg)\n{\n\tint r = -EINVAL;\n\n\tswitch (ioctl) {\n\tcase KVM_GET_API_VERSION:\n\t\tif (arg)\n\t\t\tgoto out;\n\t\tr = KVM_API_VERSION;\n\t\tbreak;\n\tcase KVM_CREATE_VM:\n\t\tr = kvm_dev_ioctl_create_vm(arg);\n\t\tbreak;\n\tcase KVM_CHECK_EXTENSION:\n\t\tr = kvm_vm_ioctl_check_extension_generic(NULL, arg);"
+  },
+  "arch/x86/kvm/vmx/vmx.c:6035": {
+    "path": "arch/x86/kvm/vmx/vmx.c",
+    "line": 6035,
+    "startLine": 6020,
+    "endLine": 6050,
+    "code": "\treturn !vmx->rmode.vm86_active &&\n\t       (kvm_is_exception_pending(vcpu) || vcpu->arch.exception.injected);\n}\n\nstatic int handle_invalid_guest_state(struct kvm_vcpu *vcpu)\n{\n\tstruct vcpu_vmx *vmx = to_vmx(vcpu);\n\tbool intr_window_requested;\n\tunsigned count = 130;\n\n\tintr_window_requested = exec_controls_get(vmx) &\n\t\t\t\tCPU_BASED_INTR_WINDOW_EXITING;\n\n\twhile (vmx->vt.emulation_required && count-- != 0) {\n\t\tif (intr_window_requested && !vmx_interrupt_blocked(vcpu))\n\t\t\treturn handle_interrupt_window(&vmx->vcpu);\n\n\t\tif (kvm_test_request(KVM_REQ_EVENT, vcpu))\n\t\t\treturn 1;\n\n\t\t/*\n\t\t * Ensure that any updates to kvm->buses[] observed by the\n\t\t * previous instruction (emulated or otherwise) are also\n\t\t * visible to the instruction KVM is about to emulate.\n\t\t */\n\t\tsmp_rmb();\n\n\t\tif (!kvm_emulate_instruction(vcpu, 0))\n\t\t\treturn 0;\n\n\t\tif (vmx_unhandleable_emulation_required(vcpu)) {"
+  },
+  "arch/x86/kvm/mmu/mmu.c:6398": {
+    "path": "arch/x86/kvm/mmu/mmu.c",
+    "line": 6398,
+    "startLine": 6383,
+    "endLine": 6413,
+    "code": "\t * KVM emulates multiple instructions before completing event injection,\n\t * the event could be delayed beyond what is architecturally allowed,\n\t * e.g. KVM could inject an IRQ after the TPR has been raised.\n\t */\n\tif (((direct && is_write_to_guest_page_table(error_code)) ||\n\t     (!direct && kvm_event_needs_reinjection(vcpu))) &&\n\t    kvm_mmu_unprotect_gfn_and_retry(vcpu, cr2_or_gpa))\n\t\treturn RET_PF_RETRY;\n\n\t/*\n\t * The gfn is write-protected, but if KVM detects its emulating an\n\t * instruction that is unlikely to be used to modify page tables, or if\n\t * emulation fails, KVM can try to unprotect the gfn and let the CPU\n\t * re-execute the instruction that caused the page fault.  Do not allow\n\t * retrying an instruction from a nested guest as KVM is only explicitly\n\t * shadowing L1's page tables, i.e. unprotecting something for L1 isn't\n\t * going to magically fix whatever issue caused L2 to fail.\n\t */\n\tif (!is_guest_mode(vcpu))\n\t\t*emulation_type |= EMULTYPE_ALLOW_RETRY_PF;\n\n\treturn RET_PF_EMULATE;\n}\n\nint noinline kvm_mmu_page_fault(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa, u64 error_code,\n\t\t       void *insn, int insn_len)\n{\n\tint r, emulation_type = EMULTYPE_PF;\n\tbool direct = vcpu->arch.mmu->root_role.direct;\n\n\tif (WARN_ON_ONCE(!VALID_PAGE(vcpu->arch.mmu->root.hpa)))"
+  },
+  "arch/x86/kvm/mmu/mmu.c:4923": {
+    "path": "arch/x86/kvm/mmu/mmu.c",
+    "line": 4923,
+    "startLine": 4908,
+    "endLine": 4938,
+    "code": "\n\tr = mmu_topup_memory_caches(vcpu, false);\n\tif (r)\n\t\treturn r;\n\n\tr = kvm_mmu_faultin_pfn(vcpu, fault, ACC_ALL);\n\tif (r != RET_PF_CONTINUE)\n\t\treturn r;\n\n\tr = RET_PF_RETRY;\n\tread_lock(&vcpu->kvm->mmu_lock);\n\n\tif (is_page_fault_stale(vcpu, fault))\n\t\tgoto out_unlock;\n\n\tr = kvm_tdp_mmu_map(vcpu, fault);\n\nout_unlock:\n\tkvm_mmu_finish_page_fault(vcpu, fault, r);\n\tread_unlock(&vcpu->kvm->mmu_lock);\n\treturn r;\n}\n#endif\n\nint kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)\n{\n#ifdef CONFIG_X86_64\n\tif (tdp_mmu_enabled)\n\t\treturn kvm_tdp_mmu_page_fault(vcpu, fault);\n#endif\n"
+  },
+  "arch/x86/kvm/mmu/mmu.c:4794": {
+    "path": "arch/x86/kvm/mmu/mmu.c",
+    "line": 4794,
+    "startLine": 4779,
+    "endLine": 4809,
+    "code": "\t/* Special roots, e.g. pae_root, are not backed by shadow pages. */\n\tif (sp && is_obsolete_sp(vcpu->kvm, sp))\n\t\treturn true;\n\n\t/*\n\t * Roots without an associated shadow page are considered invalid if\n\t * there is a pending request to free obsolete roots.  The request is\n\t * only a hint that the current root _may_ be obsolete and needs to be\n\t * reloaded, e.g. if the guest frees a PGD that KVM is tracking as a\n\t * previous root, then __kvm_mmu_prepare_zap_page() signals all vCPUs\n\t * to reload even if no vCPU is actively using the root.\n\t */\n\tif (!sp && kvm_test_request(KVM_REQ_MMU_FREE_OBSOLETE_ROOTS, vcpu))\n\t\treturn true;\n\n\t/*\n\t * Check for a relevant mmu_notifier invalidation event one last time\n\t * now that mmu_lock is held, as the \"unsafe\" checks performed without\n\t * holding mmu_lock can get false negatives.\n\t */\n\treturn fault->slot &&\n\t       mmu_invalidate_retry_gfn(vcpu->kvm, fault->mmu_seq, fault->gfn);\n}\n\nstatic int direct_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)\n{\n\tint r;\n\n\t/* Dummy roots are used only for shadowing bad guest roots. */\n\tif (WARN_ON_ONCE(kvm_mmu_is_dummy_root(vcpu->arch.mmu->root.hpa)))\n\t\treturn RET_PF_RETRY;"
+  },
+  "arch/x86/kvm/mmu/mmu.c:3660": {
+    "path": "arch/x86/kvm/mmu/mmu.c",
+    "line": 3660,
+    "startLine": 3645,
+    "endLine": 3675,
+    "code": " * gpa, and sets *spte to the spte value. This spte may be non-preset. If no\n * walk could be performed, returns NULL and *spte does not contain valid data.\n *\n * Contract:\n *  - Must be called between walk_shadow_page_lockless_{begin,end}.\n *  - The returned sptep must not be used after walk_shadow_page_lockless_end.\n */\nstatic u64 *fast_pf_get_last_sptep(struct kvm_vcpu *vcpu, gpa_t gpa, u64 *spte)\n{\n\tstruct kvm_shadow_walk_iterator iterator;\n\tu64 old_spte;\n\tu64 *sptep = NULL;\n\n\tfor_each_shadow_entry_lockless(vcpu, gpa, iterator, old_spte) {\n\t\tsptep = iterator.sptep;\n\t\t*spte = old_spte;\n\t}\n\n\treturn sptep;\n}\n\n/*\n * Returns one of RET_PF_INVALID, RET_PF_FIXED or RET_PF_SPURIOUS.\n */\nstatic int fast_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)\n{\n\tstruct kvm_mmu_page *sp;\n\tint ret = RET_PF_INVALID;\n\tu64 spte;\n\tu64 *sptep;\n\tuint retry_count = 0;"
+  },
+  "arch/x86/kvm/mmu/mmu.c:4642": {
+    "path": "arch/x86/kvm/mmu/mmu.c",
+    "line": 4642,
+    "startLine": 4627,
+    "endLine": 4657,
+    "code": "\tif (!fault->prefetch && kvm_can_do_async_pf(vcpu)) {\n\t\ttrace_kvm_try_async_get_page(fault->addr, fault->gfn);\n\t\tif (kvm_find_async_pf_gfn(vcpu, fault->gfn)) {\n\t\t\ttrace_kvm_async_pf_repeated_fault(fault->addr, fault->gfn);\n\t\t\tkvm_make_request(KVM_REQ_APF_HALT, vcpu);\n\t\t\treturn RET_PF_RETRY;\n\t\t} else if (kvm_arch_setup_async_pf(vcpu, fault)) {\n\t\t\treturn RET_PF_RETRY;\n\t\t}\n\t}\n\n\t/*\n\t * Allow gup to bail on pending non-fatal signals when it's also allowed\n\t * to wait for IO.  Note, gup always bails if it is unable to quickly\n\t * get a page and a fatal signal, i.e. SIGKILL, is pending.\n\t */\n\tfoll |= FOLL_INTERRUPTIBLE;\n\tfoll &= ~FOLL_NOWAIT;\n\tfault->pfn = __kvm_faultin_pfn(fault->slot, fault->gfn, foll,\n\t\t\t\t       &fault->map_writable, &fault->refcounted_page);\n\n\treturn RET_PF_CONTINUE;\n}\n\nstatic int kvm_mmu_faultin_pfn(struct kvm_vcpu *vcpu,\n\t\t\t       struct kvm_page_fault *fault, unsigned int access)\n{\n\tstruct kvm_memory_slot *slot = fault->slot;\n\tstruct kvm *kvm = vcpu->kvm;\n\tint ret;\n"
+  },
+  "arch/x86/kvm/mmu/tdp_mmu.c:1263": {
+    "path": "arch/x86/kvm/mmu/tdp_mmu.c",
+    "line": 1263,
+    "startLine": 1248,
+    "endLine": 1278,
+    "code": "\t\ttdp_mmu_iter_set_spte(kvm, iter, spte);\n\t}\n\n\ttdp_account_mmu_page(kvm, sp);\n\n\treturn 0;\n}\n\nstatic int tdp_mmu_split_huge_page(struct kvm *kvm, struct tdp_iter *iter,\n\t\t\t\t   struct kvm_mmu_page *sp, bool shared);\n\n/*\n * Handle a TDP page fault (NPT/EPT violation/misconfiguration) by installing\n * page tables and SPTEs to translate the faulting guest physical address.\n */\nint kvm_tdp_mmu_map(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)\n{\n\tstruct kvm_mmu_page *root = tdp_mmu_get_root_for_fault(vcpu, fault);\n\tstruct kvm *kvm = vcpu->kvm;\n\tstruct tdp_iter iter;\n\tstruct kvm_mmu_page *sp;\n\tint ret = RET_PF_RETRY;\n\n\tKVM_MMU_WARN_ON(!root || root->role.invalid);\n\n\tkvm_mmu_hugepage_adjust(vcpu, fault);\n\n\ttrace_kvm_mmu_spte_requested(fault);\n\n\trcu_read_lock();\n"
+  },
+  "arch/x86/kvm/mmu/tdp_mmu.c:1279": {
+    "path": "arch/x86/kvm/mmu/tdp_mmu.c",
+    "line": 1279,
+    "startLine": 1264,
+    "endLine": 1294,
+    "code": "{\n\tstruct kvm_mmu_page *root = tdp_mmu_get_root_for_fault(vcpu, fault);\n\tstruct kvm *kvm = vcpu->kvm;\n\tstruct tdp_iter iter;\n\tstruct kvm_mmu_page *sp;\n\tint ret = RET_PF_RETRY;\n\n\tKVM_MMU_WARN_ON(!root || root->role.invalid);\n\n\tkvm_mmu_hugepage_adjust(vcpu, fault);\n\n\ttrace_kvm_mmu_spte_requested(fault);\n\n\trcu_read_lock();\n\n\tfor_each_tdp_pte(iter, kvm, root, fault->gfn, fault->gfn + 1) {\n\t\tint r;\n\n\t\tif (fault->nx_huge_page_workaround_enabled)\n\t\t\tdisallowed_hugepage_adjust(fault, iter.old_spte, iter.level);\n\n\t\t/*\n\t\t * If SPTE has been frozen by another thread, just give up and\n\t\t * retry, avoiding unnecessary page table allocation and free.\n\t\t */\n\t\tif (is_frozen_spte(iter.old_spte))\n\t\t\tgoto retry;\n\n\t\tif (iter.level == fault->goal_level)\n\t\t\tgoto map_target_level;\n"
+  },
+  "arch/x86/kvm/mmu/tdp_mmu.c:1304": {
+    "path": "arch/x86/kvm/mmu/tdp_mmu.c",
+    "line": 1304,
+    "startLine": 1289,
+    "endLine": 1319,
+    "code": "\t\tif (is_frozen_spte(iter.old_spte))\n\t\t\tgoto retry;\n\n\t\tif (iter.level == fault->goal_level)\n\t\t\tgoto map_target_level;\n\n\t\t/* Step down into the lower level page table if it exists. */\n\t\tif (is_shadow_present_pte(iter.old_spte) &&\n\t\t    !is_large_pte(iter.old_spte))\n\t\t\tcontinue;\n\n\t\t/*\n\t\t * The SPTE is either non-present or points to a huge page that\n\t\t * needs to be split.\n\t\t */\n\t\tsp = tdp_mmu_alloc_sp(vcpu);\n\t\ttdp_mmu_init_child_sp(sp, &iter);\n\t\tif (is_mirror_sp(sp))\n\t\t\tkvm_mmu_alloc_external_spt(vcpu, sp);\n\n\t\tsp->nx_huge_page_disallowed = fault->huge_page_disallowed;\n\n\t\tif (is_shadow_present_pte(iter.old_spte)) {\n\t\t\t/* Don't support large page for mirrored roots (TDX) */\n\t\t\tKVM_BUG_ON(is_mirror_sptep(iter.sptep), vcpu->kvm);\n\t\t\tr = tdp_mmu_split_huge_page(kvm, &iter, sp, true);\n\t\t} else {\n\t\t\tr = tdp_mmu_link_sp(kvm, &iter, sp, true);\n\t\t}\n\n\t\t/*"
+  },
+  "arch/x86/kvm/mmu/tdp_mmu.c:1168": {
+    "path": "arch/x86/kvm/mmu/tdp_mmu.c",
+    "line": 1168,
+    "startLine": 1153,
+    "endLine": 1183,
+    "code": "\t\t * roots must be *zapped* before the memslot update completes,\n\t\t * but a different task can acquire a reference and keep the\n\t\t * root alive after its been zapped.\n\t\t */\n\t\tif (!root->role.invalid) {\n\t\t\troot->tdp_mmu_scheduled_root_to_zap = true;\n\t\t\troot->role.invalid = true;\n\t\t}\n\t}\n}\n\n/*\n * Installs a last-level SPTE to handle a TDP page fault.\n * (NPT/EPT violation/misconfiguration)\n */\nstatic int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,\n\t\t\t\t\t  struct kvm_page_fault *fault,\n\t\t\t\t\t  struct tdp_iter *iter)\n{\n\tstruct kvm_mmu_page *sp = sptep_to_sp(rcu_dereference(iter->sptep));\n\tu64 new_spte;\n\tint ret = RET_PF_FIXED;\n\tbool wrprot = false;\n\n\tif (WARN_ON_ONCE(sp->role.level != fault->goal_level))\n\t\treturn RET_PF_RETRY;\n\n\tif (is_shadow_present_pte(iter->old_spte) &&\n\t    (fault->prefetch || is_access_allowed(fault, iter->old_spte)) &&\n\t    is_last_spte(iter->old_spte, iter->level)) {\n\t\tWARN_ON_ONCE(fault->pfn != spte_to_pfn(iter->old_spte));"
+  },
+  "virt/kvm/kvm_main.c:5208": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 5208,
+    "startLine": 5193,
+    "endLine": 5223,
+    "code": "\t\tif (copy_from_user(&mem, argp, size))\n\t\t\tgoto out;\n\n\t\tr = -EINVAL;\n\t\tif (ioctl == KVM_SET_USER_MEMORY_REGION &&\n\t\t    (mem.flags & ~KVM_SET_USER_MEMORY_REGION_V1_FLAGS))\n\t\t\tgoto out;\n\n\t\tr = kvm_vm_ioctl_set_memory_region(kvm, &mem);\n\t\tbreak;\n\t}\n\tcase KVM_GET_DIRTY_LOG: {\n\t\tstruct kvm_dirty_log log;\n\n\t\tr = -EFAULT;\n\t\tif (copy_from_user(&log, argp, sizeof(log)))\n\t\t\tgoto out;\n\t\tr = kvm_vm_ioctl_get_dirty_log(kvm, &log);\n\t\tbreak;\n\t}\n#ifdef CONFIG_KVM_GENERIC_DIRTYLOG_READ_PROTECT\n\tcase KVM_CLEAR_DIRTY_LOG: {\n\t\tstruct kvm_clear_dirty_log log;\n\n\t\tr = -EFAULT;\n\t\tif (copy_from_user(&log, argp, sizeof(log)))\n\t\t\tgoto out;\n\t\tr = kvm_vm_ioctl_clear_dirty_log(kvm, &log);\n\t\tbreak;\n\t}\n#endif"
+  },
+  "virt/kvm/kvm_main.c:2147": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 2147,
+    "startLine": 2132,
+    "endLine": 2162,
+    "code": "\n\tif (WARN_ON_ONCE(mem->flags))\n\t\treturn -EINVAL;\n\n\treturn kvm_set_memory_region(kvm, mem);\n}\nEXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_set_internal_memslot);\n\nstatic int kvm_vm_ioctl_set_memory_region(struct kvm *kvm,\n\t\t\t\t\t  struct kvm_userspace_memory_region2 *mem)\n{\n\tif ((u16)mem->slot >= KVM_USER_MEM_SLOTS)\n\t\treturn -EINVAL;\n\n\tguard(mutex)(&kvm->slots_lock);\n\treturn kvm_set_memory_region(kvm, mem);\n}\n\n#ifndef CONFIG_KVM_GENERIC_DIRTYLOG_READ_PROTECT\n/**\n * kvm_get_dirty_log - get a snapshot of dirty pages\n * @kvm:\tpointer to kvm instance\n * @log:\tslot id and address to which we copy the log\n * @is_dirty:\tset to '1' if any dirty pages were found\n * @memslot:\tset to the associated memslot, always valid on success\n */\nint kvm_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log,\n\t\t      int *is_dirty, struct kvm_memory_slot **memslot)\n{\n\tstruct kvm_memslots *slots;\n\tint i, as_id, id;"
+  },
+  "virt/kvm/kvm_main.c:2001": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 2001,
+    "startLine": 1986,
+    "endLine": 2016,
+    "code": "\tkvm_for_each_memslot_in_gfn_range(&iter, slots, start, end) {\n\t\tif (iter.slot->id != id)\n\t\t\treturn true;\n\t}\n\n\treturn false;\n}\n\nstatic int kvm_set_memory_region(struct kvm *kvm,\n\t\t\t\t const struct kvm_userspace_memory_region2 *mem)\n{\n\tstruct kvm_memory_slot *old, *new;\n\tstruct kvm_memslots *slots;\n\tenum kvm_mr_change change;\n\tunsigned long npages;\n\tgfn_t base_gfn;\n\tint as_id, id;\n\tint r;\n\n\tlockdep_assert_held(&kvm->slots_lock);\n\n\tr = check_memory_region_flags(kvm, mem);\n\tif (r)\n\t\treturn r;\n\n\tas_id = mem->slot >> 16;\n\tid = (u16)mem->slot;\n\n\t/* General sanity checks */\n\tif ((mem->memory_size & (PAGE_SIZE - 1)) ||\n\t    (mem->memory_size != (unsigned long)mem->memory_size))"
+  },
+  "virt/kvm/kvm_main.c:2014": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 2014,
+    "startLine": 1999,
+    "endLine": 2029,
+    "code": "\tenum kvm_mr_change change;\n\tunsigned long npages;\n\tgfn_t base_gfn;\n\tint as_id, id;\n\tint r;\n\n\tlockdep_assert_held(&kvm->slots_lock);\n\n\tr = check_memory_region_flags(kvm, mem);\n\tif (r)\n\t\treturn r;\n\n\tas_id = mem->slot >> 16;\n\tid = (u16)mem->slot;\n\n\t/* General sanity checks */\n\tif ((mem->memory_size & (PAGE_SIZE - 1)) ||\n\t    (mem->memory_size != (unsigned long)mem->memory_size))\n\t\treturn -EINVAL;\n\tif (mem->guest_phys_addr & (PAGE_SIZE - 1))\n\t\treturn -EINVAL;\n\t/* We can read the guest memory with __xxx_user() later on. */\n\tif ((mem->userspace_addr & (PAGE_SIZE - 1)) ||\n\t    (mem->userspace_addr != untagged_addr(mem->userspace_addr)) ||\n\t     !access_ok((void __user *)(unsigned long)mem->userspace_addr,\n\t\t\tmem->memory_size))\n\t\treturn -EINVAL;\n\tif (mem->flags & KVM_MEM_GUEST_MEMFD &&\n\t    (mem->guest_memfd_offset & (PAGE_SIZE - 1) ||\n\t     mem->guest_memfd_offset + mem->memory_size < mem->guest_memfd_offset))\n\t\treturn -EINVAL;"
+  },
+  "virt/kvm/kvm_main.c:1893": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 1893,
+    "startLine": 1878,
+    "endLine": 1908,
+    "code": "\t * Similar to the MOVE case, but the slot doesn't need to be zapped as\n\t * an intermediate step. Instead, the old memslot is simply replaced\n\t * with a new, updated copy in both memslot sets.\n\t */\n\tkvm_replace_memslot(kvm, old, new);\n\tkvm_activate_memslot(kvm, old, new);\n}\n\nstatic int kvm_set_memslot(struct kvm *kvm,\n\t\t\t   struct kvm_memory_slot *old,\n\t\t\t   struct kvm_memory_slot *new,\n\t\t\t   enum kvm_mr_change change)\n{\n\tstruct kvm_memory_slot *invalid_slot;\n\tint r;\n\n\t/*\n\t * Released in kvm_swap_active_memslots().\n\t *\n\t * Must be held from before the current memslots are copied until after\n\t * the new memslots are installed with rcu_assign_pointer, then\n\t * released before the synchronize srcu in kvm_swap_active_memslots().\n\t *\n\t * When modifying memslots outside of the slots_lock, must be held\n\t * before reading the pointer to the current memslots until after all\n\t * changes to those memslots are complete.\n\t *\n\t * These rules ensure that installing new memslots does not lose\n\t * changes made to the previous memslots.\n\t */\n\tmutex_lock(&kvm->slots_arch_lock);"
+  },
+  "virt/kvm/kvm_main.c:1665": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 1665,
+    "startLine": 1650,
+    "endLine": 1680,
+    "code": "\t */\n\tgen += kvm_arch_nr_memslot_as_ids(kvm);\n\n\tkvm_arch_memslots_updated(kvm, gen);\n\n\tslots->generation = gen;\n}\n\nstatic int kvm_prepare_memory_region(struct kvm *kvm,\n\t\t\t\t     const struct kvm_memory_slot *old,\n\t\t\t\t     struct kvm_memory_slot *new,\n\t\t\t\t     enum kvm_mr_change change)\n{\n\tint r;\n\n\t/*\n\t * If dirty logging is disabled, nullify the bitmap; the old bitmap\n\t * will be freed on \"commit\".  If logging is enabled in both old and\n\t * new, reuse the existing bitmap.  If logging is enabled only in the\n\t * new and KVM isn't using a ring buffer, allocate and initialize a\n\t * new bitmap.\n\t */\n\tif (change != KVM_MR_DELETE) {\n\t\tif (!(new->flags & KVM_MEM_LOG_DIRTY_PAGES))\n\t\t\tnew->dirty_bitmap = NULL;\n\t\telse if (old && old->dirty_bitmap)\n\t\t\tnew->dirty_bitmap = old->dirty_bitmap;\n\t\telse if (kvm_use_dirty_bitmap(kvm)) {\n\t\t\tr = kvm_alloc_dirty_bitmap(new);\n\t\t\tif (r)\n\t\t\t\treturn r;"
+  },
+  "virt/kvm/kvm_main.c:1964": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 1964,
+    "startLine": 1949,
+    "endLine": 1979,
+    "code": "\t/*\n\t * For DELETE and MOVE, the working slot is now active as the INVALID\n\t * version of the old slot.  MOVE is particularly special as it reuses\n\t * the old slot and returns a copy of the old slot (in working_slot).\n\t * For CREATE, there is no old slot.  For DELETE and FLAGS_ONLY, the\n\t * old slot is detached but otherwise preserved.\n\t */\n\tif (change == KVM_MR_CREATE)\n\t\tkvm_create_memslot(kvm, new);\n\telse if (change == KVM_MR_DELETE)\n\t\tkvm_delete_memslot(kvm, old, invalid_slot);\n\telse if (change == KVM_MR_MOVE)\n\t\tkvm_move_memslot(kvm, old, new, invalid_slot);\n\telse if (change == KVM_MR_FLAGS_ONLY)\n\t\tkvm_update_flags_memslot(kvm, old, new);\n\telse\n\t\tBUG();\n\n\t/* Free the temporary INVALID slot used for DELETE and MOVE. */\n\tif (change == KVM_MR_DELETE || change == KVM_MR_MOVE)\n\t\tkfree(invalid_slot);\n\n\t/*\n\t * No need to refresh new->arch, changes after dropping slots_arch_lock\n\t * will directly hit the final, active memslot.  Architectures are\n\t * responsible for knowing that new->arch may be stale.\n\t */\n\tkvm_commit_memory_region(kvm, old, new, change);\n\n\treturn 0;\n}"
+  },
+  "virt/kvm/kvm_main.c:1703": {
+    "path": "virt/kvm/kvm_main.c",
+    "line": 1703,
+    "startLine": 1688,
+    "endLine": 1718,
+    "code": "\n\t/* Free the bitmap on failure if it was allocated above. */\n\tif (r && new && new->dirty_bitmap && (!old || !old->dirty_bitmap))\n\t\tkvm_destroy_dirty_bitmap(new);\n\n\treturn r;\n}\n\nstatic void kvm_commit_memory_region(struct kvm *kvm,\n\t\t\t\t     struct kvm_memory_slot *old,\n\t\t\t\t     const struct kvm_memory_slot *new,\n\t\t\t\t     enum kvm_mr_change change)\n{\n\tint old_flags = old ? old->flags : 0;\n\tint new_flags = new ? new->flags : 0;\n\t/*\n\t * Update the total number of memslot pages before calling the arch\n\t * hook so that architectures can consume the result directly.\n\t */\n\tif (change == KVM_MR_DELETE)\n\t\tkvm->nr_memslot_pages -= old->npages;\n\telse if (change == KVM_MR_CREATE)\n\t\tkvm->nr_memslot_pages += new->npages;\n\n\tif ((old_flags ^ new_flags) & KVM_MEM_LOG_DIRTY_PAGES) {\n\t\tint change = (new_flags & KVM_MEM_LOG_DIRTY_PAGES) ? 1 : -1;\n\t\tatomic_set(&kvm->nr_memslots_dirty_logging,\n\t\t\t   atomic_read(&kvm->nr_memslots_dirty_logging) + change);\n\t}\n\n\tkvm_arch_commit_memory_region(kvm, old, new, change);"
+  },
+  "arch/x86/kvm/mmu/mmu.c:3380": {
+    "path": "arch/x86/kvm/mmu/mmu.c",
+    "line": 3380,
+    "startLine": 3365,
+    "endLine": 3395,
+    "code": "\t\tis_private = fault->is_private;\n\t} else {\n\t\tmax_level = PG_LEVEL_NUM;\n\t\tis_private = kvm_mem_is_private(kvm, gfn);\n\t}\n\n\tmax_level = min(max_level, max_huge_page_level);\n\tfor ( ; max_level > PG_LEVEL_4K; max_level--) {\n\t\tlinfo = lpage_info_slot(gfn, slot, max_level);\n\t\tif (!linfo->disallow_lpage)\n\t\t\tbreak;\n\t}\n\n\tif (max_level == PG_LEVEL_4K)\n\t\treturn PG_LEVEL_4K;\n\n\tif (is_private || kvm_memslot_is_gmem_only(slot))\n\t\thost_level = kvm_gmem_max_mapping_level(kvm, fault, slot, gfn,\n\t\t\t\t\t\t\tis_private);\n\telse\n\t\thost_level = host_pfn_mapping_level(kvm, gfn, slot);\n\treturn min(host_level, max_level);\n}\n\nvoid kvm_mmu_hugepage_adjust(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)\n{\n\tstruct kvm_memory_slot *slot = fault->slot;\n\tkvm_pfn_t mask;\n\n\tfault->huge_page_disallowed = fault->exec && fault->nx_huge_page_workaround_enabled;\n"
+  },
+  "arch/x86/kvm/mmu/mmu.c:3400": {
+    "path": "arch/x86/kvm/mmu/mmu.c",
+    "line": 3400,
+    "startLine": 3385,
+    "endLine": 3415,
+    "code": "\t\thost_level = host_pfn_mapping_level(kvm, gfn, slot);\n\treturn min(host_level, max_level);\n}\n\nvoid kvm_mmu_hugepage_adjust(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)\n{\n\tstruct kvm_memory_slot *slot = fault->slot;\n\tkvm_pfn_t mask;\n\n\tfault->huge_page_disallowed = fault->exec && fault->nx_huge_page_workaround_enabled;\n\n\tif (unlikely(fault->max_level == PG_LEVEL_4K))\n\t\treturn;\n\n\tif (is_error_noslot_pfn(fault->pfn))\n\t\treturn;\n\n\tif (kvm_slot_dirty_track_enabled(slot))\n\t\treturn;\n\n\t/*\n\t * Enforce the iTLB multihit workaround after capturing the requested\n\t * level, which will be used to do precise, accurate accounting.\n\t */\n\tfault->req_level = kvm_mmu_max_mapping_level(vcpu->kvm, fault,\n\t\t\t\t\t\t     fault->slot, fault->gfn);\n\tif (fault->req_level == PG_LEVEL_4K || fault->huge_page_disallowed)\n\t\treturn;\n\n\t/*\n\t * mmu_invalidate_retry() was successful and mmu_lock is held, so"
+  },
+  "arch/x86/kvm/mmu/tdp_mmu.c:1345": {
+    "path": "arch/x86/kvm/mmu/tdp_mmu.c",
+    "line": 1345,
+    "startLine": 1330,
+    "endLine": 1360,
+    "code": "\t\t\tspin_lock(&kvm->arch.tdp_mmu_pages_lock);\n\t\t\tif (sp->nx_huge_page_disallowed)\n\t\t\t\ttrack_possible_nx_huge_page(kvm, sp, KVM_TDP_MMU);\n\t\t\tspin_unlock(&kvm->arch.tdp_mmu_pages_lock);\n\t\t}\n\t}\n\n\t/*\n\t * The walk aborted before reaching the target level, e.g. because the\n\t * iterator detected an upper level SPTE was frozen during traversal.\n\t */\n\tWARN_ON_ONCE(iter.level == fault->goal_level);\n\tgoto retry;\n\nmap_target_level:\n\tret = tdp_mmu_map_handle_target_level(vcpu, fault, &iter);\n\nretry:\n\trcu_read_unlock();\n\treturn ret;\n}\n\n/* Used by mmu notifier via kvm_unmap_gfn_range() */\nbool kvm_tdp_mmu_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range,\n\t\t\t\t bool flush)\n{\n\tenum kvm_tdp_mmu_root_types types;\n\tstruct kvm_mmu_page *root;\n\n\ttypes = kvm_gfn_range_filter_to_root_types(kvm, range->attr_filter) | KVM_INVALID_ROOTS;\n"
+  },
+  "kernel/locking/lockdep.c:5825": {
+    "path": "kernel/locking/lockdep.c",
+    "line": 5825,
+    "startLine": 5810,
+    "endLine": 5840,
+    "code": " * 2. The implementation is not queued read/write lock or\n * 3. The locker is at an in_interrupt() context.\n */\nbool read_lock_is_recursive(void)\n{\n\treturn force_read_lock_recursive ||\n\t       !IS_ENABLED(CONFIG_QUEUED_RWLOCKS) ||\n\t       in_interrupt();\n}\nEXPORT_SYMBOL_GPL(read_lock_is_recursive);\n\n/*\n * We are not always called with irqs disabled - do that here,\n * and also avoid lockdep recursion:\n */\nvoid lock_acquire(struct lockdep_map *lock, unsigned int subclass,\n\t\t\t  int trylock, int read, int check,\n\t\t\t  struct lockdep_map *nest_lock, unsigned long ip)\n{\n\tunsigned long flags;\n\n\ttrace_lock_acquire(lock, subclass, trylock, read, check, nest_lock, ip);\n\n\tif (!debug_locks)\n\t\treturn;\n\n\t/*\n\t * As KASAN instrumentation is disabled and lock_acquire() is usually\n\t * the first lockdep call when a task tries to acquire a lock, add\n\t * kasan_check_byte() here to check for use-after-free and other\n\t * memory errors."
+  },
+  "fs/open.c:1076": {
+    "path": "fs/open.c",
+    "line": 1076,
+    "startLine": 1061,
+    "endLine": 1091,
+    "code": "EXPORT_SYMBOL(finish_no_open);\n\nchar *file_path(struct file *filp, char *buf, int buflen)\n{\n\treturn d_path(&filp->f_path, buf, buflen);\n}\nEXPORT_SYMBOL(file_path);\n\n/**\n * vfs_open - open the file at the given path\n * @path: path to open\n * @file: newly allocated file with f_flag initialized\n */\nint vfs_open(const struct path *path, struct file *file)\n{\n\tint ret;\n\n\tfile->__f_path = *path;\n\tret = do_dentry_open(file, NULL);\n\tif (!ret) {\n\t\t/*\n\t\t * Once we return a file with FMODE_OPENED, __fput() will call\n\t\t * fsnotify_close(), so we need fsnotify_open() here for\n\t\t * symmetry.\n\t\t */\n\t\tfsnotify_open(file);\n\t}\n\treturn ret;\n}\n\nstruct file *dentry_open(const struct path *path, int flags,"
+  },
+  "kernel/fork.c:1964": {
+    "path": "kernel/fork.c",
+    "line": 1964,
+    "startLine": 1949,
+    "endLine": 1979,
+    "code": "#define rv_task_fork(p) do {} while (0)\n#endif\n\nstatic bool need_futex_hash_allocate_default(u64 clone_flags)\n{\n\tif ((clone_flags & (CLONE_THREAD | CLONE_VM)) != (CLONE_THREAD | CLONE_VM))\n\t\treturn false;\n\treturn true;\n}\n\n/*\n * This creates a new process as a copy of the old one,\n * but does not actually start it yet.\n *\n * It copies the registers, and all the appropriate\n * parts of the process environment (as per the clone\n * flags). The actual kick-off is left to the caller.\n */\n__latent_entropy struct task_struct *copy_process(\n\t\t\t\t\tstruct pid *pid,\n\t\t\t\t\tint trace,\n\t\t\t\t\tint node,\n\t\t\t\t\tstruct kernel_clone_args *args)\n{\n\tint pidfd = -1, retval;\n\tstruct task_struct *p;\n\tstruct multiprocess_signals delayed;\n\tstruct file *pidfile = NULL;\n\tconst u64 clone_flags = args->flags;\n\tstruct nsproxy *nsp = current->nsproxy;\n"
+  },
+  "include/linux/lsm_hooks.h:95": {
+    "path": "include/linux/lsm_hooks.h",
+    "line": 95,
+    "startLine": 80,
+    "endLine": 110,
+    "code": " */\nstruct lsm_id {\n\tconst char *name;\n\tu64 id;\n};\n\n/*\n * Security module hook list structure.\n * For use with generic list macros for common operations.\n *\n * struct security_hook_list - Contents of a cacheable, mappable object.\n * @scalls: The beginning of the array of static calls assigned to this hook.\n * @hook: The callback for the hook.\n * @lsm: The name of the lsm that owns this hook.\n */\nstruct security_hook_list {\n\tstruct lsm_static_call *scalls;\n\tunion security_list_options hook;\n\tconst struct lsm_id *lsmid;\n} __randomize_layout;\n\n/*\n * Security blob size or offset data.\n */\nstruct lsm_blob_sizes {\n\tunsigned int lbs_cred;\n\tunsigned int lbs_file;\n\tunsigned int lbs_backing_file;\n\tunsigned int lbs_ib;\n\tunsigned int lbs_inode;\n\tunsigned int lbs_sock;"
+  },
+  "mm/memcontrol.c:4815": {
+    "path": "mm/memcontrol.c",
+    "line": 4815,
+    "startLine": 4800,
+    "endLine": 4830,
+    "code": "\t\t\tgfp_t gfp)\n{\n\tint ret;\n\n\tret = try_charge(memcg, gfp, folio_nr_pages(folio));\n\tif (ret)\n\t\tgoto out;\n\n\tcss_get(&memcg->css);\n\tcommit_charge(folio, memcg);\n\tmemcg1_commit_charge(folio, memcg);\nout:\n\treturn ret;\n}\n\nint __mem_cgroup_charge(struct folio *folio, struct mm_struct *mm, gfp_t gfp)\n{\n\tstruct mem_cgroup *memcg;\n\tint ret;\n\n\tmemcg = get_mem_cgroup_from_mm(mm);\n\tret = charge_memcg(folio, memcg, gfp);\n\tcss_put(&memcg->css);\n\n\treturn ret;\n}\n\n/**\n * mem_cgroup_charge_hugetlb - charge the memcg for a hugetlb folio\n * @folio: folio being charged\n * @gfp: reclaim mode"
+  },
+  "mm/memcontrol.c:2404": {
+    "path": "mm/memcontrol.c",
+    "line": 2404,
+    "startLine": 2389,
+    "endLine": 2419,
+    "code": "\tbool drained = false;\n\tbool raised_max_event = false;\n\tunsigned long pflags;\n\tbool allow_spinning = gfpflags_allow_spinning(gfp_mask);\n\nretry:\n\tif (consume_stock(memcg, nr_pages))\n\t\treturn 0;\n\n\tif (!allow_spinning)\n\t\t/* Avoid the refill and flush of the older stock */\n\t\tbatch = nr_pages;\n\n\treclaim_options = MEMCG_RECLAIM_MAY_SWAP;\n\tif (!do_memsw_account() ||\n\t    page_counter_try_charge(&memcg->memsw, batch, &counter)) {\n\t\tif (page_counter_try_charge(&memcg->memory, batch, &counter))\n\t\t\tgoto done_restock;\n\t\tif (do_memsw_account())\n\t\t\tpage_counter_uncharge(&memcg->memsw, batch);\n\t\tmem_over_limit = mem_cgroup_from_counter(counter, memory);\n\t} else {\n\t\tmem_over_limit = mem_cgroup_from_counter(counter, memsw);\n\t\treclaim_options &= ~MEMCG_RECLAIM_MAY_SWAP;\n\t}\n\n\tif (batch > nr_pages) {\n\t\tbatch = nr_pages;\n\t\tgoto retry;\n\t}\n"
+  },
+  "mm/oom_kill.c:1008": {
+    "path": "mm/oom_kill.c",
+    "line": 1008,
+    "startLine": 993,
+    "endLine": 1023,
+    "code": "\n/*\n * Kill provided task unless it's secured by setting\n * oom_score_adj to OOM_SCORE_ADJ_MIN.\n */\nstatic int oom_kill_memcg_member(struct task_struct *task, void *message)\n{\n\tif (task->signal->oom_score_adj != OOM_SCORE_ADJ_MIN &&\n\t    !is_global_init(task)) {\n\t\tget_task_struct(task);\n\t\t__oom_kill_process(task, message);\n\t}\n\treturn 0;\n}\n\nstatic void oom_kill_process(struct oom_control *oc, const char *message)\n{\n\tstruct task_struct *victim = oc->chosen;\n\tstruct mem_cgroup *oom_group;\n\tstatic DEFINE_RATELIMIT_STATE(oom_rs, DEFAULT_RATELIMIT_INTERVAL,\n\t\t\t\t\t      DEFAULT_RATELIMIT_BURST);\n\n\t/*\n\t * If the task is already exiting, don't alarm the sysadmin or kill\n\t * its children or threads, just give it access to memory reserves\n\t * so it can die quickly\n\t */\n\ttask_lock(victim);\n\tif (task_will_free_mem(victim)) {\n\t\tmark_oom_victim(victim);\n\t\tqueue_oom_reaper(victim);"
+  },
+  "mm/memcontrol.c:3882": {
+    "path": "mm/memcontrol.c",
+    "line": 3882,
+    "startLine": 3867,
+    "endLine": 3897,
+    "code": "\t\t\t__WB_COMPLETION_INIT(&memcg_cgwb_frn_waitq);\n#endif\n#ifdef CONFIG_TRANSPARENT_HUGEPAGE\n\tspin_lock_init(&memcg->deferred_split_queue.split_queue_lock);\n\tINIT_LIST_HEAD(&memcg->deferred_split_queue.split_queue);\n\tmemcg->deferred_split_queue.split_queue_len = 0;\n#endif\n\tlru_gen_init_memcg(memcg);\n\treturn memcg;\nfail:\n\tmem_cgroup_private_id_remove(memcg);\n\t__mem_cgroup_free(memcg);\n\treturn ERR_PTR(error);\n}\n\nstatic struct cgroup_subsys_state * __ref\nmem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)\n{\n\tstruct mem_cgroup *parent = mem_cgroup_from_css(parent_css);\n\tstruct mem_cgroup *memcg, *old_memcg;\n\tbool memcg_on_dfl = cgroup_subsys_on_dfl(memory_cgrp_subsys);\n\n\told_memcg = set_active_memcg(parent);\n\tmemcg = mem_cgroup_alloc(parent);\n\tset_active_memcg(old_memcg);\n\tif (IS_ERR(memcg))\n\t\treturn ERR_CAST(memcg);\n\n\tpage_counter_set_high(&memcg->memory, PAGE_COUNTER_MAX);\n\tmemcg1_soft_limit_reset(memcg);\n#ifdef CONFIG_ZSWAP"
+  },
+  "kernel/pid_namespace.c:76": {
+    "path": "kernel/pid_namespace.c",
+    "line": 76,
+    "startLine": 61,
+    "endLine": 91,
+    "code": "\treturn READ_ONCE(*pkc);\n}\n\nstatic struct ucounts *inc_pid_namespaces(struct user_namespace *ns)\n{\n\treturn inc_ucount(ns, current_euid(), UCOUNT_PID_NAMESPACES);\n}\n\nstatic void dec_pid_namespaces(struct ucounts *ucounts)\n{\n\tdec_ucount(ucounts, UCOUNT_PID_NAMESPACES);\n}\n\nstatic void destroy_pid_namespace_work(struct work_struct *work);\n\nstatic struct pid_namespace *create_pid_namespace(struct user_namespace *user_ns,\n\tstruct pid_namespace *parent_pid_ns)\n{\n\tstruct pid_namespace *ns;\n\tunsigned int level = parent_pid_ns->level + 1;\n\tstruct ucounts *ucounts;\n\tint err;\n\n\terr = -EINVAL;\n\tif (!in_userns(parent_pid_ns->user_ns, user_ns))\n\t\tgoto out;\n\n\terr = -ENOSPC;\n\tif (level > MAX_PID_NS_LEVEL)\n\t\tgoto out;\n\tucounts = inc_pid_namespaces(user_ns);"
+  },
+  "kernel/fork.c:3193": {
+    "path": "kernel/fork.c",
+    "line": 3193,
+    "startLine": 3178,
+    "endLine": 3208,
+    "code": "\t\t\treturn PTR_ERR(fd);\n\t\t*new_fdp = fd;\n\t}\n\n\treturn 0;\n}\n\n/*\n * unshare allows a process to 'unshare' part of the process\n * context which was originally shared using clone.  copy_*\n * functions used by kernel_clone() cannot be used here directly\n * because they modify an inactive task_struct that is being\n * constructed. Here we are modifying the current, active,\n * task_struct.\n */\nint ksys_unshare(unsigned long unshare_flags)\n{\n\tstruct fs_struct *fs, *new_fs = NULL;\n\tstruct files_struct *new_fd = NULL;\n\tstruct cred *new_cred = NULL;\n\tstruct nsproxy *new_nsproxy = NULL;\n\tint do_sysvsem = 0;\n\tint err;\n\n\t/*\n\t * If unsharing a user namespace must also unshare the thread group\n\t * and unshare the filesystem root and working directories.\n\t */\n\tif (unshare_flags & CLONE_NEWUSER)\n\t\tunshare_flags |= CLONE_THREAD | CLONE_FS;\n\t/*"
+  },
+  "net/ipv4/ip_input.c:564": {
+    "path": "net/ipv4/ip_input.c",
+    "line": 564,
+    "startLine": 549,
+    "endLine": 579,
+    "code": "\tif (!pskb_may_pull(skb, iph->ihl*4))\n\t\tgoto inhdr_error;\n\n\tiph = ip_hdr(skb);\n\n\tif (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))\n\t\tgoto csum_error;\n\n\tlen = iph_totlen(skb, iph);\n\tif (skb->len < len) {\n\t\tdrop_reason = SKB_DROP_REASON_PKT_TOO_SMALL;\n\t\t__IP_INC_STATS(net, IPSTATS_MIB_INTRUNCATEDPKTS);\n\t\tgoto drop;\n\t} else if (len < (iph->ihl*4))\n\t\tgoto inhdr_error;\n\n\t/* Our transport medium may have padded the buffer out. Now we know it\n\t * is IP we can trim to the true length of the frame.\n\t * Note this now means skb->len holds ntohs(iph->tot_len).\n\t */\n\tif (pskb_trim_rcsum(skb, len)) {\n\t\t__IP_INC_STATS(net, IPSTATS_MIB_INDISCARDS);\n\t\tgoto drop;\n\t}\n\n\tiph = ip_hdr(skb);\n\tskb->transport_header = skb->network_header + iph->ihl*4;\n\n\t/* Remove any debris in the socket control block */\n\tmemset(IPCB(skb), 0, sizeof(struct inet_skb_parm));\n\tIPCB(skb)->iif = skb->skb_iif;"
+  },
+  "net/netfilter/nft_chain_filter.c:14": {
+    "path": "net/netfilter/nft_chain_filter.c",
+    "line": 14,
+    "startLine": 1,
+    "endLine": 29,
+    "code": "// SPDX-License-Identifier: GPL-2.0\n#include <linux/init.h>\n#include <linux/kernel.h>\n#include <linux/netdevice.h>\n#include <net/net_namespace.h>\n#include <net/netfilter/nf_tables.h>\n#include <linux/netfilter_ipv4.h>\n#include <linux/netfilter_ipv6.h>\n#include <linux/netfilter_bridge.h>\n#include <linux/netfilter_arp.h>\n#include <net/netfilter/nf_tables_ipv4.h>\n#include <net/netfilter/nf_tables_ipv6.h>\n\n#ifdef CONFIG_NF_TABLES_IPV4\nstatic unsigned int nft_do_chain_ipv4(void *priv,\n\t\t\t\t      struct sk_buff *skb,\n\t\t\t\t      const struct nf_hook_state *state)\n{\n\tstruct nft_pktinfo pkt;\n\n\tnft_set_pktinfo(&pkt, skb, state);\n\tnft_set_pktinfo_ipv4(&pkt);\n\n\treturn nft_do_chain(&pkt, priv);\n}\n\nstatic const struct nft_chain_type nft_chain_filter_ipv4 = {\n\t.name\t\t= \"filter\",\n\t.type\t\t= NFT_CHAIN_T_DEFAULT,"
+  },
+  "net/netfilter/core.c:616": {
+    "path": "net/netfilter/core.c",
+    "line": 616,
+    "startLine": 601,
+    "endLine": 631,
+    "code": "\t\t\t     unsigned int hookcount)\n{\n\tunsigned int i;\n\n\tfor (i = 0; i < hookcount; i++)\n\t\tnf_unregister_net_hook(net, &reg[i]);\n}\nEXPORT_SYMBOL(nf_unregister_net_hooks);\n\n/* Returns 1 if okfn() needs to be executed by the caller,\n * -EPERM for NF_DROP, 0 otherwise.  Caller must hold rcu_read_lock. */\nint nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state,\n\t\t const struct nf_hook_entries *e, unsigned int s)\n{\n\tunsigned int verdict;\n\tint ret;\n\n\tfor (; s < e->num_hook_entries; s++) {\n\t\tverdict = nf_hook_entry_hookfn(&e->hooks[s], skb, state);\n\t\tswitch (verdict & NF_VERDICT_MASK) {\n\t\tcase NF_ACCEPT:\n\t\t\tbreak;\n\t\tcase NF_DROP:\n\t\t\tkfree_skb_reason(skb,\n\t\t\t\t\t SKB_DROP_REASON_NETFILTER_DROP);\n\t\t\tret = NF_DROP_GETERR(verdict);\n\t\t\tif (ret == 0)\n\t\t\t\tret = -EPERM;\n\t\t\treturn ret;\n\t\tcase NF_QUEUE:\n\t\t\tret = nf_queue(skb, state, s, verdict);"
+  },
+  "mm/filemap.c:2768": {
+    "path": "mm/filemap.c",
+    "line": 2768,
+    "startLine": 2753,
+    "endLine": 2783,
+    "code": "}\n\n/**\n * filemap_read - Read data from the page cache.\n * @iocb: The iocb to read.\n * @iter: Destination for the data.\n * @already_read: Number of bytes already read by the caller.\n *\n * Copies data from the page cache.  If the data is not currently present,\n * uses the readahead and read_folio address_space operations to fetch it.\n *\n * Return: Total number of bytes copied, including those already read by\n * the caller.  If an error happens before any bytes are copied, returns\n * a negative error number.\n */\nssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,\n\t\tssize_t already_read)\n{\n\tstruct file *filp = iocb->ki_filp;\n\tstruct file_ra_state *ra = &filp->f_ra;\n\tstruct address_space *mapping = filp->f_mapping;\n\tstruct inode *inode = mapping->host;\n\tstruct folio_batch fbatch;\n\tint i, error = 0;\n\tbool writably_mapped;\n\tloff_t isize, end_offset;\n\tloff_t last_pos = ra->prev_pos;\n\n\tif (unlikely(iocb->ki_pos < 0))\n\t\treturn -EINVAL;\n\tif (unlikely(iocb->ki_pos >= inode->i_sb->s_maxbytes))"
+  },
+  "arch/x86/mm/fault.c:1483": {
+    "path": "arch/x86/mm/fault.c",
+    "line": 1483,
+    "startLine": 1468,
+    "endLine": 1498,
+    "code": "\t\treturn;\n\n\t/* Was the fault on kernel-controlled part of the address space? */\n\tif (unlikely(fault_in_kernel_space(address))) {\n\t\tdo_kern_addr_fault(regs, error_code, address);\n\t} else {\n\t\tdo_user_addr_fault(regs, error_code, address);\n\t}\n\t/*\n\t * page fault handling might have reenabled interrupts,\n\t * make sure to disable them again.\n\t */\n\tlocal_irq_disable();\n}\n\nDEFINE_IDTENTRY_RAW_ERRORCODE(exc_page_fault)\n{\n\tirqentry_state_t state;\n\tunsigned long address;\n\n\taddress = cpu_feature_enabled(X86_FEATURE_FRED) ? fred_event_data(regs) : read_cr2();\n\n\t/*\n\t * KVM uses #PF vector to deliver 'page not present' events to guests\n\t * (asynchronous page fault mechanism). The event happens when a\n\t * userspace task is trying to access some valid (from guest's point of\n\t * view) memory which is not currently mapped by the host (e.g. the\n\t * memory is swapped out). Note, the corresponding \"page ready\" event\n\t * which is injected when the memory becomes available, is delivered via\n\t * an interrupt mechanism and not a #PF exception\n\t * (see arch/x86/kernel/kvm.c: sysvec_kvm_asyncpf_interrupt())."
+  },
+  "mm/vmscan.c:5772": {
+    "path": "mm/vmscan.c",
+    "line": 5772,
+    "startLine": 5757,
+    "endLine": 5787,
+    "code": "\n\treturn 0;\n};\nlate_initcall(init_lru_gen);\n\n#else /* !CONFIG_LRU_GEN */\n\nstatic void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)\n{\n\tBUILD_BUG();\n}\n\nstatic void lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)\n{\n\tBUILD_BUG();\n}\n\nstatic void lru_gen_shrink_node(struct pglist_data *pgdat, struct scan_control *sc)\n{\n\tBUILD_BUG();\n}\n\n#endif /* CONFIG_LRU_GEN */\n\nstatic void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)\n{\n\tunsigned long nr[NR_LRU_LISTS];\n\tunsigned long targets[NR_LRU_LISTS];\n\tunsigned long nr_to_scan;\n\tenum lru_list lru;\n\tunsigned long nr_reclaimed = 0;"
+  },
+  "mm/vmscan.c:1078": {
+    "path": "mm/vmscan.c",
+    "line": 1078,
+    "startLine": 1063,
+    "endLine": 1093,
+    "code": "\tif (!folio_test_swapcache(folio) || !(gfp_mask & __GFP_IO))\n\t\treturn false;\n\t/*\n\t * We can \"enter_fs\" for swap-cache with only __GFP_IO\n\t * providing this isn't SWP_FS_OPS.\n\t * ->flags can be updated non-atomically,\n\t * but that will never affect SWP_FS_OPS, so the data_race\n\t * is safe.\n\t */\n\treturn !data_race(folio_swap_flags(folio) & SWP_FS_OPS);\n}\n\n/*\n * shrink_folio_list() returns the number of reclaimed pages\n */\nstatic unsigned int shrink_folio_list(struct list_head *folio_list,\n\t\tstruct pglist_data *pgdat, struct scan_control *sc,\n\t\tstruct reclaim_stat *stat, bool ignore_references,\n\t\tstruct mem_cgroup *memcg)\n{\n\tstruct folio_batch free_folios;\n\tLIST_HEAD(ret_folios);\n\tLIST_HEAD(demote_folios);\n\tunsigned int nr_reclaimed = 0, nr_demoted = 0;\n\tunsigned int pgactivate = 0;\n\tbool do_demote_pass;\n\tstruct swap_iocb *plug = NULL;\n\n\tfolio_batch_init(&free_folios);\n\tmemset(stat, 0, sizeof(*stat));\n\tcond_resched();"
+  },
+  "mm/memory.c:6449": {
+    "path": "mm/memory.c",
+    "line": 6449,
+    "startLine": 6434,
+    "endLine": 6464,
+    "code": "\t\tupdate_mmu_cache_range(vmf, vmf->vma, vmf->address,\n\t\t\t\tvmf->pte, 1);\n\telse\n\t\tfix_spurious_fault(vmf, PGTABLE_LEVEL_PTE);\nunlock:\n\tpte_unmap_unlock(vmf->pte, vmf->ptl);\n\treturn 0;\n}\n\n/*\n * On entry, we hold either the VMA lock or the mmap_lock\n * (FAULT_FLAG_VMA_LOCK tells you which).  If VM_FAULT_RETRY is set in\n * the result, the mmap_lock is not held on exit.  See filemap_fault()\n * and __folio_lock_or_retry().\n */\nstatic vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,\n\t\tunsigned long address, unsigned int flags)\n{\n\tstruct vm_fault vmf = {\n\t\t.vma = vma,\n\t\t.address = address & PAGE_MASK,\n\t\t.real_address = address,\n\t\t.flags = flags,\n\t\t.pgoff = linear_page_index(vma, address),\n\t\t.gfp_mask = __get_fault_gfp_mask(vma),\n\t};\n\tstruct mm_struct *mm = vma->vm_mm;\n\tvm_flags_t vm_flags = vma->vm_flags;\n\tpgd_t *pgd;\n\tp4d_t *p4d;\n\tvm_fault_t ret;"
+  },
+  "kernel/sched/rt.c:1676": {
+    "path": "kernel/sched/rt.c",
+    "line": 1676,
+    "startLine": 1661,
+    "endLine": 1691,
+    "code": "\n\tif (!first)\n\t\treturn;\n\n\t/*\n\t * If prev task was rt, put_prev_task() has already updated the\n\t * utilization. We only care of the case where we start to schedule a\n\t * rt task\n\t */\n\tif (rq->donor->sched_class != &rt_sched_class)\n\t\tupdate_rt_rq_load_avg(rq_clock_pelt(rq), rq, 0);\n\n\trt_queue_push_tasks(rq);\n}\n\nstatic struct sched_rt_entity *pick_next_rt_entity(struct rt_rq *rt_rq)\n{\n\tstruct rt_prio_array *array = &rt_rq->active;\n\tstruct sched_rt_entity *next = NULL;\n\tstruct list_head *queue;\n\tint idx;\n\n\tidx = sched_find_first_bit(array->bitmap);\n\tBUG_ON(idx >= MAX_RT_PRIO);\n\n\tqueue = array->queue + idx;\n\tif (WARN_ON_ONCE(list_empty(queue)))\n\t\treturn NULL;\n\tnext = list_entry(queue->next, struct sched_rt_entity, run_list);\n\n\treturn next;"
+  },
+  "kernel/sched/rt.c:1683": {
+    "path": "kernel/sched/rt.c",
+    "line": 1683,
+    "startLine": 1668,
+    "endLine": 1698,
+    "code": "\t * rt task\n\t */\n\tif (rq->donor->sched_class != &rt_sched_class)\n\t\tupdate_rt_rq_load_avg(rq_clock_pelt(rq), rq, 0);\n\n\trt_queue_push_tasks(rq);\n}\n\nstatic struct sched_rt_entity *pick_next_rt_entity(struct rt_rq *rt_rq)\n{\n\tstruct rt_prio_array *array = &rt_rq->active;\n\tstruct sched_rt_entity *next = NULL;\n\tstruct list_head *queue;\n\tint idx;\n\n\tidx = sched_find_first_bit(array->bitmap);\n\tBUG_ON(idx >= MAX_RT_PRIO);\n\n\tqueue = array->queue + idx;\n\tif (WARN_ON_ONCE(list_empty(queue)))\n\t\treturn NULL;\n\tnext = list_entry(queue->next, struct sched_rt_entity, run_list);\n\n\treturn next;\n}\n\nstatic struct task_struct *_pick_next_task_rt(struct rq *rq)\n{\n\tstruct sched_rt_entity *rt_se;\n\tstruct rt_rq *rt_rq  = &rq->rt;\n"
+  },
+  "kernel/sched/rt.c:974": {
+    "path": "kernel/sched/rt.c",
+    "line": 974,
+    "startLine": 959,
+    "endLine": 989,
+    "code": "{\n#ifdef CONFIG_RT_GROUP_SCHED\n\tstruct rt_rq *rt_rq = group_rt_rq(rt_se);\n\n\tif (rt_rq)\n\t\treturn rt_rq->highest_prio.curr;\n#endif\n\n\treturn rt_task_of(rt_se)->prio;\n}\n\n/*\n * Update the current task's runtime statistics. Skip current tasks that\n * are not in our scheduling class.\n */\nstatic void update_curr_rt(struct rq *rq)\n{\n\tstruct task_struct *donor = rq->donor;\n\ts64 delta_exec;\n\n\tif (donor->sched_class != &rt_sched_class)\n\t\treturn;\n\n\tdelta_exec = update_curr_common(rq);\n\tif (unlikely(delta_exec <= 0))\n\t\treturn;\n\n#ifdef CONFIG_RT_GROUP_SCHED\n\tstruct sched_rt_entity *rt_se = &donor->rt;\n\n\tif (!rt_bandwidth_enabled())"
+  },
+  "kernel/sched/rt.c:982": {
+    "path": "kernel/sched/rt.c",
+    "line": 982,
+    "startLine": 967,
+    "endLine": 997,
+    "code": "\treturn rt_task_of(rt_se)->prio;\n}\n\n/*\n * Update the current task's runtime statistics. Skip current tasks that\n * are not in our scheduling class.\n */\nstatic void update_curr_rt(struct rq *rq)\n{\n\tstruct task_struct *donor = rq->donor;\n\ts64 delta_exec;\n\n\tif (donor->sched_class != &rt_sched_class)\n\t\treturn;\n\n\tdelta_exec = update_curr_common(rq);\n\tif (unlikely(delta_exec <= 0))\n\t\treturn;\n\n#ifdef CONFIG_RT_GROUP_SCHED\n\tstruct sched_rt_entity *rt_se = &donor->rt;\n\n\tif (!rt_bandwidth_enabled())\n\t\treturn;\n\n\tfor_each_sched_rt_entity(rt_se) {\n\t\tstruct rt_rq *rt_rq = rt_rq_of_se(rt_se);\n\t\tint exceeded;\n\n\t\tif (sched_rt_runtime(rt_rq) != RUNTIME_INF) {\n\t\t\traw_spin_lock(&rt_rq->rt_runtime_lock);"
+  },
+  "kernel/sched/rt.c:1436": {
+    "path": "kernel/sched/rt.c",
+    "line": 1436,
+    "startLine": 1421,
+    "endLine": 1451,
+    "code": "\tdequeue_rt_stack(rt_se, flags);\n\n\tfor_each_sched_rt_entity(rt_se) {\n\t\tstruct rt_rq *rt_rq = group_rt_rq(rt_se);\n\n\t\tif (rt_rq && rt_rq->rt_nr_running)\n\t\t\t__enqueue_rt_entity(rt_se, flags);\n\t}\n\tenqueue_top_rt_rq(&rq->rt);\n}\n\n/*\n * Adding/removing a task to/from a priority array:\n */\nstatic void\nenqueue_task_rt(struct rq *rq, struct task_struct *p, int flags)\n{\n\tstruct sched_rt_entity *rt_se = &p->rt;\n\n\tif (flags & ENQUEUE_WAKEUP)\n\t\trt_se->timeout = 0;\n\n\tcheck_schedstat_required();\n\tupdate_stats_wait_start_rt(rt_rq_of_se(rt_se), rt_se);\n\n\tenqueue_rt_entity(rt_se, flags);\n\n\tif (task_is_blocked(p))\n\t\treturn;\n\n\tif (!task_current(rq, p) && p->nr_cpus_allowed > 1)"
+  },
+  "kernel/sched/rt.c:1331": {
+    "path": "kernel/sched/rt.c",
+    "line": 1331,
+    "startLine": 1316,
+    "endLine": 1346,
+    "code": "\n\tif ((flags & DEQUEUE_SLEEP) && p) {\n\t\tunsigned int state;\n\n\t\tstate = READ_ONCE(p->__state);\n\t\tif (state & TASK_INTERRUPTIBLE)\n\t\t\t__schedstat_set(p->stats.sleep_start,\n\t\t\t\t\trq_clock(rq_of_rt_rq(rt_rq)));\n\n\t\tif (state & TASK_UNINTERRUPTIBLE)\n\t\t\t__schedstat_set(p->stats.block_start,\n\t\t\t\t\trq_clock(rq_of_rt_rq(rt_rq)));\n\t}\n}\n\nstatic void __enqueue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flags)\n{\n\tstruct rt_rq *rt_rq = rt_rq_of_se(rt_se);\n\tstruct rt_prio_array *array = &rt_rq->active;\n\tstruct rt_rq *group_rq = group_rt_rq(rt_se);\n\tstruct list_head *queue = array->queue + rt_se_prio(rt_se);\n\n\t/*\n\t * Don't enqueue the group if its throttled, or when empty.\n\t * The latter is a consequence of the former when a child group\n\t * get throttled and the current group doesn't have any other\n\t * active members.\n\t */\n\tif (group_rq && (rt_rq_throttled(group_rq) || !group_rq->rt_nr_running)) {\n\t\tif (rt_se->on_list)\n\t\t\t__delist_rt_entity(rt_se, array);"
+  },
+  "kernel/sched/rt.c:1357": {
+    "path": "kernel/sched/rt.c",
+    "line": 1357,
+    "startLine": 1342,
+    "endLine": 1372,
+    "code": "\t * active members.\n\t */\n\tif (group_rq && (rt_rq_throttled(group_rq) || !group_rq->rt_nr_running)) {\n\t\tif (rt_se->on_list)\n\t\t\t__delist_rt_entity(rt_se, array);\n\t\treturn;\n\t}\n\n\tif (move_entity(flags)) {\n\t\tWARN_ON_ONCE(rt_se->on_list);\n\t\tif (flags & ENQUEUE_HEAD)\n\t\t\tlist_add(&rt_se->run_list, queue);\n\t\telse\n\t\t\tlist_add_tail(&rt_se->run_list, queue);\n\n\t\t__set_bit(rt_se_prio(rt_se), array->bitmap);\n\t\trt_se->on_list = 1;\n\t}\n\trt_se->on_rq = 1;\n\n\tinc_rt_tasks(rt_se, rt_rq);\n}\n\nstatic void __dequeue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flags)\n{\n\tstruct rt_rq *rt_rq = rt_rq_of_se(rt_se);\n\tstruct rt_prio_array *array = &rt_rq->active;\n\n\tif (move_entity(flags)) {\n\t\tWARN_ON_ONCE(!rt_se->on_list);\n\t\t__delist_rt_entity(rt_se, array);"
+  },
+  "kernel/sched/rt.c:1619": {
+    "path": "kernel/sched/rt.c",
+    "line": 1619,
+    "startLine": 1604,
+    "endLine": 1634,
+    "code": "\t\t * picked for load-balance and preemption/IRQs are still\n\t\t * disabled avoiding further scheduler activity on it and we've\n\t\t * not yet started the picking loop.\n\t\t */\n\t\trq_unpin_lock(rq, rf);\n\t\tpull_rt_task(rq);\n\t\trq_repin_lock(rq, rf);\n\t}\n\n\treturn sched_stop_runnable(rq) || sched_dl_runnable(rq) || sched_rt_runnable(rq);\n}\n\n/*\n * Preempt the current task with a newly woken task if needed:\n */\nstatic void wakeup_preempt_rt(struct rq *rq, struct task_struct *p, int flags)\n{\n\tstruct task_struct *donor = rq->donor;\n\n\t/*\n\t * XXX If we're preempted by DL, queue a push?\n\t */\n\tif (p->sched_class != &rt_sched_class)\n\t\treturn;\n\n\tif (p->prio < donor->prio) {\n\t\tresched_curr(rq);\n\t\treturn;\n\t}\n\n\t/*"
+  },
+  "kernel/sched/rt.c:1630": {
+    "path": "kernel/sched/rt.c",
+    "line": 1630,
+    "startLine": 1615,
+    "endLine": 1645,
+    "code": "\n/*\n * Preempt the current task with a newly woken task if needed:\n */\nstatic void wakeup_preempt_rt(struct rq *rq, struct task_struct *p, int flags)\n{\n\tstruct task_struct *donor = rq->donor;\n\n\t/*\n\t * XXX If we're preempted by DL, queue a push?\n\t */\n\tif (p->sched_class != &rt_sched_class)\n\t\treturn;\n\n\tif (p->prio < donor->prio) {\n\t\tresched_curr(rq);\n\t\treturn;\n\t}\n\n\t/*\n\t * If:\n\t *\n\t * - the newly woken task is of equal priority to the current task\n\t * - the newly woken task is non-migratable while current is migratable\n\t * - current will be preempted on the next reschedule\n\t *\n\t * we should check to see if current can readily move to a different\n\t * cpu.  If so, we will reschedule to allow the push logic to try\n\t * to move current somewhere else, making room for our non-migratable\n\t * task.\n\t */"
+  },
+  "kernel/sched/rt.c:1709": {
+    "path": "kernel/sched/rt.c",
+    "line": 1709,
+    "startLine": 1694,
+    "endLine": 1724,
+    "code": "static struct task_struct *_pick_next_task_rt(struct rq *rq)\n{\n\tstruct sched_rt_entity *rt_se;\n\tstruct rt_rq *rt_rq  = &rq->rt;\n\n\tdo {\n\t\trt_se = pick_next_rt_entity(rt_rq);\n\t\tif (unlikely(!rt_se))\n\t\t\treturn NULL;\n\t\trt_rq = group_rt_rq(rt_se);\n\t} while (rt_rq);\n\n\treturn rt_task_of(rt_se);\n}\n\nstatic struct task_struct *pick_task_rt(struct rq *rq, struct rq_flags *rf)\n{\n\tstruct task_struct *p;\n\n\tif (!sched_rt_runnable(rq))\n\t\treturn NULL;\n\n\tp = _pick_next_task_rt(rq);\n\n\treturn p;\n}\n\nstatic void put_prev_task_rt(struct rq *rq, struct task_struct *p, struct task_struct *next)\n{\n\tstruct sched_rt_entity *rt_se = &p->rt;\n\tstruct rt_rq *rt_rq = &rq->rt;"
+  },
+  "kernel/sched/rt.c:1455": {
+    "path": "kernel/sched/rt.c",
+    "line": 1455,
+    "startLine": 1440,
+    "endLine": 1470,
+    "code": "\tif (flags & ENQUEUE_WAKEUP)\n\t\trt_se->timeout = 0;\n\n\tcheck_schedstat_required();\n\tupdate_stats_wait_start_rt(rt_rq_of_se(rt_se), rt_se);\n\n\tenqueue_rt_entity(rt_se, flags);\n\n\tif (task_is_blocked(p))\n\t\treturn;\n\n\tif (!task_current(rq, p) && p->nr_cpus_allowed > 1)\n\t\tenqueue_pushable_task(rq, p);\n}\n\nstatic bool dequeue_task_rt(struct rq *rq, struct task_struct *p, int flags)\n{\n\tstruct sched_rt_entity *rt_se = &p->rt;\n\n\tupdate_curr_rt(rq);\n\tdequeue_rt_entity(rt_se, flags);\n\n\tdequeue_pushable_task(rq, p);\n\n\treturn true;\n}\n\n/*\n * Put task to the head or the end of the run list without the overhead of\n * dequeue followed by enqueue.\n */"
+  },
+  "kernel/sched/deadline.c:2293": {
+    "path": "kernel/sched/deadline.c",
+    "line": 2293,
+    "startLine": 2278,
+    "endLine": 2308,
+    "code": "\t}\n\n\t/*\n\t * This check allows to start the inactive timer (or to immediately\n\t * decrease the active utilization, if needed) in two cases:\n\t * when the task blocks and when it is terminating\n\t * (p->state == TASK_DEAD). We can handle the two cases in the same\n\t * way, because from GRUB's point of view the same thing is happening\n\t * (the task moves from \"active contending\" to \"active non contending\"\n\t * or \"inactive\")\n\t */\n\tif (flags & DEQUEUE_SLEEP)\n\t\ttask_non_contending(dl_se, true);\n}\n\nstatic void enqueue_task_dl(struct rq *rq, struct task_struct *p, int flags)\n{\n\tif (is_dl_boosted(&p->dl)) {\n\t\t/*\n\t\t * Because of delays in the detection of the overrun of a\n\t\t * thread's runtime, it might be the case that a thread\n\t\t * goes to sleep in a rt mutex with negative runtime. As\n\t\t * a consequence, the thread will be throttled.\n\t\t *\n\t\t * While waiting for the mutex, this thread can also be\n\t\t * boosted via PI, resulting in a thread that is throttled\n\t\t * and boosted at the same time.\n\t\t *\n\t\t * In this case, the boost overrides the throttle.\n\t\t */\n\t\tif (p->dl.dl_throttled) {"
+  },
+  "kernel/sched/deadline.c:2589": {
+    "path": "kernel/sched/deadline.c",
+    "line": 2589,
+    "startLine": 2574,
+    "endLine": 2604,
+    "code": "\t/* You can't push away the running task */\n\tdequeue_pushable_dl_task(rq, p);\n\n\tif (!first)\n\t\treturn;\n\n\tif (rq->donor->sched_class != &dl_sched_class)\n\t\tupdate_dl_rq_load_avg(rq_clock_pelt(rq), rq, 0);\n\n\tdeadline_queue_push_tasks(rq);\n\n\tif (hrtick_enabled_dl(rq))\n\t\tstart_hrtick_dl(rq, &p->dl);\n}\n\nstatic struct sched_dl_entity *pick_next_dl_entity(struct dl_rq *dl_rq)\n{\n\tstruct rb_node *left = rb_first_cached(&dl_rq->root);\n\n\tif (!left)\n\t\treturn NULL;\n\n\treturn __node_2_dle(left);\n}\n\n/*\n * __pick_next_task_dl - Helper to pick the next -deadline task to run.\n * @rq: The runqueue to pick the next task from.\n */\nstatic struct task_struct *__pick_task_dl(struct rq *rq, struct rq_flags *rf)\n{"
+  },
+  "kernel/sched/deadline.c:2591": {
+    "path": "kernel/sched/deadline.c",
+    "line": 2591,
+    "startLine": 2576,
+    "endLine": 2606,
+    "code": "\n\tif (!first)\n\t\treturn;\n\n\tif (rq->donor->sched_class != &dl_sched_class)\n\t\tupdate_dl_rq_load_avg(rq_clock_pelt(rq), rq, 0);\n\n\tdeadline_queue_push_tasks(rq);\n\n\tif (hrtick_enabled_dl(rq))\n\t\tstart_hrtick_dl(rq, &p->dl);\n}\n\nstatic struct sched_dl_entity *pick_next_dl_entity(struct dl_rq *dl_rq)\n{\n\tstruct rb_node *left = rb_first_cached(&dl_rq->root);\n\n\tif (!left)\n\t\treturn NULL;\n\n\treturn __node_2_dle(left);\n}\n\n/*\n * __pick_next_task_dl - Helper to pick the next -deadline task to run.\n * @rq: The runqueue to pick the next task from.\n */\nstatic struct task_struct *__pick_task_dl(struct rq *rq, struct rq_flags *rf)\n{\n\tstruct sched_dl_entity *dl_se;\n\tstruct dl_rq *dl_rq = &rq->dl;"
+  },
+  "kernel/sched/deadline.c:1416": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1416,
+    "startLine": 1401,
+    "endLine": 1431,
+    "code": "\t} else {\n\t\tint cpu = cpu_of(rq);\n\t\tunsigned long scale_freq = arch_scale_freq_capacity(cpu);\n\t\tunsigned long scale_cpu = arch_scale_cpu_capacity(cpu);\n\n\t\tscaled_delta_exec = cap_scale(delta_exec, scale_freq);\n\t\tscaled_delta_exec = cap_scale(scaled_delta_exec, scale_cpu);\n\t}\n\n\treturn scaled_delta_exec;\n}\n\nstatic inline void\nupdate_stats_dequeue_dl(struct dl_rq *dl_rq, struct sched_dl_entity *dl_se, int flags);\n\nstatic void update_curr_dl_se(struct rq *rq, struct sched_dl_entity *dl_se, s64 delta_exec)\n{\n\tbool idle = idle_rq(rq);\n\ts64 scaled_delta_exec;\n\n\tif (unlikely(delta_exec <= 0)) {\n\t\tif (unlikely(dl_se->dl_yielded))\n\t\t\tgoto throttle;\n\t\treturn;\n\t}\n\n\tif (dl_server(dl_se) && dl_se->dl_throttled && !dl_se->dl_defer)\n\t\treturn;\n\n\tif (dl_entity_is_special(dl_se))\n\t\treturn;"
+  },
+  "kernel/sched/deadline.c:1446": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1446,
+    "startLine": 1431,
+    "endLine": 1461,
+    "code": "\t\treturn;\n\n\tscaled_delta_exec = delta_exec;\n\tif (!dl_server(dl_se))\n\t\tscaled_delta_exec = dl_scaled_delta_exec(rq, dl_se, delta_exec);\n\n\tdl_se->runtime -= scaled_delta_exec;\n\n\tif (dl_se->dl_defer_idle && !idle)\n\t\tdl_se->dl_defer_idle = 0;\n\n\t/*\n\t * The DL server can consume its runtime while throttled (not\n\t * queued / running as regular CFS).\n\t *\n\t * If the server consumes its entire runtime in this state. The server\n\t * is not required for the current period. Thus, reset the server by\n\t * starting a new period, pushing the activation.\n\t */\n\tif (dl_se->dl_defer && dl_se->dl_throttled && dl_runtime_exceeded(dl_se)) {\n\t\t/*\n\t\t * Non-servers would never get time accounted while throttled.\n\t\t */\n\t\tWARN_ON_ONCE(!dl_server(dl_se));\n\n\t\t/*\n\t\t * While the server is marked idle, do not push out the\n\t\t * activation further, instead wait for the period timer\n\t\t * to lapse and stop the server.\n\t\t */\n\t\tif (dl_se->dl_defer_idle && idle) {"
+  },
+  "kernel/sched/deadline.c:1061": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1061,
+    "startLine": 1046,
+    "endLine": 1076,
+    "code": "static inline u64 dl_next_period(struct sched_dl_entity *dl_se)\n{\n\treturn dl_se->deadline - dl_se->dl_deadline + dl_se->dl_period;\n}\n\n/*\n * If the entity depleted all its runtime, and if we want it to sleep\n * while waiting for some new execution time to become available, we\n * set the bandwidth replenishment timer to the replenishment instant\n * and try to activate it.\n *\n * Notice that it is important for the caller to know if the timer\n * actually started or not (i.e., the replenishment instant is in\n * the future or in the past).\n */\nstatic int start_dl_timer(struct sched_dl_entity *dl_se)\n{\n\tstruct hrtimer *timer = &dl_se->dl_timer;\n\tstruct dl_rq *dl_rq = dl_rq_of_se(dl_se);\n\tstruct rq *rq = rq_of_dl_rq(dl_rq);\n\tktime_t now, act;\n\ts64 delta;\n\n\tlockdep_assert_rq_held(rq);\n\n\t/*\n\t * We want the timer to fire at the deadline, but considering\n\t * that it is actually coming from rq->clock and not from\n\t * hrtimer's time base reading.\n\t *\n\t * The deferred reservation will have its timer set to"
+  },
+  "kernel/sched/deadline.c:1309": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1309,
+    "startLine": 1294,
+    "endLine": 1324,
+    "code": "\ttask_rq_unlock(rq, p, &rf);\n\n\t/*\n\t * This can free the task_struct, including this hrtimer, do not touch\n\t * anything related to that after this.\n\t */\n\tput_task_struct(p);\n\n\treturn HRTIMER_NORESTART;\n}\n\nstatic void init_dl_task_timer(struct sched_dl_entity *dl_se)\n{\n\tstruct hrtimer *timer = &dl_se->dl_timer;\n\n\thrtimer_setup(timer, dl_task_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);\n}\n\n/*\n * During the activation, CBS checks if it can reuse the current task's\n * runtime and period. If the deadline of the task is in the past, CBS\n * cannot use the runtime, and so it replenishes the task. This rule\n * works fine for implicit deadline tasks (deadline == period), and the\n * CBS was designed for implicit deadline tasks. However, a task with\n * constrained deadline (deadline < period) might be awakened after the\n * deadline, but before the next period. In this case, replenishing the\n * task would allow it to run for runtime / deadline. As in this case\n * deadline < period, CBS enables a task to run for more than the\n * runtime / period. In a very loaded system, this can cause a domino\n * effect, making other tasks miss their deadlines.\n *"
+  },
+  "kernel/sched/deadline.c:2603": {
+    "path": "kernel/sched/deadline.c",
+    "line": 2603,
+    "startLine": 2588,
+    "endLine": 2618,
+    "code": "\nstatic struct sched_dl_entity *pick_next_dl_entity(struct dl_rq *dl_rq)\n{\n\tstruct rb_node *left = rb_first_cached(&dl_rq->root);\n\n\tif (!left)\n\t\treturn NULL;\n\n\treturn __node_2_dle(left);\n}\n\n/*\n * __pick_next_task_dl - Helper to pick the next -deadline task to run.\n * @rq: The runqueue to pick the next task from.\n */\nstatic struct task_struct *__pick_task_dl(struct rq *rq, struct rq_flags *rf)\n{\n\tstruct sched_dl_entity *dl_se;\n\tstruct dl_rq *dl_rq = &rq->dl;\n\tstruct task_struct *p;\n\nagain:\n\tif (!sched_dl_runnable(rq))\n\t\treturn NULL;\n\n\tdl_se = pick_next_dl_entity(dl_rq);\n\tWARN_ON_ONCE(!dl_se);\n\n\tif (dl_server(dl_se)) {\n\t\tp = dl_se->server_pick_task(dl_se, rf);\n\t\tif (!p) {"
+  },
+  "kernel/sched/deadline.c:1210": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1210,
+    "startLine": 1195,
+    "endLine": 1225,
+    "code": "}\n\n/*\n * This is the bandwidth enforcement timer callback. If here, we know\n * a task is not on its dl_rq, since the fact that the timer was running\n * means the task is throttled and needs a runtime replenishment.\n *\n * However, what we actually do depends on the fact the task is active,\n * (it is on its rq) or has been removed from there by a call to\n * dequeue_task_dl(). In the former case we must issue the runtime\n * replenishment and add the task back to the dl_rq; in the latter, we just\n * do nothing but clearing dl_throttled, so that runtime and deadline\n * updating (and the queueing back to dl_rq) will be done by the\n * next call to enqueue_task_dl().\n */\nstatic enum hrtimer_restart dl_task_timer(struct hrtimer *timer)\n{\n\tstruct sched_dl_entity *dl_se = container_of(timer,\n\t\t\t\t\t\t     struct sched_dl_entity,\n\t\t\t\t\t\t     dl_timer);\n\tstruct task_struct *p;\n\tstruct rq_flags rf;\n\tstruct rq *rq;\n\n\tif (dl_server(dl_se))\n\t\treturn dl_server_timer(timer, dl_se);\n\n\tp = dl_task_of(dl_se);\n\trq = task_rq_lock(p, &rf);\n\n\t/*"
+  },
+  "kernel/sched/deadline.c:1264": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1264,
+    "startLine": 1249,
+    "endLine": 1279,
+    "code": "\t/*\n\t * If the throttle happened during sched-out; like:\n\t *\n\t *   schedule()\n\t *     deactivate_task()\n\t *       dequeue_task_dl()\n\t *         update_curr_dl()\n\t *           start_dl_timer()\n\t *         __dequeue_task_dl()\n\t *     prev->on_rq = 0;\n\t *\n\t * We can be both throttled and !queued. Replenish the counter\n\t * but do not enqueue -- wait for our wakeup to do that.\n\t */\n\tif (!task_on_rq_queued(p)) {\n\t\treplenish_dl_entity(dl_se);\n\t\tgoto unlock;\n\t}\n\n\tif (unlikely(!rq->online)) {\n\t\t/*\n\t\t * If the runqueue is no longer available, migrate the\n\t\t * task elsewhere. This necessarily changes rq.\n\t\t */\n\t\tlockdep_unpin_lock(__rq_lockp(rq), rf.cookie);\n\t\trq = dl_task_offline_migration(rq, p);\n\t\trf.cookie = lockdep_pin_lock(__rq_lockp(rq));\n\t\tupdate_rq_clock(rq);\n\n\t\t/*\n\t\t * Now that the task has been migrated to the new RQ and we"
+  },
+  "kernel/sched/deadline.c:1285": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1285,
+    "startLine": 1270,
+    "endLine": 1300,
+    "code": "\t\t * If the runqueue is no longer available, migrate the\n\t\t * task elsewhere. This necessarily changes rq.\n\t\t */\n\t\tlockdep_unpin_lock(__rq_lockp(rq), rf.cookie);\n\t\trq = dl_task_offline_migration(rq, p);\n\t\trf.cookie = lockdep_pin_lock(__rq_lockp(rq));\n\t\tupdate_rq_clock(rq);\n\n\t\t/*\n\t\t * Now that the task has been migrated to the new RQ and we\n\t\t * have that locked, proceed as normal and enqueue the task\n\t\t * there.\n\t\t */\n\t}\n\n\tenqueue_task_dl(rq, p, ENQUEUE_REPLENISH);\n\tif (dl_task(rq->donor))\n\t\twakeup_preempt_dl(rq, p, 0);\n\telse\n\t\tresched_curr(rq);\n\n\t__push_dl_task(rq, &rf);\n\nunlock:\n\ttask_rq_unlock(rq, p, &rf);\n\n\t/*\n\t * This can free the task_struct, including this hrtimer, do not touch\n\t * anything related to that after this.\n\t */\n\tput_task_struct(p);"
+  },
+  "kernel/sched/deadline.c:1287": {
+    "path": "kernel/sched/deadline.c",
+    "line": 1287,
+    "startLine": 1272,
+    "endLine": 1302,
+    "code": "\t\t */\n\t\tlockdep_unpin_lock(__rq_lockp(rq), rf.cookie);\n\t\trq = dl_task_offline_migration(rq, p);\n\t\trf.cookie = lockdep_pin_lock(__rq_lockp(rq));\n\t\tupdate_rq_clock(rq);\n\n\t\t/*\n\t\t * Now that the task has been migrated to the new RQ and we\n\t\t * have that locked, proceed as normal and enqueue the task\n\t\t * there.\n\t\t */\n\t}\n\n\tenqueue_task_dl(rq, p, ENQUEUE_REPLENISH);\n\tif (dl_task(rq->donor))\n\t\twakeup_preempt_dl(rq, p, 0);\n\telse\n\t\tresched_curr(rq);\n\n\t__push_dl_task(rq, &rf);\n\nunlock:\n\ttask_rq_unlock(rq, p, &rf);\n\n\t/*\n\t * This can free the task_struct, including this hrtimer, do not touch\n\t * anything related to that after this.\n\t */\n\tput_task_struct(p);\n\n\treturn HRTIMER_NORESTART;"
+  },
+  "kernel/sched/rt.c:101": {
+    "path": "kernel/sched/rt.c",
+    "line": 101,
+    "startLine": 86,
+    "endLine": 116,
+    "code": "\trt_rq->rt_queued = 0;\n\n#ifdef CONFIG_RT_GROUP_SCHED\n\trt_rq->rt_time = 0;\n\trt_rq->rt_throttled = 0;\n\trt_rq->rt_runtime = 0;\n\traw_spin_lock_init(&rt_rq->rt_runtime_lock);\n\trt_rq->tg = &root_task_group;\n#endif\n}\n\n#ifdef CONFIG_RT_GROUP_SCHED\n\nstatic int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun);\n\nstatic enum hrtimer_restart sched_rt_period_timer(struct hrtimer *timer)\n{\n\tstruct rt_bandwidth *rt_b =\n\t\tcontainer_of(timer, struct rt_bandwidth, rt_period_timer);\n\tint idle = 0;\n\tint overrun;\n\n\traw_spin_lock(&rt_b->rt_runtime_lock);\n\tfor (;;) {\n\t\toverrun = hrtimer_forward_now(timer, rt_b->rt_period);\n\t\tif (!overrun)\n\t\t\tbreak;\n\n\t\traw_spin_unlock(&rt_b->rt_runtime_lock);\n\t\tidle = do_sched_rt_period_timer(rt_b, overrun);\n\t\traw_spin_lock(&rt_b->rt_runtime_lock);"
+  },
+  "kernel/sched/rt.c:132": {
+    "path": "kernel/sched/rt.c",
+    "line": 132,
+    "startLine": 117,
+    "endLine": 147,
+    "code": "\t}\n\tif (idle)\n\t\trt_b->rt_period_active = 0;\n\traw_spin_unlock(&rt_b->rt_runtime_lock);\n\n\treturn idle ? HRTIMER_NORESTART : HRTIMER_RESTART;\n}\n\nvoid init_rt_bandwidth(struct rt_bandwidth *rt_b, u64 period, u64 runtime)\n{\n\trt_b->rt_period = ns_to_ktime(period);\n\trt_b->rt_runtime = runtime;\n\n\traw_spin_lock_init(&rt_b->rt_runtime_lock);\n\n\thrtimer_setup(&rt_b->rt_period_timer, sched_rt_period_timer, CLOCK_MONOTONIC,\n\t\t      HRTIMER_MODE_REL_HARD);\n}\n\nstatic inline void do_start_rt_bandwidth(struct rt_bandwidth *rt_b)\n{\n\traw_spin_lock(&rt_b->rt_runtime_lock);\n\tif (!rt_b->rt_period_active) {\n\t\trt_b->rt_period_active = 1;\n\t\t/*\n\t\t * SCHED_DEADLINE updates the bandwidth, as a run away\n\t\t * RT task with a DL task could hog a CPU. But DL does\n\t\t * not reset the period. If a deadline task was running\n\t\t * without an RT task running, it can cause RT tasks to\n\t\t * throttle when they start up. Kick the timer right away\n\t\t * to update the period."
+  },
+  "kernel/sched/rt.c:998": {
+    "path": "kernel/sched/rt.c",
+    "line": 998,
+    "startLine": 983,
+    "endLine": 1013,
+    "code": "\tif (unlikely(delta_exec <= 0))\n\t\treturn;\n\n#ifdef CONFIG_RT_GROUP_SCHED\n\tstruct sched_rt_entity *rt_se = &donor->rt;\n\n\tif (!rt_bandwidth_enabled())\n\t\treturn;\n\n\tfor_each_sched_rt_entity(rt_se) {\n\t\tstruct rt_rq *rt_rq = rt_rq_of_se(rt_se);\n\t\tint exceeded;\n\n\t\tif (sched_rt_runtime(rt_rq) != RUNTIME_INF) {\n\t\t\traw_spin_lock(&rt_rq->rt_runtime_lock);\n\t\t\trt_rq->rt_time += delta_exec;\n\t\t\texceeded = sched_rt_runtime_exceeded(rt_rq);\n\t\t\tif (exceeded)\n\t\t\t\tresched_curr(rq);\n\t\t\traw_spin_unlock(&rt_rq->rt_runtime_lock);\n\t\t\tif (exceeded)\n\t\t\t\tdo_start_rt_bandwidth(sched_rt_bandwidth(rt_rq));\n\t\t}\n\t}\n#endif /* CONFIG_RT_GROUP_SCHED */\n}\n\nstatic void\ndequeue_top_rt_rq(struct rt_rq *rt_rq, unsigned int count)\n{\n\tstruct rq *rq = rq_of_rt_rq(rt_rq);"
+  },
+  "kernel/sched/rt.c:997": {
+    "path": "kernel/sched/rt.c",
+    "line": 997,
+    "startLine": 982,
+    "endLine": 1012,
+    "code": "\tdelta_exec = update_curr_common(rq);\n\tif (unlikely(delta_exec <= 0))\n\t\treturn;\n\n#ifdef CONFIG_RT_GROUP_SCHED\n\tstruct sched_rt_entity *rt_se = &donor->rt;\n\n\tif (!rt_bandwidth_enabled())\n\t\treturn;\n\n\tfor_each_sched_rt_entity(rt_se) {\n\t\tstruct rt_rq *rt_rq = rt_rq_of_se(rt_se);\n\t\tint exceeded;\n\n\t\tif (sched_rt_runtime(rt_rq) != RUNTIME_INF) {\n\t\t\traw_spin_lock(&rt_rq->rt_runtime_lock);\n\t\t\trt_rq->rt_time += delta_exec;\n\t\t\texceeded = sched_rt_runtime_exceeded(rt_rq);\n\t\t\tif (exceeded)\n\t\t\t\tresched_curr(rq);\n\t\t\traw_spin_unlock(&rt_rq->rt_runtime_lock);\n\t\t\tif (exceeded)\n\t\t\t\tdo_start_rt_bandwidth(sched_rt_bandwidth(rt_rq));\n\t\t}\n\t}\n#endif /* CONFIG_RT_GROUP_SCHED */\n}\n\nstatic void\ndequeue_top_rt_rq(struct rt_rq *rt_rq, unsigned int count)\n{"
+  },
+  "kernel/sched/rt.c:999": {
+    "path": "kernel/sched/rt.c",
+    "line": 999,
+    "startLine": 984,
+    "endLine": 1014,
+    "code": "\t\treturn;\n\n#ifdef CONFIG_RT_GROUP_SCHED\n\tstruct sched_rt_entity *rt_se = &donor->rt;\n\n\tif (!rt_bandwidth_enabled())\n\t\treturn;\n\n\tfor_each_sched_rt_entity(rt_se) {\n\t\tstruct rt_rq *rt_rq = rt_rq_of_se(rt_se);\n\t\tint exceeded;\n\n\t\tif (sched_rt_runtime(rt_rq) != RUNTIME_INF) {\n\t\t\traw_spin_lock(&rt_rq->rt_runtime_lock);\n\t\t\trt_rq->rt_time += delta_exec;\n\t\t\texceeded = sched_rt_runtime_exceeded(rt_rq);\n\t\t\tif (exceeded)\n\t\t\t\tresched_curr(rq);\n\t\t\traw_spin_unlock(&rt_rq->rt_runtime_lock);\n\t\t\tif (exceeded)\n\t\t\t\tdo_start_rt_bandwidth(sched_rt_bandwidth(rt_rq));\n\t\t}\n\t}\n#endif /* CONFIG_RT_GROUP_SCHED */\n}\n\nstatic void\ndequeue_top_rt_rq(struct rt_rq *rt_rq, unsigned int count)\n{\n\tstruct rq *rq = rq_of_rt_rq(rt_rq);\n"
+  },
+  "kernel/sched/rt.c:863": {
+    "path": "kernel/sched/rt.c",
+    "line": 863,
+    "startLine": 848,
+    "endLine": 878,
+    "code": "\t\t}\n\t\tif (rt_rq->rt_throttled)\n\t\t\tthrottled = 1;\n\n\t\tif (enqueue)\n\t\t\tsched_rt_rq_enqueue(rt_rq);\n\t\trq_unlock(rq, &rf);\n\t}\n\n\tif (!throttled && (!rt_bandwidth_enabled() || rt_b->rt_runtime == RUNTIME_INF))\n\t\treturn 1;\n\n\treturn idle;\n}\n\nstatic int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)\n{\n\tu64 runtime = sched_rt_runtime(rt_rq);\n\n\tif (rt_rq->rt_throttled)\n\t\treturn rt_rq_throttled(rt_rq);\n\n\tif (runtime >= sched_rt_period(rt_rq))\n\t\treturn 0;\n\n\tbalance_runtime(rt_rq);\n\truntime = sched_rt_runtime(rt_rq);\n\tif (runtime == RUNTIME_INF)\n\t\treturn 0;\n\n\tif (rt_rq->rt_time > runtime) {"
+  },
+  "kernel/sched/rt.c:878": {
+    "path": "kernel/sched/rt.c",
+    "line": 878,
+    "startLine": 863,
+    "endLine": 893,
+    "code": "static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)\n{\n\tu64 runtime = sched_rt_runtime(rt_rq);\n\n\tif (rt_rq->rt_throttled)\n\t\treturn rt_rq_throttled(rt_rq);\n\n\tif (runtime >= sched_rt_period(rt_rq))\n\t\treturn 0;\n\n\tbalance_runtime(rt_rq);\n\truntime = sched_rt_runtime(rt_rq);\n\tif (runtime == RUNTIME_INF)\n\t\treturn 0;\n\n\tif (rt_rq->rt_time > runtime) {\n\t\tstruct rt_bandwidth *rt_b = sched_rt_bandwidth(rt_rq);\n\n\t\t/*\n\t\t * Don't actually throttle groups that have no runtime assigned\n\t\t * but accrue some time due to boosting.\n\t\t */\n\t\tif (likely(rt_b->rt_runtime)) {\n\t\t\trt_rq->rt_throttled = 1;\n\t\t\tprintk_deferred_once(\"sched: RT throttling activated\\n\");\n\t\t} else {\n\t\t\t/*\n\t\t\t * In case we did anyway, make it go away,\n\t\t\t * replenishment is a joke, since it will replenish us\n\t\t\t * with exactly 0 ns.\n\t\t\t */"
+  },
+  "kernel/sched/rt.c:778": {
+    "path": "kernel/sched/rt.c",
+    "line": 778,
+    "startLine": 763,
+    "endLine": 793,
+    "code": "\t}\n}\n\nstatic void balance_runtime(struct rt_rq *rt_rq)\n{\n\tif (!sched_feat(RT_RUNTIME_SHARE))\n\t\treturn;\n\n\tif (rt_rq->rt_time > rt_rq->rt_runtime) {\n\t\traw_spin_unlock(&rt_rq->rt_runtime_lock);\n\t\tdo_balance_runtime(rt_rq);\n\t\traw_spin_lock(&rt_rq->rt_runtime_lock);\n\t}\n}\n\nstatic int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)\n{\n\tint i, idle = 1, throttled = 0;\n\tconst struct cpumask *span;\n\n\tspan = sched_rt_period_mask();\n\n\t/*\n\t * FIXME: isolated CPUs should really leave the root task group,\n\t * whether they are isolcpus or were isolated via cpusets, lest\n\t * the timer run on a CPU which does not service all runqueues,\n\t * potentially leaving other CPUs indefinitely throttled.  If\n\t * isolation is really required, the user will turn the throttle\n\t * off to kill the perturbations it causes anyway.  Meanwhile,\n\t * this maintains functionality for boot and/or troubleshooting.\n\t */"
+  },
+  "kernel/seccomp.c:2126": {
+    "path": "kernel/seccomp.c",
+    "line": 2126,
+    "startLine": 2111,
+    "endLine": 2141,
+    "code": "\tcase SECCOMP_GET_ACTION_AVAIL:\n\t\tif (flags != 0)\n\t\t\treturn -EINVAL;\n\n\t\treturn seccomp_get_action_avail(uargs);\n\tcase SECCOMP_GET_NOTIF_SIZES:\n\t\tif (flags != 0)\n\t\t\treturn -EINVAL;\n\n\t\treturn seccomp_get_notif_sizes(uargs);\n\tdefault:\n\t\treturn -EINVAL;\n\t}\n}\n\nSYSCALL_DEFINE3(seccomp, unsigned int, op, unsigned int, flags,\n\t\t\t void __user *, uargs)\n{\n\treturn do_seccomp(op, flags, uargs);\n}\n\n/**\n * prctl_set_seccomp: configures current->seccomp.mode\n * @seccomp_mode: requested mode to use\n * @filter: optional struct sock_fprog for use with SECCOMP_MODE_FILTER\n *\n * Returns 0 on success or -EINVAL on failure.\n */\nlong prctl_set_seccomp(unsigned long seccomp_mode, void __user *filter)\n{\n\tunsigned int op;"
+  },
+  "kernel/seccomp.c:1388": {
+    "path": "kernel/seccomp.c",
+    "line": 1388,
+    "startLine": 1373,
+    "endLine": 1403,
+    "code": "\tunreachable();\n\nskip:\n\tseccomp_log(this_syscall, 0, action, match ? match->log : false);\n\treturn -1;\n}\n#else\nstatic int __seccomp_filter(int this_syscall, const bool recheck_after_trace)\n{\n\tBUG();\n\n\treturn -1;\n}\n#endif\n\nint __secure_computing(void)\n{\n\tint mode = current->seccomp.mode;\n\tint this_syscall;\n\n\tif (IS_ENABLED(CONFIG_CHECKPOINT_RESTORE) &&\n\t    unlikely(current->ptrace & PT_SUSPEND_SECCOMP))\n\t\treturn 0;\n\n\tthis_syscall = syscall_get_nr(current, current_pt_regs());\n\n\tswitch (mode) {\n\tcase SECCOMP_MODE_STRICT:\n\t\t__secure_computing_strict(this_syscall);  /* may call do_exit */\n\t\treturn 0;\n\tcase SECCOMP_MODE_FILTER:"
+  },
+  "kernel/fork.c:2413": {
+    "path": "kernel/fork.c",
+    "line": 2413,
+    "startLine": 2398,
+    "endLine": 2428,
+    "code": "\t/*\n\t * From this point on we must avoid any synchronous user-space\n\t * communication until we take the tasklist-lock. In particular, we do\n\t * not want user-space to be able to predict the process start-time by\n\t * stalling fork(2) after we recorded the start_time but before it is\n\t * visible to the system.\n\t */\n\n\tp->start_time = ktime_get_ns();\n\tp->start_boottime = ktime_get_boottime_ns();\n\n\t/*\n\t * Make it visible to the rest of the system, but dont wake it up yet.\n\t * Need tasklist lock for parent etc handling!\n\t */\n\twrite_lock_irq(&tasklist_lock);\n\n\t/* CLONE_PARENT re-uses the old parent */\n\tif (clone_flags & (CLONE_PARENT|CLONE_THREAD)) {\n\t\tp->real_parent = current->real_parent;\n\t\tp->parent_exec_id = current->parent_exec_id;\n\t\tif (clone_flags & CLONE_THREAD)\n\t\t\tp->exit_signal = -1;\n\t\telse\n\t\t\tp->exit_signal = current->group_leader->exit_signal;\n\t} else {\n\t\tp->real_parent = current;\n\t\tp->parent_exec_id = current->self_exec_id;\n\t\tp->exit_signal = args->exit_signal;\n\t}\n"
+  },
+  "net/ipv4/tcp_cong.c:236": {
+    "path": "net/ipv4/tcp_cong.c",
+    "line": 236,
+    "startLine": 221,
+    "endLine": 251,
+    "code": "\n\trcu_read_lock();\n\tca = rcu_dereference(net->ipv4.tcp_congestion_control);\n\tif (unlikely(!bpf_try_module_get(ca, ca->owner)))\n\t\tca = &tcp_reno;\n\ticsk->icsk_ca_ops = ca;\n\trcu_read_unlock();\n\n\tmemset(icsk->icsk_ca_priv, 0, sizeof(icsk->icsk_ca_priv));\n\tif (ca->flags & TCP_CONG_NEEDS_ECN)\n\t\tINET_ECN_xmit_ect_1_negotiation(sk);\n\telse\n\t\tINET_ECN_dontxmit(sk);\n}\n\nvoid tcp_init_congestion_control(struct sock *sk)\n{\n\tstruct inet_connection_sock *icsk = inet_csk(sk);\n\n\ttcp_sk(sk)->prior_ssthresh = 0;\n\tif (icsk->icsk_ca_ops->init)\n\t\ticsk->icsk_ca_ops->init(sk);\n\tif (tcp_ca_needs_ecn(sk))\n\t\tINET_ECN_xmit(sk);\n\telse\n\t\tINET_ECN_dontxmit(sk);\n\ticsk->icsk_ca_initialized = 1;\n}\n\nstatic void tcp_reinit_congestion_control(struct sock *sk,\n\t\t\t\t\t  const struct tcp_congestion_ops *ca)"
+  },
+  "net/ipv4/tcp_bbr.c:1039": {
+    "path": "net/ipv4/tcp_bbr.c",
+    "line": 1039,
+    "startLine": 1024,
+    "endLine": 1054,
+    "code": "\tbbr_update_min_rtt(sk, rs);\n\tbbr_update_gains(sk);\n}\n\n__bpf_kfunc static void bbr_main(struct sock *sk, u32 ack, int flag, const struct rate_sample *rs)\n{\n\tstruct bbr *bbr = inet_csk_ca(sk);\n\tu32 bw;\n\n\tbbr_update_model(sk, rs);\n\n\tbw = bbr_bw(sk);\n\tbbr_set_pacing_rate(sk, bw, bbr->pacing_gain);\n\tbbr_set_cwnd(sk, rs, rs->acked_sacked, bw, bbr->cwnd_gain);\n}\n\n__bpf_kfunc static void bbr_init(struct sock *sk)\n{\n\tstruct tcp_sock *tp = tcp_sk(sk);\n\tstruct bbr *bbr = inet_csk_ca(sk);\n\n\tbbr->prior_cwnd = 0;\n\ttp->snd_ssthresh = TCP_INFINITE_SSTHRESH;\n\tbbr->rtt_cnt = 0;\n\tbbr->next_rtt_delivered = tp->delivered;\n\tbbr->prev_ca_state = TCP_CA_Open;\n\tbbr->packet_conservation = 0;\n\n\tbbr->probe_rtt_done_stamp = 0;\n\tbbr->probe_rtt_round_done = 0;\n\tbbr->min_rtt_us = tcp_min_rtt(tp);"
+  },
+  "net/ipv4/tcp_input.c:4246": {
+    "path": "net/ipv4/tcp_input.c",
+    "line": 4246,
+    "startLine": 4231,
+    "endLine": 4261,
+    "code": "\t/* Adjust the reo_wnd if update is pending */\n\tif (tp->rack.dsack_seen) {\n\t\ttp->rack.reo_wnd_steps = min_t(u32, 0xFF,\n\t\t\t\t\t       tp->rack.reo_wnd_steps + 1);\n\t\ttp->rack.dsack_seen = 0;\n\t\ttp->rack.last_delivered = tp->delivered;\n\t\ttp->rack.reo_wnd_persist = TCP_RACK_RECOVERY_THRESH;\n\t} else if (!tp->rack.reo_wnd_persist) {\n\t\ttp->rack.reo_wnd_steps = 1;\n\t}\n}\n\n/* This routine deals with incoming acks, but not outgoing ones. */\nstatic int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)\n{\n\tstruct inet_connection_sock *icsk = inet_csk(sk);\n\tstruct tcp_sock *tp = tcp_sk(sk);\n\tstruct tcp_sacktag_state sack_state;\n\tstruct rate_sample rs = { .prior_delivered = 0 };\n\tu32 prior_snd_una = tp->snd_una;\n\tbool is_sack_reneg = tp->is_sack_reneg;\n\tu32 ack_seq = TCP_SKB_CB(skb)->seq;\n\tu32 ack = TCP_SKB_CB(skb)->ack_seq;\n\tint num_dupack = 0;\n\tint prior_packets = tp->packets_out;\n\tu32 delivered = tp->delivered;\n\tu32 lost = tp->lost;\n\tint rexmit = REXMIT_NONE; /* Flag to (re)transmit to recover losses */\n\tu32 ecn_count = 0;\t  /* Did we receive ECE/an AccECN ACE update? */\n\tu32 prior_fack;\n"
+  },
+  "include/net/tcp_states.h:12": {
+    "path": "include/net/tcp_states.h",
+    "line": 12,
+    "startLine": 1,
+    "endLine": 27,
+    "code": "/* SPDX-License-Identifier: GPL-2.0-or-later */\n/*\n * INET\t\tAn implementation of the TCP/IP protocol suite for the LINUX\n *\t\toperating system.  INET is implemented using the  BSD Socket\n *\t\tinterface as the means of communication with the user level.\n *\n *\t\tDefinitions for the TCP protocol sk_state field.\n */\n#ifndef _LINUX_TCP_STATES_H\n#define _LINUX_TCP_STATES_H\n\nenum {\n\tTCP_ESTABLISHED = 1,\n\tTCP_SYN_SENT,\n\tTCP_SYN_RECV,\n\tTCP_FIN_WAIT1,\n\tTCP_FIN_WAIT2,\n\tTCP_TIME_WAIT,\n\tTCP_CLOSE,\n\tTCP_CLOSE_WAIT,\n\tTCP_LAST_ACK,\n\tTCP_LISTEN,\n\tTCP_CLOSING,\t/* Now a valid state */\n\tTCP_NEW_SYN_RECV,\n\tTCP_BOUND_INACTIVE, /* Pseudo-state for inet_diag */\n\n\tTCP_MAX_STATES\t/* Leave at the end! */"
+  },
+  "net/ipv4/tcp_input.c:6519": {
+    "path": "net/ipv4/tcp_input.c",
+    "line": 6519,
+    "startLine": 6504,
+    "endLine": 6534,
+    "code": "\t\tint tcp_header_len = tp->tcp_header_len;\n\t\ts32 delta = 0;\n\t\tint flag = 0;\n\n\t\t/* Timestamp header prediction: tcp_header_len\n\t\t * is automatically equal to th->doff*4 due to pred_flags\n\t\t * match.\n\t\t */\n\n\t\t/* Check timestamp */\n\t\tif (tcp_header_len == sizeof(struct tcphdr) + TCPOLEN_TSTAMP_ALIGNED) {\n\t\t\t/* No? Slow path! */\n\t\t\tif (!tcp_parse_aligned_timestamp(tp, th))\n\t\t\t\tgoto slow_path;\n\n\t\t\tdelta = tp->rx_opt.rcv_tsval -\n\t\t\t\ttp->rx_opt.ts_recent;\n\t\t\t/* If PAWS failed, check it more carefully in slow path */\n\t\t\tif (delta < 0)\n\t\t\t\tgoto slow_path;\n\n\t\t\t/* DO NOT update ts_recent here, if checksum fails\n\t\t\t * and timestamp was corrupted part, it will result\n\t\t\t * in a hung connection since we will drop all\n\t\t\t * future packets due to the PAWS test.\n\t\t\t */\n\t\t}\n\n\t\tif (len <= tcp_header_len) {\n\t\t\t/* Bulk data transfer: sender */\n\t\t\tif (len == tcp_header_len) {"
+  },
+  "fs/namei.c:2831": {
+    "path": "fs/namei.c",
+    "line": 2831,
+    "startLine": 2816,
+    "endLine": 2846,
+    "code": "\t\terr = complete_walk(nd);\n\n\tif (!err && nd->flags & LOOKUP_DIRECTORY)\n\t\tif (!d_can_lookup(nd->path.dentry))\n\t\t\terr = -ENOTDIR;\n\tif (!err) {\n\t\t*path = nd->path;\n\t\tnd->path.mnt = NULL;\n\t\tnd->path.dentry = NULL;\n\t}\n\tterminate_walk(nd);\n\treturn err;\n}\n\nint filename_lookup(int dfd, struct filename *name, unsigned flags,\n\t\t    struct path *path, const struct path *root)\n{\n\tint retval;\n\tstruct nameidata nd;\n\tif (IS_ERR(name))\n\t\treturn PTR_ERR(name);\n\tset_nameidata(&nd, dfd, name, root);\n\tretval = path_lookupat(&nd, flags | LOOKUP_RCU, path);\n\tif (unlikely(retval == -ECHILD))\n\t\tretval = path_lookupat(&nd, flags, path);\n\tif (unlikely(retval == -ESTALE))\n\t\tretval = path_lookupat(&nd, flags | LOOKUP_REVAL, path);\n\n\tif (likely(!retval))\n\t\taudit_inode(name, path->dentry,\n\t\t\t    flags & LOOKUP_MOUNTPOINT ? AUDIT_INODE_NOEVAL : 0);"
+  },
+  "drivers/virtio/virtio_ring.c:2819": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 2819,
+    "startLine": 2804,
+    "endLine": 2834,
+    "code": " * @sgs: array of terminated scatterlists.\n * @out_sgs: the number of scatterlists readable by other side\n * @in_sgs: the number of scatterlists which are writable (after readable ones)\n * @data: the token identifying the buffer.\n * @gfp: how to do memory allocations (if necessary).\n *\n * Caller must ensure we don't call this with other virtqueue operations\n * at the same time (except where noted).\n *\n * Returns zero or a negative error (ie. ENOSPC, ENOMEM, EIO).\n *\n * NB: ENOSPC is a special code that is only returned on an attempt to add a\n * buffer to a full VQ. It indicates that some buffers are outstanding and that\n * the operation can be retried after some buffers have been used.\n */\nint virtqueue_add_sgs(struct virtqueue *_vq,\n\t\t      struct scatterlist *sgs[],\n\t\t      unsigned int out_sgs,\n\t\t      unsigned int in_sgs,\n\t\t      void *data,\n\t\t      gfp_t gfp)\n{\n\tunsigned int i, total_sg = 0;\n\n\t/* Count them first. */\n\tfor (i = 0; i < out_sgs + in_sgs; i++) {\n\t\tstruct scatterlist *sg;\n\n\t\tfor (sg = sgs[i]; sg; sg = sg_next(sg))\n\t\t\ttotal_sg++;\n\t}"
+  },
+  "drivers/virtio/virtio_ring.c:2829": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 2829,
+    "startLine": 2814,
+    "endLine": 2844,
+    "code": " *\n * NB: ENOSPC is a special code that is only returned on an attempt to add a\n * buffer to a full VQ. It indicates that some buffers are outstanding and that\n * the operation can be retried after some buffers have been used.\n */\nint virtqueue_add_sgs(struct virtqueue *_vq,\n\t\t      struct scatterlist *sgs[],\n\t\t      unsigned int out_sgs,\n\t\t      unsigned int in_sgs,\n\t\t      void *data,\n\t\t      gfp_t gfp)\n{\n\tunsigned int i, total_sg = 0;\n\n\t/* Count them first. */\n\tfor (i = 0; i < out_sgs + in_sgs; i++) {\n\t\tstruct scatterlist *sg;\n\n\t\tfor (sg = sgs[i]; sg; sg = sg_next(sg))\n\t\t\ttotal_sg++;\n\t}\n\treturn virtqueue_add(_vq, sgs, total_sg, out_sgs, in_sgs,\n\t\t\t     data, NULL, false, gfp, 0);\n}\nEXPORT_SYMBOL_GPL(virtqueue_add_sgs);\n\n/**\n * virtqueue_add_outbuf - expose output buffers to other end\n * @vq: the struct virtqueue we're talking about.\n * @sg: scatterlist (must be well-formed and terminated!)\n * @num: the number of entries in @sg readable by other side"
+  },
+  "drivers/virtio/virtio_ring.c:2783": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 2783,
+    "startLine": 2768,
+    "endLine": 2798,
+    "code": "\tcase VQ_LAYOUT_PACKED:\t\t\t\t\t\t\\\n\t\tpacked_ops.op(__VIRTQUEUE_CALL_vq, ##__VA_ARGS__);\t\\\n\t\tbreak;\t\t\t\t\t\t\t\\\n\tcase VQ_LAYOUT_SPLIT_IN_ORDER:\t\t\t\t\t\\\n\t\tsplit_in_order_ops.op(vq, ##__VA_ARGS__);\t\t\\\n\t\tbreak;\t\t\t\t\t\t\t\\\n\tcase VQ_LAYOUT_PACKED_IN_ORDER:\t\t\t\t\t\\\n\t\tpacked_in_order_ops.op(vq, ##__VA_ARGS__);\t\t\\\n\t\tbreak;\t\t\t\t\t\t\t\\\n\tdefault:\t\t\t\t\t\t\t\\\n\t\tBUG();\t\t\t\t\t\t\t\\\n\t\tbreak;\t\t\t\t\t\t\t\\\n\t}\t\t\t\t\t\t\t\t\\\n})\n\nstatic inline int virtqueue_add(struct virtqueue *_vq,\n\t\t\t\tstruct scatterlist *sgs[],\n\t\t\t\tunsigned int total_sg,\n\t\t\t\tunsigned int out_sgs,\n\t\t\t\tunsigned int in_sgs,\n\t\t\t\tvoid *data,\n\t\t\t\tvoid *ctx,\n\t\t\t\tbool premapped,\n\t\t\t\tgfp_t gfp,\n\t\t\t\tunsigned long attr)\n{\n\tstruct vring_virtqueue *vq = to_vvq(_vq);\n\n\treturn VIRTQUEUE_CALL(vq, add, sgs, total_sg,\n\t\t\t      out_sgs, in_sgs, data,\n\t\t\t      ctx, premapped, gfp, attr);"
+  },
+  "drivers/virtio/virtio_ring.c:599": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 599,
+    "startLine": 584,
+    "endLine": 614,
+    "code": "\tdesc[i].flags = cpu_to_virtio16(vdev, flags);\n\tdesc[i].addr = cpu_to_virtio64(vdev, addr);\n\tdesc[i].len = cpu_to_virtio32(vdev, len);\n\n\textra[i].addr = premapped ? DMA_MAPPING_ERROR : addr;\n\textra[i].len = len;\n\textra[i].flags = flags;\n\n\tnext = extra[i].next;\n\n\tdesc[i].next = cpu_to_virtio16(vdev, next);\n\n\treturn next;\n}\n\nstatic inline int virtqueue_add_split(struct vring_virtqueue *vq,\n\t\t\t\t      struct scatterlist *sgs[],\n\t\t\t\t      unsigned int total_sg,\n\t\t\t\t      unsigned int out_sgs,\n\t\t\t\t      unsigned int in_sgs,\n\t\t\t\t      void *data,\n\t\t\t\t      void *ctx,\n\t\t\t\t      bool premapped,\n\t\t\t\t      gfp_t gfp,\n\t\t\t\t      unsigned long attr)\n{\n\tstruct vring_desc_extra *extra;\n\tstruct scatterlist *sg;\n\tstruct vring_desc *desc;\n\tunsigned int i, n, avail, descs_used, err_idx, sg_count = 0;\n\t/* Total length for in-order */"
+  },
+  "drivers/virtio/virtio_ring.c:633": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 633,
+    "startLine": 618,
+    "endLine": 648,
+    "code": "\n\tSTART_USE(vq);\n\n\tBUG_ON(data == NULL);\n\tBUG_ON(ctx && vq->indirect);\n\n\tif (unlikely(vq->broken)) {\n\t\tEND_USE(vq);\n\t\treturn -EIO;\n\t}\n\n\tLAST_ADD_TIME_UPDATE(vq);\n\n\tBUG_ON(total_sg == 0);\n\n\thead = vq->free_head;\n\n\tif (virtqueue_use_indirect(vq, total_sg))\n\t\tdesc = alloc_indirect_split(vq, total_sg, gfp);\n\telse {\n\t\tdesc = NULL;\n\t\tWARN_ON_ONCE(total_sg > vq->split.vring.num && !vq->indirect);\n\t}\n\n\tif (desc) {\n\t\t/* Use a single buffer which doesn't continue */\n\t\tindirect = true;\n\t\t/* Set up rest to use this indirect table. */\n\t\ti = 0;\n\t\tdescs_used = 1;\n\t\textra = (struct vring_desc_extra *)&desc[total_sg];"
+  },
+  "drivers/virtio/virtio_ring.c:3056": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 3056,
+    "startLine": 3041,
+    "endLine": 3071,
+    "code": "}\nEXPORT_SYMBOL_GPL(virtqueue_notify);\n\n/**\n * virtqueue_kick - update after add_buf\n * @vq: the struct virtqueue\n *\n * After one or more virtqueue_add_* calls, invoke this to kick\n * the other side.\n *\n * Caller must ensure we don't call this with other virtqueue\n * operations at the same time (except where noted).\n *\n * Returns false if kick failed, otherwise true.\n */\nbool virtqueue_kick(struct virtqueue *vq)\n{\n\tif (virtqueue_kick_prepare(vq))\n\t\treturn virtqueue_notify(vq);\n\treturn true;\n}\nEXPORT_SYMBOL_GPL(virtqueue_kick);\n\n/**\n * virtqueue_get_buf_ctx - get the next used buffer\n * @_vq: the struct virtqueue we're talking about.\n * @len: the length written into the buffer\n * @ctx: extra context for the token\n *\n * If the device wrote data into the buffer, @len will be set to the\n * amount written.  This means you don't need to clear the buffer"
+  },
+  "drivers/virtio/virtio_ring.c:3012": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 3012,
+    "startLine": 2997,
+    "endLine": 3027,
+    "code": "\t\treturn NULL;\n}\nEXPORT_SYMBOL_GPL(virtqueue_dma_dev);\n\n/**\n * virtqueue_kick_prepare - first half of split virtqueue_kick call.\n * @_vq: the struct virtqueue\n *\n * Instead of virtqueue_kick(), you can do:\n *\tif (virtqueue_kick_prepare(vq))\n *\t\tvirtqueue_notify(vq);\n *\n * This is sometimes useful because the virtqueue_kick_prepare() needs\n * to be serialized, but the actual virtqueue_notify() call does not.\n */\nbool virtqueue_kick_prepare(struct virtqueue *_vq)\n{\n\tstruct vring_virtqueue *vq = to_vvq(_vq);\n\n\treturn VIRTQUEUE_CALL(vq, kick_prepare);\n}\nEXPORT_SYMBOL_GPL(virtqueue_kick_prepare);\n\n/**\n * virtqueue_notify - second half of split virtqueue_kick call.\n * @_vq: the struct virtqueue\n *\n * This does not need to be serialized.\n *\n * Returns false if host notify failed or queue is broken, otherwise true.\n */"
+  },
+  "drivers/virtio/virtio_ring.c:3028": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 3028,
+    "startLine": 3013,
+    "endLine": 3043,
+    "code": "{\n\tstruct vring_virtqueue *vq = to_vvq(_vq);\n\n\treturn VIRTQUEUE_CALL(vq, kick_prepare);\n}\nEXPORT_SYMBOL_GPL(virtqueue_kick_prepare);\n\n/**\n * virtqueue_notify - second half of split virtqueue_kick call.\n * @_vq: the struct virtqueue\n *\n * This does not need to be serialized.\n *\n * Returns false if host notify failed or queue is broken, otherwise true.\n */\nbool virtqueue_notify(struct virtqueue *_vq)\n{\n\tstruct vring_virtqueue *vq = to_vvq(_vq);\n\n\tif (unlikely(vq->broken))\n\t\treturn false;\n\n\t/* Prod other side to tell it about changes. */\n\tif (!vq->notify(_vq)) {\n\t\tvq->broken = true;\n\t\treturn false;\n\t}\n\treturn true;\n}\nEXPORT_SYMBOL_GPL(virtqueue_notify);\n"
+  },
+  "drivers/virtio/virtio_ring.c:3229": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 3229,
+    "startLine": 3214,
+    "endLine": 3244,
+    "code": "EXPORT_SYMBOL_GPL(virtqueue_detach_unused_buf);\n\nstatic inline bool more_used(const struct vring_virtqueue *vq)\n{\n\treturn VIRTQUEUE_CALL(vq, more_used);\n}\n\n/**\n * vring_interrupt - notify a virtqueue on an interrupt\n * @irq: the IRQ number (ignored)\n * @_vq: the struct virtqueue to notify\n *\n * Calls the callback function of @_vq to process the virtqueue\n * notification.\n */\nirqreturn_t vring_interrupt(int irq, void *_vq)\n{\n\tstruct vring_virtqueue *vq = to_vvq(_vq);\n\n\tif (!more_used(vq)) {\n\t\tpr_debug(\"virtqueue interrupt with no work for %p\\n\", vq);\n\t\treturn IRQ_NONE;\n\t}\n\n\tif (unlikely(vq->broken)) {\n#ifdef CONFIG_VIRTIO_HARDEN_NOTIFICATION\n\t\tdev_warn_once(&vq->vq.vdev->dev,\n\t\t\t      \"virtio vring IRQ raised before DRIVER_OK\");\n\t\treturn IRQ_NONE;\n#else\n\t\treturn IRQ_HANDLED;"
+  },
+  "drivers/virtio/virtio_ring.c:941": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 941,
+    "startLine": 926,
+    "endLine": 956,
+    "code": "\n\tif (unlikely(vq->broken)) {\n\t\tEND_USE(vq);\n\t\treturn NULL;\n\t}\n\n\tif (!more_used_split(vq)) {\n\t\tpr_debug(\"No more buffers in queue\\n\");\n\t\tEND_USE(vq);\n\t\treturn NULL;\n\t}\n\n\t/* Only get used array entries after they have been exposed by host. */\n\tvirtio_rmb(vq->weak_barriers);\n\n\tlast_used = (vq->last_used_idx & (vq->split.vring.num - 1));\n\ti = virtio32_to_cpu(vq->vq.vdev,\n\t\t\tvq->split.vring.used->ring[last_used].id);\n\t*len = virtio32_to_cpu(vq->vq.vdev,\n\t\t\tvq->split.vring.used->ring[last_used].len);\n\n\tif (unlikely(i >= vq->split.vring.num)) {\n\t\tBAD_RING(vq, \"id %u out of range\\n\", i);\n\t\treturn NULL;\n\t}\n\tif (unlikely(!vq->split.desc_state[i].data)) {\n\t\tBAD_RING(vq, \"id %u is not a head!\\n\", i);\n\t\treturn NULL;\n\t}\n\n\t/* detach_buf_split clears data, so grab it now. */"
+  },
+  "drivers/virtio/virtio_ring.c:904": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 904,
+    "startLine": 889,
+    "endLine": 919,
+    "code": "\t\t\t     void **ctx)\n{\n\tunsigned int i = detach_buf_split_in_order(vq, head, ctx);\n\n\tvq->split.desc_extra[i].next = vq->free_head;\n\tvq->free_head = head;\n}\n\nstatic bool virtqueue_poll_split(const struct vring_virtqueue *vq,\n\t\t\t\t unsigned int last_used_idx)\n{\n\treturn (u16)last_used_idx != virtio16_to_cpu(vq->vq.vdev,\n\t\t\tvq->split.vring.used->idx);\n}\n\nstatic bool more_used_split(const struct vring_virtqueue *vq)\n{\n\treturn virtqueue_poll_split(vq, vq->last_used_idx);\n}\n\nstatic bool more_used_split_in_order(const struct vring_virtqueue *vq)\n{\n\tif (vq->batch_last.id != UINT_MAX)\n\t\treturn true;\n\n\treturn virtqueue_poll_split(vq, vq->last_used_idx);\n}\n\nstatic void *virtqueue_get_buf_ctx_split(struct vring_virtqueue *vq,\n\t\t\t\t\t unsigned int *len,\n\t\t\t\t\t void **ctx)"
+  },
+  "drivers/virtio/virtio_ring.c:3253": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 3253,
+    "startLine": 3238,
+    "endLine": 3268,
+    "code": "\tif (unlikely(vq->broken)) {\n#ifdef CONFIG_VIRTIO_HARDEN_NOTIFICATION\n\t\tdev_warn_once(&vq->vq.vdev->dev,\n\t\t\t      \"virtio vring IRQ raised before DRIVER_OK\");\n\t\treturn IRQ_NONE;\n#else\n\t\treturn IRQ_HANDLED;\n#endif\n\t}\n\n\t/* Just a hint for performance: so it's ok that this can be racy! */\n\tif (vq->event)\n\t\tdata_race(vq->event_triggered = true);\n\n\tpr_debug(\"virtqueue callback for %p (%p)\\n\", vq, vq->vq.callback);\n\tif (vq->vq.callback)\n\t\tvq->vq.callback(&vq->vq);\n\n\treturn IRQ_HANDLED;\n}\nEXPORT_SYMBOL_GPL(vring_interrupt);\n\nstruct virtqueue *vring_create_virtqueue(\n\tunsigned int index,\n\tunsigned int num,\n\tunsigned int vring_align,\n\tstruct virtio_device *vdev,\n\tbool weak_barriers,\n\tbool may_reduce_num,\n\tbool context,\n\tbool (*notify)(struct virtqueue *),"
+  },
+  "drivers/virtio/virtio_ring.c:3090": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 3090,
+    "startLine": 3075,
+    "endLine": 3105,
+    "code": " * Caller must ensure we don't call this with other virtqueue\n * operations at the same time (except where noted).\n *\n * Returns NULL if there are no used buffers, or the \"data\" token\n * handed to virtqueue_add_*().\n */\nvoid *virtqueue_get_buf_ctx(struct virtqueue *_vq, unsigned int *len,\n\t\t\t    void **ctx)\n{\n\tstruct vring_virtqueue *vq = to_vvq(_vq);\n\n\treturn VIRTQUEUE_CALL(vq, get, len, ctx);\n}\nEXPORT_SYMBOL_GPL(virtqueue_get_buf_ctx);\n\nvoid *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)\n{\n\treturn virtqueue_get_buf_ctx(_vq, len, NULL);\n}\nEXPORT_SYMBOL_GPL(virtqueue_get_buf);\n/**\n * virtqueue_disable_cb - disable callbacks\n * @_vq: the struct virtqueue we're talking about.\n *\n * Note that this is not necessarily synchronous, hence unreliable and only\n * useful as an optimization.\n *\n * Unlike other operations, this need not be serialized.\n */\nvoid virtqueue_disable_cb(struct virtqueue *_vq)\n{"
+  },
+  "drivers/virtio/virtio_ring.c:917": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 917,
+    "startLine": 902,
+    "endLine": 932,
+    "code": "}\n\nstatic bool more_used_split(const struct vring_virtqueue *vq)\n{\n\treturn virtqueue_poll_split(vq, vq->last_used_idx);\n}\n\nstatic bool more_used_split_in_order(const struct vring_virtqueue *vq)\n{\n\tif (vq->batch_last.id != UINT_MAX)\n\t\treturn true;\n\n\treturn virtqueue_poll_split(vq, vq->last_used_idx);\n}\n\nstatic void *virtqueue_get_buf_ctx_split(struct vring_virtqueue *vq,\n\t\t\t\t\t unsigned int *len,\n\t\t\t\t\t void **ctx)\n{\n\tvoid *ret;\n\tunsigned int i;\n\tu16 last_used;\n\n\tSTART_USE(vq);\n\n\tif (unlikely(vq->broken)) {\n\t\tEND_USE(vq);\n\t\treturn NULL;\n\t}\n\n\tif (!more_used_split(vq)) {"
+  },
+  "drivers/virtio/virtio_ring.c:888": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 888,
+    "startLine": 873,
+    "endLine": 903,
+    "code": "\t}\n\n\tvring_unmap_one_split(vq, &extra[i]);\n\n\t/* Plus final descriptor */\n\tvq->vq.num_free++;\n\n\tif (vq->indirect)\n\t\tdetach_indirect_split(vq, head);\n\telse if (ctx)\n\t\t*ctx = vq->split.desc_state[head].indir_desc;\n\n\treturn i;\n}\n\nstatic void detach_buf_split(struct vring_virtqueue *vq, unsigned int head,\n\t\t\t     void **ctx)\n{\n\tunsigned int i = detach_buf_split_in_order(vq, head, ctx);\n\n\tvq->split.desc_extra[i].next = vq->free_head;\n\tvq->free_head = head;\n}\n\nstatic bool virtqueue_poll_split(const struct vring_virtqueue *vq,\n\t\t\t\t unsigned int last_used_idx)\n{\n\treturn (u16)last_used_idx != virtio16_to_cpu(vq->vq.vdev,\n\t\t\tvq->split.vring.used->idx);\n}\n"
+  },
+  "drivers/virtio/virtio_ring.c:959": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 959,
+    "startLine": 944,
+    "endLine": 974,
+    "code": "\t*len = virtio32_to_cpu(vq->vq.vdev,\n\t\t\tvq->split.vring.used->ring[last_used].len);\n\n\tif (unlikely(i >= vq->split.vring.num)) {\n\t\tBAD_RING(vq, \"id %u out of range\\n\", i);\n\t\treturn NULL;\n\t}\n\tif (unlikely(!vq->split.desc_state[i].data)) {\n\t\tBAD_RING(vq, \"id %u is not a head!\\n\", i);\n\t\treturn NULL;\n\t}\n\n\t/* detach_buf_split clears data, so grab it now. */\n\tret = vq->split.desc_state[i].data;\n\tdetach_buf_split(vq, i, ctx);\n\tvq->last_used_idx++;\n\t/* If we expect an interrupt for the next entry, tell host\n\t * by writing event index and flush out the write before\n\t * the read in the next get_buf call. */\n\tif (!(vq->split.avail_flags_shadow & VRING_AVAIL_F_NO_INTERRUPT))\n\t\tvirtio_store_mb(vq->weak_barriers,\n\t\t\t\t&vring_used_event(&vq->split.vring),\n\t\t\t\tcpu_to_virtio16(vq->vq.vdev, vq->last_used_idx));\n\n\tLAST_ADD_TIME_INVALID(vq);\n\n\tEND_USE(vq);\n\treturn ret;\n}\n\nstatic void *virtqueue_get_buf_ctx_split_in_order(struct vring_virtqueue *vq,"
+  },
+  "drivers/virtio/virtio.c:517": {
+    "path": "drivers/virtio/virtio.c",
+    "line": 517,
+    "startLine": 502,
+    "endLine": 532,
+    "code": "\nout:\n\tof_node_put(np);\n\treturn ret;\n}\n\n/**\n * register_virtio_device - register virtio device\n * @dev        : virtio device to be registered\n *\n * On error, the caller must call put_device on &@dev->dev (and not kfree),\n * as another code path may have obtained a reference to @dev.\n *\n * Returns: 0 on success, -error on failure\n */\nint register_virtio_device(struct virtio_device *dev)\n{\n\tint err;\n\n\tdev->dev.bus = &virtio_bus;\n\tdevice_initialize(&dev->dev);\n\n\t/* Assign a unique device index and hence name. */\n\terr = ida_alloc(&virtio_index_ida, GFP_KERNEL);\n\tif (err < 0)\n\t\tgoto out;\n\n\tdev->index = err;\n\terr = dev_set_name(&dev->dev, \"virtio%u\", dev->index);\n\tif (err)\n\t\tgoto out_ida_remove;"
+  },
+  "drivers/virtio/virtio.c:548": {
+    "path": "drivers/virtio/virtio.c",
+    "line": 548,
+    "startLine": 533,
+    "endLine": 563,
+    "code": "\n\terr = virtio_device_of_init(dev);\n\tif (err)\n\t\tgoto out_ida_remove;\n\n\tspin_lock_init(&dev->config_lock);\n\tdev->config_driver_disabled = false;\n\tdev->config_core_enabled = false;\n\tdev->config_change_pending = false;\n\n\tINIT_LIST_HEAD(&dev->vqs);\n\tspin_lock_init(&dev->vqs_list_lock);\n\n\t/* We always start by resetting the device, in case a previous\n\t * driver messed it up.  This also tests that code path a little. */\n\tvirtio_reset_device(dev);\n\n\t/* Acknowledge that we've seen the device. */\n\tvirtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);\n\n\tvirtio_debug_device_init(dev);\n\n\t/*\n\t * device_add() causes the bus infrastructure to look for a matching\n\t * driver.\n\t */\n\terr = device_add(&dev->dev);\n\tif (err)\n\t\tgoto out_of_node_put;\n\n\treturn 0;"
+  },
+  "drivers/virtio/virtio.c:270": {
+    "path": "drivers/virtio/virtio.c",
+    "line": 270,
+    "startLine": 255,
+    "endLine": 285,
+    "code": "#ifdef CONFIG_VIRTIO_HARDEN_NOTIFICATION\n\t/*\n\t * The below virtio_synchronize_cbs() guarantees that any\n\t * interrupt for this line arriving after\n\t * virtio_synchronize_vqs() has completed is guaranteed to see\n\t * vq->broken as true.\n\t */\n\tvirtio_break_device(dev);\n\tvirtio_synchronize_cbs(dev);\n#endif\n\n\tdev->config->reset(dev);\n}\nEXPORT_SYMBOL_GPL(virtio_reset_device);\n\nstatic int virtio_dev_probe(struct device *_d)\n{\n\tint err, i;\n\tstruct virtio_device *dev = dev_to_virtio(_d);\n\tstruct virtio_driver *drv = drv_to_virtio(dev->dev.driver);\n\tu64 device_features[VIRTIO_FEATURES_U64S];\n\tu64 driver_features[VIRTIO_FEATURES_U64S];\n\tu64 driver_features_legacy;\n\n\t/* We have a driver! */\n\tvirtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);\n\n\t/* Figure out what features the device supports. */\n\tvirtio_get_features(dev, device_features);\n\n\t/* Figure out what features the driver supports. */"
+  },
+  "drivers/virtio/virtio.c:280": {
+    "path": "drivers/virtio/virtio.c",
+    "line": 280,
+    "startLine": 265,
+    "endLine": 295,
+    "code": "\n\tdev->config->reset(dev);\n}\nEXPORT_SYMBOL_GPL(virtio_reset_device);\n\nstatic int virtio_dev_probe(struct device *_d)\n{\n\tint err, i;\n\tstruct virtio_device *dev = dev_to_virtio(_d);\n\tstruct virtio_driver *drv = drv_to_virtio(dev->dev.driver);\n\tu64 device_features[VIRTIO_FEATURES_U64S];\n\tu64 driver_features[VIRTIO_FEATURES_U64S];\n\tu64 driver_features_legacy;\n\n\t/* We have a driver! */\n\tvirtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);\n\n\t/* Figure out what features the device supports. */\n\tvirtio_get_features(dev, device_features);\n\n\t/* Figure out what features the driver supports. */\n\tvirtio_features_zero(driver_features);\n\tfor (i = 0; i < drv->feature_table_size; i++) {\n\t\tunsigned int f = drv->feature_table[i];\n\t\tif (!WARN_ON_ONCE(f >= VIRTIO_FEATURES_BITS))\n\t\t\tvirtio_features_set_bit(driver_features, f);\n\t}\n\n\t/* Some drivers have a separate feature table for virtio v1.0 */\n\tif (drv->feature_table_legacy) {\n\t\tdriver_features_legacy = 0;"
+  },
+  "drivers/virtio/virtio.c:283": {
+    "path": "drivers/virtio/virtio.c",
+    "line": 283,
+    "startLine": 268,
+    "endLine": 298,
+    "code": "EXPORT_SYMBOL_GPL(virtio_reset_device);\n\nstatic int virtio_dev_probe(struct device *_d)\n{\n\tint err, i;\n\tstruct virtio_device *dev = dev_to_virtio(_d);\n\tstruct virtio_driver *drv = drv_to_virtio(dev->dev.driver);\n\tu64 device_features[VIRTIO_FEATURES_U64S];\n\tu64 driver_features[VIRTIO_FEATURES_U64S];\n\tu64 driver_features_legacy;\n\n\t/* We have a driver! */\n\tvirtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);\n\n\t/* Figure out what features the device supports. */\n\tvirtio_get_features(dev, device_features);\n\n\t/* Figure out what features the driver supports. */\n\tvirtio_features_zero(driver_features);\n\tfor (i = 0; i < drv->feature_table_size; i++) {\n\t\tunsigned int f = drv->feature_table[i];\n\t\tif (!WARN_ON_ONCE(f >= VIRTIO_FEATURES_BITS))\n\t\t\tvirtio_features_set_bit(driver_features, f);\n\t}\n\n\t/* Some drivers have a separate feature table for virtio v1.0 */\n\tif (drv->feature_table_legacy) {\n\t\tdriver_features_legacy = 0;\n\t\tfor (i = 0; i < drv->feature_table_size_legacy; i++) {\n\t\t\tunsigned int f = drv->feature_table_legacy[i];\n\t\t\tif (!WARN_ON_ONCE(f >= 64))"
+  },
+  "drivers/virtio/virtio.c:204": {
+    "path": "drivers/virtio/virtio.c",
+    "line": 204,
+    "startLine": 189,
+    "endLine": 219,
+    "code": "\tspin_lock_irq(&dev->config_lock);\n\tdev->config_core_enabled = true;\n\tif (dev->config_change_pending)\n\t\t__virtio_config_changed(dev);\n\tspin_unlock_irq(&dev->config_lock);\n}\n\nvoid virtio_add_status(struct virtio_device *dev, unsigned int status)\n{\n\tmight_sleep();\n\tdev->config->set_status(dev, dev->config->get_status(dev) | status);\n}\nEXPORT_SYMBOL_GPL(virtio_add_status);\n\n/* Do some validation, then set FEATURES_OK */\nstatic int virtio_features_ok(struct virtio_device *dev)\n{\n\tunsigned int status;\n\n\tmight_sleep();\n\n\tif (virtio_check_mem_acc_cb(dev)) {\n\t\tif (!virtio_has_feature(dev, VIRTIO_F_VERSION_1)) {\n\t\t\tdev_warn(&dev->dev,\n\t\t\t\t \"device must provide VIRTIO_F_VERSION_1\\n\");\n\t\t\treturn -ENODEV;\n\t\t}\n\n\t\tif (!virtio_has_feature(dev, VIRTIO_F_ACCESS_PLATFORM)) {\n\t\t\tdev_warn(&dev->dev,\n\t\t\t\t \"device must provide VIRTIO_F_ACCESS_PLATFORM\\n\");"
+  },
+  "drivers/virtio/virtio_pci_common.c:515": {
+    "path": "drivers/virtio/virtio_pci_common.c",
+    "line": 515,
+    "startLine": 500,
+    "endLine": 530,
+    "code": "\tvq = vp_setup_vq(vdev, queue_idx++, vp_modern_avq_done, avq->name,\n\t\t\t false, VIRTIO_MSI_NO_VECTOR,\n\t\t\t &vp_dev->admin_vq.info);\n\tif (IS_ERR(vq)) {\n\t\terr = PTR_ERR(vq);\n\t\tgoto out_del_vqs;\n\t}\n\n\treturn 0;\nout_del_vqs:\n\tvp_del_vqs(vdev);\n\treturn err;\n}\n\n/* the config->find_vqs() implementation */\nint vp_find_vqs(struct virtio_device *vdev, unsigned int nvqs,\n\t\tstruct virtqueue *vqs[], struct virtqueue_info vqs_info[],\n\t\tstruct irq_affinity *desc)\n{\n\tint err;\n\n\t/* Try MSI-X with one vector per queue. */\n\terr = vp_find_vqs_msix(vdev, nvqs, vqs, vqs_info,\n\t\t\t       VP_VQ_VECTOR_POLICY_EACH, desc);\n\tif (!err)\n\t\treturn 0;\n\t/* Fallback: MSI-X with one shared vector for config and\n\t * slow path queues, one vector per queue for the rest.\n\t */\n\terr = vp_find_vqs_msix(vdev, nvqs, vqs, vqs_info,\n\t\t\t       VP_VQ_VECTOR_POLICY_SHARED_SLOW, desc);"
+  },
+  "drivers/virtio/virtio_pci_common.c:203": {
+    "path": "drivers/virtio/virtio_pci_common.c",
+    "line": 203,
+    "startLine": 188,
+    "endLine": 218,
+    "code": "\t\t\t\t  vp_dev);\n\t\tif (err)\n\t\t\tgoto error;\n\t\t++vp_dev->msix_used_vectors;\n\t}\n\treturn 0;\nerror:\n\treturn err;\n}\n\nstatic bool vp_is_slow_path_vector(u16 msix_vec)\n{\n\treturn msix_vec == VP_MSIX_CONFIG_VECTOR;\n}\n\nstatic struct virtqueue *vp_setup_vq(struct virtio_device *vdev, unsigned int index,\n\t\t\t\t     void (*callback)(struct virtqueue *vq),\n\t\t\t\t     const char *name,\n\t\t\t\t     bool ctx,\n\t\t\t\t     u16 msix_vec,\n\t\t\t\t     struct virtio_pci_vq_info **p_info)\n{\n\tstruct virtio_pci_device *vp_dev = to_vp_device(vdev);\n\tstruct virtio_pci_vq_info *info = kmalloc_obj(*info);\n\tstruct virtqueue *vq;\n\tunsigned long flags;\n\n\t/* fill out our structure that represents an active queue */\n\tif (!info)\n\t\treturn ERR_PTR(-ENOMEM);\n"
+  },
+  "drivers/virtio/virtio_ring.c:3260": {
+    "path": "drivers/virtio/virtio_ring.c",
+    "line": 3260,
+    "startLine": 3245,
+    "endLine": 3275,
+    "code": "#endif\n\t}\n\n\t/* Just a hint for performance: so it's ok that this can be racy! */\n\tif (vq->event)\n\t\tdata_race(vq->event_triggered = true);\n\n\tpr_debug(\"virtqueue callback for %p (%p)\\n\", vq, vq->vq.callback);\n\tif (vq->vq.callback)\n\t\tvq->vq.callback(&vq->vq);\n\n\treturn IRQ_HANDLED;\n}\nEXPORT_SYMBOL_GPL(vring_interrupt);\n\nstruct virtqueue *vring_create_virtqueue(\n\tunsigned int index,\n\tunsigned int num,\n\tunsigned int vring_align,\n\tstruct virtio_device *vdev,\n\tbool weak_barriers,\n\tbool may_reduce_num,\n\tbool context,\n\tbool (*notify)(struct virtqueue *),\n\tvoid (*callback)(struct virtqueue *),\n\tconst char *name)\n{\n\tunion virtio_map map = {.dma_dev = vdev->dev.parent};\n\n\tif (virtio_has_feature(vdev, VIRTIO_F_RING_PACKED))\n\t\treturn vring_create_virtqueue_packed(index, num, vring_align,"
+  },
+  "drivers/virtio/virtio.c:352": {
+    "path": "drivers/virtio/virtio.c",
+    "line": 352,
+    "startLine": 337,
+    "endLine": 367,
+    "code": "\t\t\terr = dev->config->finalize_features(dev);\n\t\t\tif (err)\n\t\t\t\tgoto err;\n\t\t}\n\t}\n\n\terr = virtio_features_ok(dev);\n\tif (err)\n\t\tgoto err;\n\n\terr = drv->probe(dev);\n\tif (err)\n\t\tgoto err;\n\n\t/* If probe didn't do it, mark device DRIVER_OK ourselves. */\n\tif (!(dev->config->get_status(dev) & VIRTIO_CONFIG_S_DRIVER_OK))\n\t\tvirtio_device_ready(dev);\n\n\tif (drv->scan)\n\t\tdrv->scan(dev);\n\n\tvirtio_config_core_enable(dev);\n\n\treturn 0;\n\nerr:\n\tvirtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);\n\treturn err;\n\n}\n"
+  }
+}

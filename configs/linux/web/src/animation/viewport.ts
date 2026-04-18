@@ -1,6 +1,14 @@
-import type { AnimationModule } from './types.js';
+import type { AnimationModule, AnimationFrame } from './types.js';
 import { AnimationEngine } from './engine.js';
 import { createControlBar } from './control-bar.js';
+import { createSrcRefViewer, type SrcRefViewer } from './srcref-viewer.js';
+import { loadSnippets } from './snippet-store.js';
+
+function frameSrcRef(frame: AnimationFrame): string | null {
+  const data = frame.data as { srcRef?: unknown } | null | undefined;
+  if (data && typeof data.srcRef === 'string') return data.srcRef;
+  return null;
+}
 
 const SVG_WIDTH = 900;
 const SVG_HEIGHT = 480;
@@ -83,12 +91,28 @@ export function mountAnimationViewport(
     },
   );
 
+  let srcRefViewer: SrcRefViewer | null = null;
+
   const engine = new AnimationEngine(svgGroup as unknown as SVGGElement, (state, frame) => {
     controlBar.update(state);
     controlBar.updateDescription(frame.label, frame.description);
+    if (srcRefViewer) srcRefViewer.update(frameSrcRef(frame));
   });
 
   engine.load(module, undefined, SVG_WIDTH, SVG_HEIGHT);
+
+  // Lazy-load source snippets; wire up the viewer when ready so initial
+  // animation render is not blocked by the JSON fetch.
+  loadSnippets()
+    .then((snippets) => {
+      if (destroyed) return;
+      srcRefViewer = createSrcRefViewer(controlBar.srcRefSlot, snippets);
+      const current = engine.getCurrentFrame();
+      if (current) srcRefViewer.update(frameSrcRef(current));
+    })
+    .catch(() => {
+      /* snippet panel is a progressive enhancement; skip silently */
+    });
 
   let destroyed = false;
 

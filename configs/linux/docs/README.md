@@ -23,8 +23,10 @@ configs/linux/
         registry.ts   Animation module registry
         modules/      61 animation modules + 61 test files
     data/
-      realms.json     Realm definitions
-      skills.json     Generated skill data
+      realms.json              Realm definitions
+      skills.json              Generated skill data
+      learning-paths.json      Suggested learning paths
+      srcref-snippets.json     Extracted kernel source snippets
   docs/               This directory
   CLAUDE.md           Config overview and skill listing
 ```
@@ -36,9 +38,10 @@ configs/linux/
 | Skills | 60 |
 | Realms | 13 |
 | Animation modules | 61 |
-| Test files | 69 |
-| Tests | 2,883 |
+| Test files | 78 |
+| Tests | 3,067 |
 | Verified srcRefs | 110 (against Linux 7.0) |
+| Extracted snippets | 178 (+/-15 lines of kernel source per unique srcRef) |
 | Total XP | 13,300 |
 | Difficulty | 11 beginner, 29 intermediate, 20 advanced |
 
@@ -103,6 +106,18 @@ npm run build-data
 Run this after editing any SKILL.md front matter (name, xp, prerequisites,
 unlocks, realm, etc.). The dev server reloads automatically on `skills.json`
 change.
+
+### Regenerate source-snippet index
+
+```bash
+npm run build-snippets
+```
+
+Walks every animation module, collects unique `srcRef` strings, and extracts
+a +/-15 line context window from the kernel tree into
+`data/srcref-snippets.json`. The animation viewport lazy-loads this file so
+the initial bundle is unaffected; current size is ~180 KB raw / ~48 KB gzip
+for 178 snippets. Re-run after adding or updating any srcRef.
 
 ### Validate the skill tree
 
