@@ -120,6 +120,8 @@ export function renderGraph(
     edgeGroup.append('path')
       .attr('d', `M${src.x},${src.y + NODE_HEIGHT / 2} C${src.x},${(src.y + tgt.y) / 2} ${tgt.x},${(src.y + tgt.y) / 2} ${tgt.x},${tgt.y - NODE_HEIGHT / 2}`)
       .attr('class', `edge ${completed ? 'edge-completed' : 'edge-locked'}`)
+      .attr('data-source', edge.source)
+      .attr('data-target', edge.target)
       .attr('fill', 'none');
   }
 
@@ -131,6 +133,7 @@ export function renderGraph(
 
     const ng = nodeGroup.append('g')
       .attr('class', `node node-${node.state}`)
+      .attr('data-skill-name', node.skill.name)
       .attr('transform', `translate(${node.x - NODE_WIDTH / 2}, ${node.y - NODE_HEIGHT / 2})`)
       .style('cursor', node.state === 'locked' ? 'not-allowed' : 'pointer')
       .on('click', () => {
@@ -184,6 +187,28 @@ export function renderGraph(
       .attr('text-anchor', 'end')
       .text(node.state === 'completed' ? node.skill.badge : '');
   }
+}
+
+export function applyFilter(
+  container: SVGSVGElement,
+  predicate: (skillName: string) => boolean,
+): void {
+  const passed = new Set<string>();
+  const nodes = container.querySelectorAll<SVGGElement>('.node[data-skill-name]');
+  nodes.forEach((n) => {
+    const name = n.getAttribute('data-skill-name') ?? '';
+    const ok = predicate(name);
+    n.classList.toggle('filtered-out', !ok);
+    if (ok) passed.add(name);
+  });
+
+  const edges = container.querySelectorAll<SVGPathElement>('.edge[data-source][data-target]');
+  edges.forEach((e) => {
+    const src = e.getAttribute('data-source') ?? '';
+    const tgt = e.getAttribute('data-target') ?? '';
+    const ok = passed.has(src) && passed.has(tgt);
+    e.classList.toggle('filtered-out', !ok);
+  });
 }
 
 export function updateNodeStates(

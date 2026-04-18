@@ -19,6 +19,22 @@
     <button id="badge-count" type="button" aria-label="Show badges gallery">0 Badges</button>
   </header>
 
+  <div id="filter-bar">
+    <input id="filter-query" type="search" placeholder="Search skills, badges, tags..." aria-label="Search skills" />
+    <select id="filter-realm" aria-label="Filter by realm">
+      <option value="all">All realms</option>
+    </select>
+    <select id="filter-state" aria-label="Filter by state">
+      <option value="all">All states</option>
+      <option value="available">Available</option>
+      <option value="in-progress">In progress</option>
+      <option value="completed">Completed</option>
+      <option value="locked">Locked</option>
+    </select>
+    <button id="filter-clear" type="button" aria-label="Clear filters">Clear</button>
+    <span id="filter-count" aria-live="polite"></span>
+  </div>
+
   <main id="app">
     <div id="graph-container">
       <svg id="skill-graph"></svg>

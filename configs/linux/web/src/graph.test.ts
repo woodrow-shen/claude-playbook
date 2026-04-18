@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { renderGraph } from './graph.js';
+import { renderGraph, applyFilter } from './graph.js';
 import type { Skill, Realm, Progress } from './types.js';
 
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
@@ -178,5 +178,66 @@ describe('renderGraph', () => {
     });
     // First node (boot-and-init, level 0) should be above second (level 1)
     expect(transforms[0]).toBeLessThan(transforms[1]);
+  });
+
+  it('tags each node with data-skill-name', () => {
+    renderGraph(svg, [makeSkill()], REALMS, makeProgress(), () => {});
+    const node = svg.querySelector('.node');
+    expect(node?.getAttribute('data-skill-name')).toBe('boot-and-init');
+  });
+
+  it('tags each edge with data-source and data-target', () => {
+    const skills = [
+      makeSkill(),
+      makeSkill({ name: 'system-calls', prerequisites: ['boot-and-init'] }),
+    ];
+    renderGraph(svg, skills, REALMS, makeProgress(), () => {});
+    const edge = svg.querySelector('.edge');
+    expect(edge?.getAttribute('data-source')).toBe('boot-and-init');
+    expect(edge?.getAttribute('data-target')).toBe('system-calls');
+  });
+});
+
+describe('applyFilter', () => {
+  const skills = [
+    makeSkill(),
+    makeSkill({ name: 'system-calls', prerequisites: ['boot-and-init'] }),
+    makeSkill({ name: 'page-allocation', realm: 'memory', prerequisites: ['system-calls'] }),
+  ];
+
+  beforeEach(() => {
+    renderGraph(svg, skills, REALMS, makeProgress(), () => {});
+  });
+
+  it('adds filtered-out class to nodes whose predicate returns false', () => {
+    applyFilter(svg, name => name === 'boot-and-init');
+    const passing = svg.querySelector('.node[data-skill-name="boot-and-init"]');
+    const filteredOut = svg.querySelector('.node[data-skill-name="system-calls"]');
+    expect(passing?.classList.contains('filtered-out')).toBe(false);
+    expect(filteredOut?.classList.contains('filtered-out')).toBe(true);
+  });
+
+  it('removes filtered-out class when predicate now passes', () => {
+    applyFilter(svg, () => false);
+    applyFilter(svg, () => true);
+    const nodes = svg.querySelectorAll('.node');
+    for (const n of Array.from(nodes)) {
+      expect(n.classList.contains('filtered-out')).toBe(false);
+    }
+  });
+
+  it('fades edges when either endpoint is filtered out', () => {
+    // Keep only boot-and-init -> both outgoing edges should fade
+    applyFilter(svg, name => name === 'boot-and-init');
+    const edge = svg.querySelector('.edge[data-source="boot-and-init"][data-target="system-calls"]');
+    expect(edge?.classList.contains('filtered-out')).toBe(true);
+  });
+
+  it('keeps edges visible when both endpoints pass', () => {
+    applyFilter(svg, () => true);
+    const edges = svg.querySelectorAll('.edge');
+    for (const e of Array.from(edges)) {
+      expect(e.classList.contains('filtered-out')).toBe(false);
+    }
   });
 });

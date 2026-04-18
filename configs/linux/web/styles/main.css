@@ -707,3 +707,66 @@ button#xp-bar:focus-visible {
   border: 1px solid rgba(220, 80, 80, 1);
   color: #fff;
 }
+
+#filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 24px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  z-index: 9;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+#filter-bar input[type="search"],
+#filter-bar select {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+#filter-bar input[type="search"] {
+  flex: 1;
+  min-width: 220px;
+  max-width: 360px;
+}
+
+#filter-bar input[type="search"]:focus,
+#filter-bar select:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+#filter-bar select {
+  cursor: pointer;
+}
+
+#filter-clear {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+#filter-clear:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+}
+
+#filter-count {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  white-space: nowrap;
+}

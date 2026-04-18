@@ -122,3 +122,20 @@
 .node-bg-in-progress {
   animation: glow-progress 2s linear infinite;
 }
+
+/* Search/filter dimming */
+.node.filtered-out {
+  opacity: 0.15;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.edge.filtered-out {
+  opacity: 0.1;
+  transition: opacity 0.2s ease;
+}
+
+.node:not(.filtered-out),
+.edge:not(.filtered-out) {
+  transition: opacity 0.2s ease;
+}
