@@ -1,0 +1,1197 @@
+/* Animation Section in Detail Panel */
+.animation-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-card, #1c2333);
+  border-radius: 8px;
+  border: 1px solid rgba(201, 162, 39, 0.3);
+}
+
+.animation-section h3 {
+  margin: 0 0 0.75rem 0;
+  color: var(--accent-gold, #c9a227);
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+}
+
+.animation-launch-btn {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, rgba(201, 162, 39, 0.15), rgba(201, 162, 39, 0.05));
+  border: 1px solid rgba(201, 162, 39, 0.4);
+  border-radius: 6px;
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.animation-launch-btn:hover {
+  background: linear-gradient(135deg, rgba(201, 162, 39, 0.3), rgba(201, 162, 39, 0.1));
+  border-color: var(--accent-gold, #c9a227);
+  transform: translateX(4px);
+}
+
+.animation-launch-btn:last-child {
+  margin-bottom: 0;
+}
+
+/* Fullscreen Overlay */
+.animation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlay-fade-in 0.25s ease;
+}
+
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+body.animation-open {
+  overflow: hidden;
+}
+
+/* Modal */
+.animation-modal {
+  width: 92vw;
+  max-width: 1100px;
+  max-height: 92vh;
+  background: var(--bg-panel, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: modal-slide-in 0.3s ease;
+}
+
+@keyframes modal-slide-in {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animation-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.animation-title {
+  margin: 0;
+  color: var(--accent-gold, #c9a227);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.animation-close-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  border-radius: 50%;
+  color: var(--accent-red, #f85149);
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.animation-close-btn:hover {
+  background: rgba(248, 81, 73, 0.25);
+  transform: scale(1.1);
+}
+
+/* SVG Container */
+.animation-svg-container {
+  width: 100%;
+  aspect-ratio: 900 / 480;
+  max-height: 55vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.animation-svg {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-dark, #0d1117);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+}
+
+/* Control Bar */
+.animation-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  background: var(--bg-card, #1c2333);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.anim-ctrl-btn {
+  padding: 0.3rem 0.6rem;
+  background: var(--bg-panel, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 4px;
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 40px;
+}
+
+.anim-ctrl-btn:hover {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: var(--accent-blue, #58a6ff);
+}
+
+.btn-play {
+  background: rgba(63, 185, 80, 0.15);
+  border-color: rgba(63, 185, 80, 0.4);
+  min-width: 50px;
+}
+
+.btn-play:hover {
+  background: rgba(63, 185, 80, 0.25);
+}
+
+.animation-scrubber {
+  flex: 1;
+  min-width: 80px;
+  height: 4px;
+  appearance: none;
+  background: var(--border, #30363d);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.animation-scrubber::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--accent-gold, #c9a227);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.animation-step-counter {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #8b949e);
+  min-width: 50px;
+  text-align: center;
+}
+
+.animation-speed,
+.animation-scenario {
+  padding: 0.2rem 0.4rem;
+  background: var(--bg-panel, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 4px;
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.75rem;
+}
+
+/* Description Panel */
+.animation-description {
+  padding: 0.75rem;
+  background: var(--bg-card, #1c2333);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-gold, #c9a227);
+  min-height: 60px;
+}
+
+.animation-desc-label {
+  font-weight: 600;
+  color: var(--accent-gold, #c9a227);
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+
+.animation-desc-detail {
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* SVG Animation Elements */
+.anim-title {
+  fill: var(--text-secondary, #8b949e);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Buddy Allocator */
+.anim-block {
+  stroke-width: 2;
+  transition: all 0.3s;
+}
+
+.anim-block-free {
+  fill: rgba(63, 185, 80, 0.1);
+  stroke: rgba(63, 185, 80, 0.6);
+}
+
+.anim-block-allocated {
+  fill: rgba(201, 162, 39, 0.25);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-block-splitting {
+  fill: rgba(88, 166, 255, 0.2);
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-dasharray: 4 2;
+}
+
+.anim-block-coalescing {
+  fill: rgba(188, 140, 255, 0.2);
+  stroke: var(--accent-purple, #bc8cff);
+  stroke-dasharray: 4 2;
+}
+
+.anim-highlight {
+  filter: drop-shadow(0 0 6px rgba(201, 162, 39, 0.5));
+  stroke-width: 2.5;
+}
+
+.anim-block-label {
+  fill: var(--text-primary, #e6edf3);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.anim-freelist-title {
+  fill: var(--text-secondary, #8b949e);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.anim-freelist-entry {
+  fill: var(--text-muted, #484f58);
+  font-size: 9px;
+}
+
+.anim-freelist-active {
+  fill: var(--accent-green, #3fb950);
+}
+
+.anim-addr-marker {
+  fill: var(--text-muted, #484f58);
+  font-size: 8px;
+}
+
+/* CFS Scheduler */
+.anim-task {
+  stroke-width: 2;
+  stroke: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s;
+}
+
+.anim-task-running {
+  stroke: var(--accent-gold, #c9a227);
+  stroke-width: 2.5;
+}
+
+.anim-task-sleeping {
+  opacity: 0.4;
+}
+
+.anim-task-next {
+  filter: drop-shadow(0 0 8px rgba(63, 185, 80, 0.5));
+}
+
+.anim-task-name {
+  fill: var(--bg-dark, #0d1117);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.anim-vruntime-label {
+  fill: var(--text-muted, #484f58);
+  font-size: 8px;
+}
+
+.anim-next-label {
+  fill: var(--accent-green, #3fb950);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.anim-axis {
+  stroke: var(--border, #30363d);
+  stroke-width: 1;
+}
+
+.anim-axis-label {
+  fill: var(--text-muted, #484f58);
+  font-size: 9px;
+}
+
+.anim-table-header {
+  fill: var(--text-secondary, #8b949e);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.anim-task-info {
+  font-size: 9px;
+}
+
+/* CoW Fork */
+.anim-page {
+  stroke-width: 1.5;
+  transition: all 0.3s;
+}
+
+.anim-page-normal {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: rgba(63, 185, 80, 0.5);
+}
+
+.anim-page-shared {
+  fill: rgba(88, 166, 255, 0.15);
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-dasharray: 4 2;
+}
+
+.anim-page-faulting {
+  fill: rgba(248, 81, 73, 0.25);
+  stroke: var(--accent-red, #f85149);
+  stroke-dasharray: 2 2;
+}
+
+.anim-page-copied {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-proc-label {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.anim-page-label {
+  fill: var(--text-primary, #e6edf3);
+  font-size: 8px;
+}
+
+.anim-phys-title {
+  fill: var(--text-secondary, #8b949e);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.anim-phys-page {
+  fill: rgba(48, 54, 61, 0.8);
+  stroke: var(--border, #30363d);
+  stroke-width: 1.5;
+}
+
+.anim-phys-shared {
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-dasharray: 3 2;
+}
+
+.anim-phys-label {
+  fill: var(--text-primary, #e6edf3);
+  font-size: 8px;
+}
+
+/* Spinlock/Mutex */
+.anim-cpu {
+  stroke-width: 2;
+  stroke: rgba(255, 255, 255, 0.05);
+  transition: all 0.3s;
+}
+
+.anim-cpu-spinning {
+  stroke: var(--accent-red, #f85149);
+  stroke-dasharray: 3 2;
+}
+
+.anim-cpu-label {
+  fill: var(--text-primary, #e6edf3);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.anim-cpu-task {
+  fill: rgba(255, 255, 255, 0.7);
+  font-size: 8px;
+}
+
+.anim-cpu-state {
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.anim-state-running { fill: var(--accent-green, #3fb950); }
+.anim-state-spinning { fill: var(--accent-red, #f85149); }
+.anim-state-sleeping { fill: var(--text-muted, #484f58); }
+.anim-state-idle { fill: var(--text-muted, #484f58); }
+
+.anim-lock {
+  stroke-width: 2;
+  transition: all 0.3s;
+}
+
+.anim-lock-held {
+  fill: rgba(248, 81, 73, 0.2);
+  stroke: var(--accent-red, #f85149);
+}
+
+.anim-lock-free {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-lock-text {
+  fill: var(--text-primary, #e6edf3);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.anim-wq-label {
+  fill: var(--text-secondary, #8b949e);
+  font-size: 9px;
+}
+
+.anim-wasted-cycles {
+  fill: var(--accent-red, #f85149);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* Spinning animation for spinlock CPUs */
+@keyframes spin-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.anim-cpu-spinning {
+  animation: spin-pulse 0.5s ease-in-out infinite;
+}
+
+/* SLUB Slab Allocator */
+.anim-slab-object {
+  stroke-width: 1.5;
+  transition: all 0.3s;
+}
+
+.anim-slab-free {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: rgba(63, 185, 80, 0.5);
+}
+
+.anim-slab-allocated {
+  fill: rgba(201, 162, 39, 0.25);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-slab-allocating {
+  fill: rgba(88, 166, 255, 0.25);
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-dasharray: 3 2;
+}
+
+.anim-slab-freeing {
+  fill: rgba(188, 140, 255, 0.2);
+  stroke: var(--accent-purple, #bc8cff);
+  stroke-dasharray: 3 2;
+}
+
+.anim-freelist-ptr {
+  stroke: var(--accent-green, #3fb950);
+  stroke-width: 1.5;
+  fill: none;
+  marker-end: url(#arrowhead);
+}
+
+.anim-cpu-slab-box {
+  fill: rgba(88, 166, 255, 0.08);
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-width: 1.5;
+  rx: 4;
+}
+
+.anim-partial-list {
+  fill: rgba(201, 162, 39, 0.08);
+  stroke: rgba(201, 162, 39, 0.3);
+  stroke-width: 1;
+  rx: 3;
+}
+
+/* EEVDF Scheduler */
+.anim-rb-node {
+  stroke-width: 2;
+  transition: all 0.3s;
+}
+
+.anim-rb-red {
+  fill: rgba(248, 81, 73, 0.25);
+  stroke: var(--accent-red, #f85149);
+}
+
+.anim-rb-black {
+  fill: rgba(139, 148, 158, 0.2);
+  stroke: var(--text-secondary, #8b949e);
+}
+
+.anim-rb-edge {
+  stroke: var(--border, #30363d);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.anim-eligible {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-ineligible {
+  opacity: 0.4;
+}
+
+.anim-deadline-marker {
+  fill: var(--accent-gold, #c9a227);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.anim-avg-vruntime-line {
+  stroke: var(--accent-purple, #bc8cff);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.anim-eligible-zone {
+  fill: rgba(63, 185, 80, 0.06);
+  stroke: none;
+}
+
+/* Page Table Walk */
+.anim-pt-level {
+  fill: rgba(48, 54, 61, 0.6);
+  stroke: var(--border, #30363d);
+  stroke-width: 1.5;
+  rx: 4;
+}
+
+.anim-pt-entry {
+  stroke-width: 1;
+  transition: all 0.3s;
+}
+
+.anim-pt-entry-idle {
+  fill: rgba(48, 54, 61, 0.4);
+  stroke: var(--border, #30363d);
+}
+
+.anim-pt-entry-reading {
+  fill: rgba(88, 166, 255, 0.2);
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-dasharray: 3 2;
+}
+
+.anim-pt-entry-found {
+  fill: rgba(63, 185, 80, 0.2);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-pt-entry-missing {
+  fill: rgba(248, 81, 73, 0.2);
+  stroke: var(--accent-red, #f85149);
+  stroke-dasharray: 2 2;
+}
+
+.anim-pt-arrow {
+  stroke: var(--accent-gold, #c9a227);
+  stroke-width: 1.5;
+  fill: none;
+  marker-end: url(#arrowhead);
+}
+
+.anim-vaddr-bits {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.anim-cr3-box {
+  fill: rgba(188, 140, 255, 0.15);
+  stroke: var(--accent-purple, #bc8cff);
+  stroke-width: 2;
+  rx: 4;
+}
+
+.anim-fault-indicator {
+  fill: var(--accent-red, #f85149);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* VFS Path Lookup */
+.anim-dentry {
+  stroke-width: 1.5;
+  transition: all 0.3s;
+  rx: 3;
+}
+
+.anim-dentry-idle {
+  fill: rgba(48, 54, 61, 0.4);
+  stroke: var(--border, #30363d);
+}
+
+.anim-dentry-looking-up {
+  fill: rgba(88, 166, 255, 0.15);
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-dasharray: 3 2;
+}
+
+.anim-dentry-found {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-dentry-miss {
+  fill: rgba(248, 81, 73, 0.15);
+  stroke: var(--accent-red, #f85149);
+  stroke-dasharray: 2 2;
+}
+
+.anim-dentry-edge {
+  stroke: rgba(139, 148, 158, 0.3);
+  stroke-width: 1;
+  fill: none;
+}
+
+.anim-path-component {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.anim-path-current {
+  fill: var(--accent-gold, #c9a227);
+  font-weight: 700;
+}
+
+.anim-path-done {
+  fill: var(--accent-green, #3fb950);
+}
+
+.anim-path-pending {
+  fill: var(--text-muted, #484f58);
+}
+
+.anim-mode-badge {
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.anim-mode-rcu {
+  fill: var(--accent-green, #3fb950);
+}
+
+.anim-mode-ref {
+  fill: var(--accent-gold, #c9a227);
+}
+
+/* Interrupt Flow */
+.anim-irq-stage {
+  stroke-width: 1.5;
+  rx: 5;
+  transition: all 0.3s;
+}
+
+.anim-irq-idle {
+  fill: rgba(48, 54, 61, 0.4);
+  stroke: var(--border, #30363d);
+}
+
+.anim-irq-active {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-irq-done {
+  fill: rgba(63, 185, 80, 0.1);
+  stroke: rgba(63, 185, 80, 0.4);
+}
+
+.anim-context-user {
+  fill: rgba(63, 185, 80, 0.2);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-context-kernel {
+  fill: rgba(88, 166, 255, 0.2);
+  stroke: var(--accent-blue, #58a6ff);
+}
+
+.anim-context-hardirq {
+  fill: rgba(248, 81, 73, 0.25);
+  stroke: var(--accent-red, #f85149);
+}
+
+.anim-context-softirq {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-context-kworker {
+  fill: rgba(188, 140, 255, 0.2);
+  stroke: var(--accent-purple, #bc8cff);
+}
+
+.anim-softirq-bit {
+  stroke-width: 1;
+  rx: 2;
+}
+
+.anim-softirq-pending {
+  fill: rgba(248, 81, 73, 0.3);
+  stroke: var(--accent-red, #f85149);
+}
+
+.anim-softirq-clear {
+  fill: rgba(48, 54, 61, 0.3);
+  stroke: var(--border, #30363d);
+}
+
+.anim-flow-arrow {
+  stroke: var(--text-secondary, #8b949e);
+  stroke-width: 1.5;
+  fill: none;
+  marker-end: url(#arrowhead);
+}
+
+.anim-flow-arrow-active {
+  stroke: var(--accent-gold, #c9a227);
+  stroke-width: 2;
+}
+
+/* Network Packet Journey */
+.anim-layer-box {
+  stroke-width: 1.5;
+  rx: 4;
+  transition: all 0.3s;
+}
+
+.anim-layer-idle {
+  fill: rgba(48, 54, 61, 0.4);
+  stroke: var(--border, #30363d);
+}
+
+.anim-layer-active {
+  fill: rgba(88, 166, 255, 0.15);
+  stroke: var(--accent-blue, #58a6ff);
+}
+
+.anim-layer-done {
+  fill: rgba(63, 185, 80, 0.1);
+  stroke: rgba(63, 185, 80, 0.4);
+}
+
+.anim-skb-buffer {
+  fill: rgba(48, 54, 61, 0.6);
+  stroke: var(--border, #30363d);
+  stroke-width: 1.5;
+  rx: 3;
+}
+
+.anim-skb-header {
+  stroke-width: 1;
+  rx: 2;
+  transition: all 0.3s;
+}
+
+.anim-header-ethernet {
+  fill: rgba(188, 140, 255, 0.2);
+  stroke: var(--accent-purple, #bc8cff);
+}
+
+.anim-header-ip {
+  fill: rgba(88, 166, 255, 0.2);
+  stroke: var(--accent-blue, #58a6ff);
+}
+
+.anim-header-tcp {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-header-payload {
+  fill: rgba(63, 185, 80, 0.2);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-header-building {
+  stroke-dasharray: 3 2;
+}
+
+.anim-skb-pointer {
+  stroke: var(--accent-red, #f85149);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.anim-skb-pointer-label {
+  fill: var(--accent-red, #f85149);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.anim-layer-label {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.anim-layer-func {
+  font-size: 8px;
+  font-family: monospace;
+  fill: var(--text-muted, #484f58);
+}
+
+/* RCU Grace Period */
+.anim-rcu-node {
+  stroke-width: 1.5;
+  rx: 4;
+  transition: all 0.3s;
+}
+
+.anim-rcu-node-waiting {
+  fill: rgba(248, 81, 73, 0.15);
+  stroke: var(--accent-red, #f85149);
+}
+
+.anim-rcu-node-partial {
+  fill: rgba(201, 162, 39, 0.15);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-rcu-node-complete {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-rcu-cpu-qs {
+  fill: rgba(63, 185, 80, 0.2);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-rcu-cpu-active {
+  fill: rgba(88, 166, 255, 0.15);
+  stroke: var(--accent-blue, #58a6ff);
+}
+
+.anim-rcu-cpu-reading {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+  stroke-dasharray: 3 2;
+}
+
+.anim-rcu-callback {
+  rx: 3;
+  stroke-width: 1;
+}
+
+.anim-rcu-cb-pending {
+  fill: rgba(139, 148, 158, 0.15);
+  stroke: var(--text-secondary, #8b949e);
+}
+
+.anim-rcu-cb-waiting {
+  fill: rgba(201, 162, 39, 0.15);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-rcu-cb-ready {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-rcu-cb-invoked {
+  fill: rgba(88, 166, 255, 0.15);
+  stroke: var(--accent-blue, #58a6ff);
+}
+
+.anim-rcu-qsmask {
+  font-family: monospace;
+  font-size: 9px;
+  fill: var(--text-primary, #e6edf3);
+}
+
+.anim-rcu-ptr-old {
+  stroke: var(--accent-red, #f85149);
+  stroke-dasharray: 3 2;
+}
+
+.anim-rcu-ptr-new {
+  stroke: var(--accent-green, #3fb950);
+}
+
+/* Page Reclaim & LRU */
+.anim-watermark-bar {
+  fill: rgba(48, 54, 61, 0.6);
+  stroke: var(--border, #30363d);
+  stroke-width: 1.5;
+  rx: 4;
+}
+
+.anim-watermark-fill-ok {
+  fill: rgba(63, 185, 80, 0.3);
+}
+
+.anim-watermark-fill-low {
+  fill: rgba(201, 162, 39, 0.3);
+}
+
+.anim-watermark-fill-critical {
+  fill: rgba(248, 81, 73, 0.3);
+}
+
+.anim-watermark-line {
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.anim-watermark-min { stroke: var(--accent-red, #f85149); }
+.anim-watermark-low { stroke: var(--accent-gold, #c9a227); }
+.anim-watermark-high { stroke: var(--accent-green, #3fb950); }
+
+.anim-lru-page {
+  stroke-width: 1;
+  rx: 2;
+  transition: all 0.3s;
+}
+
+.anim-lru-page-file {
+  fill: rgba(63, 185, 80, 0.2);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-lru-page-anon {
+  fill: rgba(88, 166, 255, 0.2);
+  stroke: var(--accent-blue, #58a6ff);
+}
+
+.anim-lru-page-dirty {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+  stroke-dasharray: 2 2;
+}
+
+.anim-lru-page-reclaiming {
+  fill: rgba(248, 81, 73, 0.2);
+  stroke: var(--accent-red, #f85149);
+  stroke-dasharray: 3 2;
+}
+
+.anim-oom-badge {
+  fill: var(--accent-red, #f85149);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.anim-kswapd-sleeping {
+  fill: var(--text-muted, #484f58);
+}
+
+.anim-kswapd-running {
+  fill: var(--accent-gold, #c9a227);
+}
+
+/* qspinlock MCS Queue */
+.anim-lockword {
+  font-family: monospace;
+  font-size: 10px;
+  fill: var(--text-primary, #e6edf3);
+}
+
+.anim-lockword-bit {
+  rx: 2;
+  stroke-width: 1;
+}
+
+.anim-lockword-set {
+  fill: rgba(248, 81, 73, 0.25);
+  stroke: var(--accent-red, #f85149);
+}
+
+.anim-lockword-clear {
+  fill: rgba(48, 54, 61, 0.4);
+  stroke: var(--border, #30363d);
+}
+
+.anim-mcs-node {
+  stroke-width: 1.5;
+  rx: 4;
+  transition: all 0.3s;
+}
+
+.anim-mcs-spinning {
+  fill: rgba(248, 81, 73, 0.15);
+  stroke: var(--accent-red, #f85149);
+  stroke-dasharray: 3 2;
+}
+
+.anim-mcs-acquired {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-mcs-idle {
+  fill: rgba(48, 54, 61, 0.4);
+  stroke: var(--border, #30363d);
+}
+
+.anim-mcs-link {
+  stroke: var(--text-secondary, #8b949e);
+  stroke-width: 1.5;
+  fill: none;
+  marker-end: url(#arrowhead);
+}
+
+.anim-cacheline {
+  rx: 3;
+  stroke-width: 1;
+  transition: all 0.3s;
+}
+
+.anim-cacheline-cold {
+  fill: rgba(48, 54, 61, 0.3);
+  stroke: var(--border, #30363d);
+}
+
+.anim-cacheline-warm {
+  fill: rgba(201, 162, 39, 0.15);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-cacheline-hot {
+  fill: rgba(248, 81, 73, 0.2);
+  stroke: var(--accent-red, #f85149);
+}
+
+/* ELF Binary Loading */
+.anim-elf-header {
+  fill: rgba(188, 140, 255, 0.15);
+  stroke: var(--accent-purple, #bc8cff);
+  stroke-width: 1.5;
+  rx: 4;
+}
+
+.anim-elf-phdr {
+  stroke-width: 1;
+  rx: 3;
+  transition: all 0.3s;
+}
+
+.anim-elf-phdr-idle {
+  fill: rgba(48, 54, 61, 0.4);
+  stroke: var(--border, #30363d);
+}
+
+.anim-elf-phdr-reading {
+  fill: rgba(88, 166, 255, 0.15);
+  stroke: var(--accent-blue, #58a6ff);
+  stroke-dasharray: 3 2;
+}
+
+.anim-elf-phdr-mapping {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+  stroke-dasharray: 3 2;
+}
+
+.anim-elf-phdr-mapped {
+  fill: rgba(63, 185, 80, 0.15);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-mem-region {
+  stroke-width: 1.5;
+  rx: 3;
+  transition: all 0.3s;
+}
+
+.anim-mem-text {
+  fill: rgba(88, 166, 255, 0.2);
+  stroke: var(--accent-blue, #58a6ff);
+}
+
+.anim-mem-data {
+  fill: rgba(63, 185, 80, 0.2);
+  stroke: var(--accent-green, #3fb950);
+}
+
+.anim-mem-bss {
+  fill: rgba(139, 148, 158, 0.15);
+  stroke: var(--text-secondary, #8b949e);
+  stroke-dasharray: 3 2;
+}
+
+.anim-mem-stack {
+  fill: rgba(201, 162, 39, 0.2);
+  stroke: var(--accent-gold, #c9a227);
+}
+
+.anim-mem-heap {
+  fill: rgba(188, 140, 255, 0.15);
+  stroke: var(--accent-purple, #bc8cff);
+}
+
+.anim-mem-interp {
+  fill: rgba(248, 81, 73, 0.15);
+  stroke: var(--accent-red, #f85149);
+}
+
+.anim-mem-unmapped {
+  fill: rgba(48, 54, 61, 0.3);
+  stroke: var(--border, #30363d);
+  stroke-dasharray: 2 2;
+}
+
+.anim-stack-entry {
+  font-family: monospace;
+  font-size: 8px;
+  fill: var(--text-primary, #e6edf3);
+}
+
+.anim-exec-chain {
+  font-size: 9px;
+  font-family: monospace;
+}
+
+.anim-exec-active {
+  fill: var(--accent-gold, #c9a227);
+  font-weight: 700;
+}
+
+.anim-exec-done {
+  fill: var(--accent-green, #3fb950);
+}
+
+.anim-exec-pending {
+  fill: var(--text-muted, #484f58);
+}

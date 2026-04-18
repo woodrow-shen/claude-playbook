@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kernel Quest - Linux Kernel Skill Tree</title>
+  <link rel="stylesheet" href="/styles/main.css">
+  <link rel="stylesheet" href="/styles/graph.css">
+  <link rel="stylesheet" href="/styles/animation.css">
+</head>
+<body>
+  <header id="app-header">
+    <h1>Kernel Quest</h1>
+    <div id="xp-bar">
+      <div id="xp-fill"></div>
+      <span id="xp-text">0 / 2200 XP</span>
+    </div>
+    <div id="badge-count">0 Badges</div>
+  </header>
+
+  <main id="app">
+    <div id="graph-container">
+      <svg id="skill-graph"></svg>
+    </div>
+    <aside id="detail-panel" class="hidden">
+      <button id="detail-close">&times;</button>
+      <div id="detail-header">
+        <span id="detail-badge" class="badge"></span>
+        <h2 id="detail-title"></h2>
+        <div id="detail-meta"></div>
+      </div>
+      <div id="detail-actions">
+        <button id="btn-start" class="action-btn">Start Quest</button>
+        <button id="btn-complete" class="action-btn">Mark Complete</button>
+      </div>
+      <div id="detail-content"></div>
+    </aside>
+  </main>
+
+  <div id="toast-container"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

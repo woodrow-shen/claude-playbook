@@ -1,0 +1,93 @@
+[
+  {
+    "id": "foundations",
+    "name": "The Foundations",
+    "color": "#c9a227",
+    "icon": "F",
+    "description": "Core kernel concepts: boot, syscalls, processes, modules"
+  },
+  {
+    "id": "scheduler",
+    "name": "The Scheduler's Domain",
+    "color": "#7b2d8b",
+    "icon": "S",
+    "description": "Process scheduling, CFS, context switching"
+  },
+  {
+    "id": "memory",
+    "name": "Memory Arcana",
+    "color": "#2d6b2d",
+    "icon": "M",
+    "description": "Page allocation, slab caches, virtual memory"
+  },
+  {
+    "id": "filesystem",
+    "name": "The Filesystem Labyrinth",
+    "color": "#2d5b8b",
+    "icon": "L",
+    "description": "VFS, path lookup, filesystems"
+  },
+  {
+    "id": "network",
+    "name": "The Network Forge",
+    "color": "#8b4b2d",
+    "icon": "N",
+    "description": "Sockets, TCP/IP stack, network drivers"
+  },
+  {
+    "id": "concurrency",
+    "name": "Concurrency Citadel",
+    "color": "#8b2d4b",
+    "icon": "C",
+    "description": "Locking, spinlocks, mutexes, RCU"
+  },
+  {
+    "id": "devices",
+    "name": "Device Mastery",
+    "color": "#5b5b2d",
+    "icon": "D",
+    "description": "Drivers, character devices, interrupts"
+  },
+  {
+    "id": "security",
+    "name": "Security Fortress",
+    "color": "#8b2d2d",
+    "icon": "X",
+    "description": "LSM, SELinux, capabilities, access control"
+  },
+  {
+    "id": "events",
+    "name": "Event Horizon",
+    "color": "#4b7bec",
+    "icon": "E",
+    "description": "Epoll, io_uring, timers, and asynchronous I/O"
+  },
+  {
+    "id": "containers",
+    "name": "Containers & Isolation",
+    "color": "#20bf6b",
+    "icon": "I",
+    "description": "Namespaces, cgroups, and container primitives"
+  },
+  {
+    "id": "tracing",
+    "name": "Tracing & Observability",
+    "color": "#f7b731",
+    "icon": "T",
+    "description": "eBPF, ftrace, kprobes, and perf"
+  },
+  {
+    "id": "virtualization",
+    "name": "Virtualization Vault",
+    "color": "#a55eea",
+    "icon": "V",
+    "description": "KVM, hardware virtualization, and guest memory management"
+  },
+  {
+    "id": "kernel-7",
+    "name": "Kernel 7.0 Highlights",
+    "color": "#e67e22",
+    "icon": "7",
+    "description": "Notable new features and refactors introduced in Linux 7.0"
+  }
+]

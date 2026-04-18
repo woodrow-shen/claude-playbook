@@ -1,0 +1,124 @@
+/* Skill tree graph styles */
+
+.edge {
+  stroke-width: 2;
+  opacity: 0.6;
+}
+
+.edge-completed {
+  stroke: var(--accent-green);
+  opacity: 0.8;
+}
+
+.edge-locked {
+  stroke: var(--text-muted);
+  stroke-dasharray: 6 4;
+  opacity: 0.3;
+}
+
+/* Node backgrounds */
+.node-bg {
+  stroke-width: 1.5;
+  transition: all 0.2s;
+}
+
+.node-bg-locked {
+  fill: var(--bg-dark);
+  stroke: var(--text-muted);
+  opacity: 0.5;
+}
+
+.node-bg-available {
+  fill: var(--bg-card);
+  stroke: var(--accent-blue);
+  filter: drop-shadow(0 0 6px rgba(88, 166, 255, 0.2));
+}
+
+.node-bg-in-progress {
+  fill: var(--bg-card);
+  stroke: var(--accent-gold);
+  stroke-dasharray: 6 3;
+  filter: drop-shadow(0 0 8px rgba(201, 162, 39, 0.3));
+}
+
+.node-bg-completed {
+  fill: rgba(63, 185, 80, 0.08);
+  stroke: var(--accent-green);
+  filter: drop-shadow(0 0 10px rgba(63, 185, 80, 0.25));
+}
+
+/* Node text */
+.node-name {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.node-locked .node-name {
+  fill: var(--text-muted);
+}
+
+.node-xp {
+  font-size: 10px;
+  fill: var(--accent-gold);
+  font-weight: 500;
+}
+
+.node-locked .node-xp {
+  fill: var(--text-muted);
+}
+
+.node-badge {
+  font-size: 9px;
+  fill: var(--accent-green);
+  font-weight: 600;
+}
+
+/* Difficulty dots */
+.diff-dot {
+  opacity: 0.7;
+}
+
+.diff-beginner { fill: var(--accent-green); }
+.diff-intermediate { fill: var(--accent-gold); }
+.diff-advanced { fill: var(--accent-red); }
+
+.node-locked .diff-dot {
+  fill: var(--text-muted);
+  opacity: 0.3;
+}
+
+/* Hover effects */
+.node:hover .node-bg-available {
+  filter: drop-shadow(0 0 12px rgba(88, 166, 255, 0.4));
+  stroke-width: 2;
+}
+
+.node:hover .node-bg-in-progress {
+  filter: drop-shadow(0 0 12px rgba(201, 162, 39, 0.5));
+}
+
+.node:hover .node-bg-completed {
+  filter: drop-shadow(0 0 14px rgba(63, 185, 80, 0.4));
+}
+
+/* Pulse animation for available nodes */
+@keyframes pulse-available {
+  0%, 100% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0.5; }
+}
+
+.node-bg-available {
+  animation: pulse-available 3s ease-in-out infinite;
+}
+
+/* Glow animation for in-progress */
+@keyframes glow-progress {
+  0%, 100% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 18; }
+}
+
+.node-bg-in-progress {
+  animation: glow-progress 2s linear infinite;
+}
