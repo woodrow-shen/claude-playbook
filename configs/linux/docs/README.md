@@ -139,31 +139,34 @@ The skill tree is a directed acyclic graph rooted at `boot-and-init`. Every edge
 is bidirectionally consistent: if skill A unlocks skill B, then B lists A as a
 prerequisite, and vice versa.
 
-Suggested learning paths:
+Suggested learning paths (source of truth: `configs/linux/web/data/learning-paths.json`,
+regenerate with `npm run sync-paths-docs`):
 
-**Path 1: Memory Deep Dive**
+<!-- learning-paths:start -->
+**Path 1: Memory Deep Dive** -- From physical pages to OOM killer
 boot-and-init -> system-calls -> process-lifecycle -> page-allocation ->
 virtual-memory-areas -> page-fault-handling -> page-reclaim-and-swap -> memcg-and-oom
 
-**Path 2: Network Stack**
+**Path 2: Network Stack** -- BSD sockets down to TCP congestion control
 boot-and-init -> system-calls -> process-lifecycle -> vfs-layer -> socket-layer ->
 tcp-state-machine -> tcp-congestion-control
 
-**Path 3: Container Internals**
-boot-and-init -> system-calls -> process-lifecycle -> namespaces + cgroups-v2 ->
+**Path 3: Container Internals** -- Build a sandbox from namespaces and cgroups
+boot-and-init -> system-calls -> process-lifecycle -> namespaces -> cgroups-v2 ->
 cgroups-and-namespaces -> seccomp-and-sandboxing
 
-**Path 4: Tracing and eBPF**
-boot-and-init -> system-calls + kernel-modules -> ftrace-and-kprobes ->
-ebpf-programs -> ebpf-maps-and-helpers
+**Path 4: Tracing and eBPF** -- From ftrace probes to BPF maps
+boot-and-init -> system-calls -> kernel-modules -> ftrace-and-kprobes -> ebpf-programs ->
+ebpf-maps-and-helpers
 
-**Path 5: Virtualization**
-boot-and-init -> system-calls + kernel-modules -> interrupt-handling ->
-kvm-fundamentals -> kvm-memory-virtualization + virtio-framework
+**Path 5: Virtualization** -- KVM entry/exit, EPT, and virtio
+boot-and-init -> system-calls -> kernel-modules -> interrupt-handling ->
+kvm-fundamentals -> kvm-memory-virtualization -> virtio-framework
 
-**Path 6: Linux 7.0 New Features**
-boot-and-init -> system-calls -> v7-scheduler-changes + v7-memory-changes +
+**Path 6: Linux 7.0 New Features** -- Headline changes across scheduler, memory, and BPF
+boot-and-init -> system-calls -> v7-scheduler-changes -> v7-memory-changes ->
 v7-bpf-changes
+<!-- learning-paths:end -->
 
 ## Animation System
 
