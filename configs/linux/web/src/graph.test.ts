@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { renderGraph, applyFilter } from './graph.js';
+import { renderGraph, applyFilter, applyPathFocus, clearPathFocus } from './graph.js';
 import type { Skill, Realm, Progress } from './types.js';
 
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
@@ -239,5 +239,61 @@ describe('applyFilter', () => {
     for (const e of Array.from(edges)) {
       expect(e.classList.contains('filtered-out')).toBe(false);
     }
+  });
+});
+
+describe('applyPathFocus / clearPathFocus', () => {
+  const skills = [
+    makeSkill(),
+    makeSkill({ name: 'system-calls', prerequisites: ['boot-and-init'] }),
+    makeSkill({ name: 'page-allocation', realm: 'memory', prerequisites: ['system-calls'] }),
+  ];
+
+  beforeEach(() => {
+    renderGraph(svg, skills, REALMS, makeProgress(), () => {});
+  });
+
+  it('dims nodes not in the path', () => {
+    applyPathFocus(svg, ['boot-and-init', 'page-allocation']);
+    const on = svg.querySelector('.node[data-skill-name="boot-and-init"]')!;
+    const off = svg.querySelector('.node[data-skill-name="system-calls"]')!;
+    expect(on.classList.contains('filtered-out')).toBe(false);
+    expect(off.classList.contains('filtered-out')).toBe(true);
+  });
+
+  it('stamps step number on each on-path node matching its order', () => {
+    applyPathFocus(svg, ['boot-and-init', 'system-calls', 'page-allocation']);
+    const first = svg.querySelector('.node[data-skill-name="boot-and-init"]')!;
+    const third = svg.querySelector('.node[data-skill-name="page-allocation"]')!;
+    expect(first.querySelector('.path-step-badge')?.textContent).toBe('1');
+    expect(third.querySelector('.path-step-badge')?.textContent).toBe('3');
+  });
+
+  it('adds .path-focused class on the svg root when active', () => {
+    applyPathFocus(svg, ['boot-and-init']);
+    expect(svg.classList.contains('path-focused')).toBe(true);
+  });
+
+  it('clearPathFocus removes filtered-out, step badges, and focus class', () => {
+    applyPathFocus(svg, ['boot-and-init']);
+    clearPathFocus(svg);
+    expect(svg.classList.contains('path-focused')).toBe(false);
+    for (const n of Array.from(svg.querySelectorAll('.node'))) {
+      expect(n.classList.contains('filtered-out')).toBe(false);
+    }
+    expect(svg.querySelectorAll('.path-step-badge').length).toBe(0);
+  });
+
+  it('re-applying path focus replaces previous step badges', () => {
+    applyPathFocus(svg, ['boot-and-init', 'system-calls']);
+    applyPathFocus(svg, ['page-allocation']);
+    const bootBadge = svg.querySelector(
+      '.node[data-skill-name="boot-and-init"] .path-step-badge',
+    );
+    const pageBadge = svg.querySelector(
+      '.node[data-skill-name="page-allocation"] .path-step-badge',
+    );
+    expect(bootBadge).toBeNull();
+    expect(pageBadge?.textContent).toBe('1');
   });
 });

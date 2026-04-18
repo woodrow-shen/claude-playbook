@@ -32,6 +32,10 @@
       <option value="locked">Locked</option>
     </select>
     <button id="filter-clear" type="button" aria-label="Clear filters">Clear</button>
+    <button id="btn-learning-paths" type="button" aria-label="Show learning paths">Paths</button>
+    <button id="btn-clear-path-focus" type="button" class="hidden" aria-label="Clear path focus">
+      Exit path focus
+    </button>
     <span id="filter-count" aria-live="polite"></span>
   </div>
 
@@ -76,6 +80,15 @@
         <input id="import-progress-file" type="file" accept="application/json" hidden />
         <button id="btn-reset-progress" type="button" class="danger">Reset</button>
       </div>
+    </div>
+  </div>
+
+  <div id="learning-paths-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="learning-paths-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="learning-paths-close" aria-label="Close">&times;</button>
+      <h2 id="learning-paths-title">Learning Paths</h2>
+      <div id="learning-paths-list"></div>
     </div>
   </div>
 

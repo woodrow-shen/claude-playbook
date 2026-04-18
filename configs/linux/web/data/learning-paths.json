@@ -1,0 +1,84 @@
+[
+  {
+    "id": "memory-deep-dive",
+    "name": "Memory Deep Dive",
+    "tagline": "From physical pages to OOM killer",
+    "skills": [
+      "boot-and-init",
+      "system-calls",
+      "process-lifecycle",
+      "page-allocation",
+      "virtual-memory-areas",
+      "page-fault-handling",
+      "page-reclaim-and-swap",
+      "memcg-and-oom"
+    ]
+  },
+  {
+    "id": "network-stack",
+    "name": "Network Stack",
+    "tagline": "BSD sockets down to TCP congestion control",
+    "skills": [
+      "boot-and-init",
+      "system-calls",
+      "process-lifecycle",
+      "vfs-layer",
+      "socket-layer",
+      "tcp-state-machine",
+      "tcp-congestion-control"
+    ]
+  },
+  {
+    "id": "container-internals",
+    "name": "Container Internals",
+    "tagline": "Build a sandbox from namespaces and cgroups",
+    "skills": [
+      "boot-and-init",
+      "system-calls",
+      "process-lifecycle",
+      "namespaces",
+      "cgroups-v2",
+      "cgroups-and-namespaces",
+      "seccomp-and-sandboxing"
+    ]
+  },
+  {
+    "id": "tracing-ebpf",
+    "name": "Tracing and eBPF",
+    "tagline": "From ftrace probes to BPF maps",
+    "skills": [
+      "boot-and-init",
+      "system-calls",
+      "kernel-modules",
+      "ftrace-and-kprobes",
+      "ebpf-programs",
+      "ebpf-maps-and-helpers"
+    ]
+  },
+  {
+    "id": "virtualization",
+    "name": "Virtualization",
+    "tagline": "KVM entry/exit, EPT, and virtio",
+    "skills": [
+      "boot-and-init",
+      "system-calls",
+      "kernel-modules",
+      "interrupt-handling",
+      "kvm-fundamentals",
+      "kvm-memory-virtualization",
+      "virtio-framework"
+    ]
+  },
+  {
+    "id": "kernel-7-highlights",
+    "name": "Linux 7.0 New Features",
+    "tagline": "Headline changes across scheduler, memory, and BPF",
+    "skills": [
+      "boot-and-init",
+      "system-calls",
+      "v7-scheduler-changes",
+      "v7-memory-changes",
+      "v7-bpf-changes"
+    ]
+  }
+]

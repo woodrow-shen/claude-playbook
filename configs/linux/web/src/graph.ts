@@ -211,6 +211,62 @@ export function applyFilter(
   });
 }
 
+const PATH_STEP_BADGE_SVGNS = 'http://www.w3.org/2000/svg';
+
+function removePathStepBadges(container: SVGSVGElement): void {
+  container.querySelectorAll('.path-step-badge, .path-step-bg').forEach((el) => el.remove());
+}
+
+export function applyPathFocus(
+  container: SVGSVGElement,
+  orderedSkillNames: string[],
+): void {
+  const order = new Map<string, number>();
+  orderedSkillNames.forEach((name, i) => order.set(name, i + 1));
+
+  removePathStepBadges(container);
+  container.classList.add('path-focused');
+
+  const nodes = container.querySelectorAll<SVGGElement>('.node[data-skill-name]');
+  nodes.forEach((n) => {
+    const name = n.getAttribute('data-skill-name') ?? '';
+    const step = order.get(name);
+    n.classList.toggle('filtered-out', step === undefined);
+    if (step !== undefined) {
+      const bg = document.createElementNS(PATH_STEP_BADGE_SVGNS, 'circle');
+      bg.setAttribute('cx', '12');
+      bg.setAttribute('cy', '-8');
+      bg.setAttribute('r', '12');
+      bg.setAttribute('class', 'path-step-bg');
+      n.appendChild(bg);
+
+      const label = document.createElementNS(PATH_STEP_BADGE_SVGNS, 'text');
+      label.setAttribute('x', '12');
+      label.setAttribute('y', '-4');
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('class', 'path-step-badge');
+      label.textContent = String(step);
+      n.appendChild(label);
+    }
+  });
+
+  const edges = container.querySelectorAll<SVGPathElement>('.edge[data-source][data-target]');
+  edges.forEach((e) => {
+    const src = e.getAttribute('data-source') ?? '';
+    const tgt = e.getAttribute('data-target') ?? '';
+    const onPath = order.has(src) && order.has(tgt);
+    e.classList.toggle('filtered-out', !onPath);
+  });
+}
+
+export function clearPathFocus(container: SVGSVGElement): void {
+  container.classList.remove('path-focused');
+  removePathStepBadges(container);
+  container.querySelectorAll('.node.filtered-out, .edge.filtered-out').forEach((el) => {
+    el.classList.remove('filtered-out');
+  });
+}
+
 export function updateNodeStates(
   container: SVGSVGElement,
   skills: Skill[],

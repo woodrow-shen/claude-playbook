@@ -139,3 +139,24 @@
 .edge:not(.filtered-out) {
   transition: opacity 0.2s ease;
 }
+
+/* Path focus step badges (SVG circle + text inside each node group) */
+.path-step-bg {
+  fill: #c9a227;
+  stroke: #000;
+  stroke-width: 1.5;
+}
+
+.path-step-badge {
+  fill: #000;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+  dominant-baseline: middle;
+}
+
+/* Inside focused mode, completed edges on path get a slight emphasis */
+.path-focused .edge:not(.filtered-out) {
+  stroke-width: 2.5;
+  opacity: 1;
+}

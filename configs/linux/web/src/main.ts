@@ -1,15 +1,19 @@
 import type { SkillGraph, Skill, Progress } from './types.js';
 import { loadProgress, saveProgress, startSkill, completeSkill, getSkillState } from './progress.js';
-import { renderGraph, applyFilter } from './graph.js';
+import { renderGraph, applyFilter, applyPathFocus, clearPathFocus } from './graph.js';
 import { renderDetail } from './skill-detail.js';
 import { openBadgesGallery } from './badges-gallery.js';
 import { openRealmProgress, computeGlobalStats } from './realm-progress.js';
 import { downloadProgress, importProgressJSON, resetProgress } from './progress-io.js';
 import { matchSkill, type FilterCriteria, type SkillState } from './skill-filter.js';
+import { openLearningPaths, type LearningPath } from './learning-paths.js';
 import skillData from '../data/skills.json';
+import learningPathsData from '../data/learning-paths.json';
 
 const graph = skillData as SkillGraph;
+const learningPaths = learningPathsData as LearningPath[];
 let progress: Progress = loadProgress();
+let activePathId: string | null = null;
 
 const svgEl = document.getElementById('skill-graph') as unknown as SVGSVGElement;
 const detailPanel = document.getElementById('detail-panel') as HTMLElement;
@@ -27,6 +31,9 @@ const filterRealm = document.getElementById('filter-realm') as HTMLSelectElement
 const filterState = document.getElementById('filter-state') as HTMLSelectElement;
 const filterClear = document.getElementById('filter-clear') as HTMLButtonElement;
 const filterCount = document.getElementById('filter-count') as HTMLElement;
+const pathsBtn = document.getElementById('btn-learning-paths') as HTMLButtonElement;
+const clearPathBtn = document.getElementById('btn-clear-path-focus') as HTMLButtonElement;
+const learningPathsModal = document.getElementById('learning-paths-modal') as HTMLElement;
 
 const filterCriteria: FilterCriteria = { query: '', realmId: 'all', state: 'all' };
 
@@ -40,6 +47,7 @@ function populateRealmOptions() {
 }
 
 function applyCurrentFilter() {
+  if (activePathId) return; // path focus owns the SVG state
   const stateMap = new Map<string, SkillState>();
   for (const s of graph.skills) {
     stateMap.set(s.name, getSkillState(progress, s.name, s.prerequisites));
@@ -60,6 +68,22 @@ function applyCurrentFilter() {
   filterCount.textContent = hasFilter
     ? `${matched}/${graph.skills.length} match`
     : '';
+}
+
+function focusPath(pathId: string) {
+  const path = learningPaths.find(p => p.id === pathId);
+  if (!path) return;
+  activePathId = pathId;
+  applyPathFocus(svgEl, path.skills);
+  clearPathBtn.classList.remove('hidden');
+  filterCount.textContent = `Focused: ${path.name}`;
+}
+
+function exitPathFocus() {
+  activePathId = null;
+  clearPathFocus(svgEl);
+  clearPathBtn.classList.add('hidden');
+  applyCurrentFilter();
 }
 
 let filterDebounce = 0;
@@ -120,7 +144,12 @@ function openDetail(skill: Skill) {
 function refresh() {
   updateHeader();
   renderGraph(svgEl, graph.skills, graph.realms, progress, openDetail);
-  applyCurrentFilter();
+  if (activePathId) {
+    const path = learningPaths.find(p => p.id === activePathId);
+    if (path) applyPathFocus(svgEl, path.skills);
+  } else {
+    applyCurrentFilter();
+  }
 }
 
 function openRealmModal() {
@@ -192,6 +221,16 @@ filterClear.addEventListener('click', () => {
   filterCriteria.realmId = 'all';
   filterCriteria.state = 'all';
   applyCurrentFilter();
+});
+
+pathsBtn.addEventListener('click', () => {
+  openLearningPaths(learningPathsModal, learningPaths, progress, (pathId) => {
+    focusPath(pathId);
+  });
+});
+
+clearPathBtn.addEventListener('click', () => {
+  exitPathFocus();
 });
 
 // Initial render
