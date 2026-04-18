@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   computeRealmStats,
+  computeGlobalStats,
   renderRealmProgress,
   openRealmProgress,
   closeRealmProgress,
@@ -64,7 +65,14 @@ beforeEach(() => {
       <div class="modal-content">
         <button class="modal-close" id="realm-progress-close">&times;</button>
         <h2>Realm Progress</h2>
+        <div id="realm-progress-summary"></div>
         <div id="realm-progress-list"></div>
+        <div id="realm-progress-toolbar">
+          <button id="btn-export-progress" type="button">Export</button>
+          <button id="btn-import-progress" type="button">Import</button>
+          <input id="import-progress-file" type="file" accept="application/json" hidden />
+          <button id="btn-reset-progress" type="button">Reset</button>
+        </div>
       </div>
     </div>
   `;
@@ -145,6 +153,48 @@ describe('computeRealmStats', () => {
   });
 });
 
+describe('computeGlobalStats', () => {
+  it('sums totals across every skill', () => {
+    const stats = computeGlobalStats(SKILLS, makeProgress());
+    expect(stats.totalSkills).toBe(6);
+    expect(stats.xpTotal).toBe(1000); // 100 + 150 + 200 + 200 + 200 + 150
+  });
+
+  it('reports zero completion when no progress', () => {
+    const stats = computeGlobalStats(SKILLS, makeProgress());
+    expect(stats.completedSkills).toBe(0);
+    expect(stats.percent).toBe(0);
+    expect(stats.xpEarned).toBe(0);
+  });
+
+  it('reports full completion when every skill is done', () => {
+    const progress = makeProgress({
+      completedSkills: SKILLS.map(s => s.name),
+    });
+    const stats = computeGlobalStats(SKILLS, progress);
+    expect(stats.completedSkills).toBe(6);
+    expect(stats.percent).toBe(100);
+    expect(stats.xpEarned).toBe(1000);
+  });
+
+  it('computes partial percent correctly', () => {
+    const progress = makeProgress({
+      completedSkills: ['boot-and-init', 'system-calls', 'page-allocation'],
+    });
+    const stats = computeGlobalStats(SKILLS, progress);
+    expect(stats.completedSkills).toBe(3);
+    expect(Math.round(stats.percent)).toBe(50);
+    expect(stats.xpEarned).toBe(450); // 100 + 150 + 200
+  });
+
+  it('returns percent 0 for an empty skill set', () => {
+    const stats = computeGlobalStats([], makeProgress());
+    expect(stats.totalSkills).toBe(0);
+    expect(stats.percent).toBe(0);
+    expect(stats.xpTotal).toBe(0);
+  });
+});
+
 describe('renderRealmProgress', () => {
   it('renders a row per realm', () => {
     renderRealmProgress(container, SKILLS, REALMS, makeProgress());
@@ -181,7 +231,7 @@ describe('renderRealmProgress', () => {
       completedSkills: ['boot-and-init', 'system-calls', 'kernel-modules'],
     });
     renderRealmProgress(container, SKILLS, REALMS, progress);
-    const bars = container.querySelectorAll('.realm-bar-fill');
+    const bars = container.querySelectorAll('.realm-row .realm-bar-fill');
     expect(bars.length).toBe(REALMS.length);
     const foundationsRow = container.querySelector('.realm-row[data-realm="foundations"]')!;
     const fill = foundationsRow.querySelector('.realm-bar-fill') as HTMLElement;
@@ -193,6 +243,23 @@ describe('renderRealmProgress', () => {
     const rows = Array.from(container.querySelectorAll('.realm-row'));
     const ids = rows.map(r => r.getAttribute('data-realm'));
     expect(ids).toEqual(['foundations', 'memory', 'scheduler']);
+  });
+
+  it('renders a global summary row with X/N skills and percent', () => {
+    const progress = makeProgress({ completedSkills: ['boot-and-init', 'system-calls'] });
+    renderRealmProgress(container, SKILLS, REALMS, progress);
+    const summary = container.querySelector('#realm-progress-summary')!;
+    expect(summary.textContent).toContain('2/6');
+    expect(summary.textContent).toMatch(/33%/);
+  });
+
+  it('renders total XP earned vs available in the summary', () => {
+    const progress = makeProgress({ completedSkills: ['page-allocation'] });
+    renderRealmProgress(container, SKILLS, REALMS, progress);
+    const summary = container.querySelector('#realm-progress-summary')!;
+    // 200 earned out of 1000 total
+    expect(summary.textContent).toContain('200');
+    expect(summary.textContent).toContain('1000');
   });
 });
 
@@ -236,5 +303,52 @@ describe('openRealmProgress / closeRealmProgress', () => {
       completedSkills: ['boot-and-init'],
     }));
     expect(container.innerHTML).toContain('1/3');
+  });
+
+  it('invokes onExport when the Export button is clicked', () => {
+    let called = 0;
+    openRealmProgress(container, SKILLS, REALMS, makeProgress(), {
+      onExport: () => { called++; },
+    });
+    (container.querySelector('#btn-export-progress') as HTMLButtonElement).click();
+    expect(called).toBe(1);
+  });
+
+  it('invokes onReset when the Reset button is clicked', () => {
+    let called = 0;
+    openRealmProgress(container, SKILLS, REALMS, makeProgress(), {
+      onReset: () => { called++; },
+    });
+    (container.querySelector('#btn-reset-progress') as HTMLButtonElement).click();
+    expect(called).toBe(1);
+  });
+
+  it('triggers the hidden file input when Import is clicked', () => {
+    let clicked = 0;
+    openRealmProgress(container, SKILLS, REALMS, makeProgress(), {
+      onImportFile: () => {},
+    });
+    const fileInput = container.querySelector('#import-progress-file') as HTMLInputElement;
+    fileInput.click = () => { clicked++; };
+    (container.querySelector('#btn-import-progress') as HTMLButtonElement).click();
+    expect(clicked).toBe(1);
+  });
+
+  it('invokes onImportFile when a file is chosen', () => {
+    let received: File | undefined;
+    openRealmProgress(container, SKILLS, REALMS, makeProgress(), {
+      onImportFile: (file) => { received = file; },
+    });
+    const fileInput = container.querySelector('#import-progress-file') as HTMLInputElement;
+    const file = new File(['{}'], 'progress.json', { type: 'application/json' });
+    Object.defineProperty(fileInput, 'files', { value: [file], configurable: true });
+    fileInput.dispatchEvent(new Event('change'));
+    expect(received).toBe(file);
+  });
+
+  it('handler callbacks are optional and safe to omit', () => {
+    openRealmProgress(container, SKILLS, REALMS, makeProgress());
+    const exportBtn = container.querySelector('#btn-export-progress') as HTMLButtonElement;
+    expect(() => exportBtn.click()).not.toThrow();
   });
 });

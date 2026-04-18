@@ -15,6 +15,7 @@
       <div id="xp-fill"></div>
       <span id="xp-text">0 / 2200 XP</span>
     </button>
+    <span id="completion-indicator" aria-live="polite">0/0 skills (0%)</span>
     <button id="badge-count" type="button" aria-label="Show badges gallery">0 Badges</button>
   </header>
 
@@ -51,7 +52,14 @@
     <div class="modal-content">
       <button class="modal-close" id="realm-progress-close" aria-label="Close">&times;</button>
       <h2 id="realm-progress-modal-title">Realm Progress</h2>
+      <div id="realm-progress-summary"></div>
       <div id="realm-progress-list"></div>
+      <div id="realm-progress-toolbar">
+        <button id="btn-export-progress" type="button">Export</button>
+        <button id="btn-import-progress" type="button">Import</button>
+        <input id="import-progress-file" type="file" accept="application/json" hidden />
+        <button id="btn-reset-progress" type="button" class="danger">Reset</button>
+      </div>
     </div>
   </div>
 

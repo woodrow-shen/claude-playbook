@@ -9,6 +9,20 @@ export interface RealmStats {
   xpTotal: number;
 }
 
+export interface GlobalStats {
+  completedSkills: number;
+  totalSkills: number;
+  percent: number;
+  xpEarned: number;
+  xpTotal: number;
+}
+
+export interface RealmProgressHandlers {
+  onExport?: () => void;
+  onImportFile?: (file: File) => void;
+  onReset?: () => void;
+}
+
 export function computeRealmStats(
   skills: Skill[],
   realms: Realm[],
@@ -27,6 +41,17 @@ export function computeRealmStats(
   });
 }
 
+export function computeGlobalStats(skills: Skill[], progress: Progress): GlobalStats {
+  const completedSet = new Set(progress.completedSkills);
+  const completedList = skills.filter((s) => completedSet.has(s.name));
+  const totalSkills = skills.length;
+  const completedSkills = completedList.length;
+  const xpTotal = skills.reduce((acc, s) => acc + s.xp, 0);
+  const xpEarned = completedList.reduce((acc, s) => acc + s.xp, 0);
+  const percent = totalSkills > 0 ? (completedSkills / totalSkills) * 100 : 0;
+  return { completedSkills, totalSkills, percent, xpEarned, xpTotal };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -36,12 +61,34 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+function renderGlobalSummary(container: HTMLElement, skills: Skill[], progress: Progress): void {
+  const summary = container.querySelector('#realm-progress-summary') as HTMLElement | null;
+  if (!summary) return;
+  const g = computeGlobalStats(skills, progress);
+  const pct = Math.round(g.percent);
+  summary.innerHTML = `
+    <div class="realm-global-summary">
+      <div class="realm-global-line">
+        <span class="realm-global-label">Overall Progress</span>
+        <span class="realm-global-count">${g.completedSkills}/${g.totalSkills} skills</span>
+        <span class="realm-global-percent">${pct}%</span>
+      </div>
+      <div class="realm-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+        <div class="realm-bar-fill" style="width: ${pct}%"></div>
+      </div>
+      <div class="realm-global-xp">${g.xpEarned} / ${g.xpTotal} XP</div>
+    </div>
+  `;
+}
+
 export function renderRealmProgress(
   container: HTMLElement,
   skills: Skill[],
   realms: Realm[],
   progress: Progress,
 ): void {
+  renderGlobalSummary(container, skills, progress);
+
   const list = container.querySelector('#realm-progress-list') as HTMLElement | null;
   if (!list) return;
 
@@ -83,11 +130,34 @@ function ensureEscapeHandler(): void {
   escapeHandlerAttached = true;
 }
 
+function wireToolbar(container: HTMLElement, handlers: RealmProgressHandlers): void {
+  const exportBtn = container.querySelector('#btn-export-progress') as HTMLButtonElement | null;
+  const importBtn = container.querySelector('#btn-import-progress') as HTMLButtonElement | null;
+  const resetBtn = container.querySelector('#btn-reset-progress') as HTMLButtonElement | null;
+  const fileInput = container.querySelector('#import-progress-file') as HTMLInputElement | null;
+
+  exportBtn?.addEventListener('click', () => {
+    handlers.onExport?.();
+  });
+  resetBtn?.addEventListener('click', () => {
+    handlers.onReset?.();
+  });
+  importBtn?.addEventListener('click', () => {
+    fileInput?.click();
+  });
+  fileInput?.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (file) handlers.onImportFile?.(file);
+    fileInput.value = '';
+  });
+}
+
 export function openRealmProgress(
   container: HTMLElement,
   skills: Skill[],
   realms: Realm[],
   progress: Progress,
+  handlers: RealmProgressHandlers = {},
 ): void {
   renderRealmProgress(container, skills, realms, progress);
   container.classList.remove('hidden');
@@ -98,6 +168,7 @@ export function openRealmProgress(
     const backdrop = container.querySelector('.modal-backdrop') as HTMLElement | null;
     closeBtn?.addEventListener('click', () => closeRealmProgress(container));
     backdrop?.addEventListener('click', () => closeRealmProgress(container));
+    wireToolbar(container, handlers);
     container.dataset.wired = '1';
   }
 
