@@ -2,6 +2,8 @@ import type { SkillGraph, Skill, Progress } from './types.js';
 import { loadProgress, saveProgress, startSkill, completeSkill } from './progress.js';
 import { renderGraph } from './graph.js';
 import { renderDetail } from './skill-detail.js';
+import { openBadgesGallery } from './badges-gallery.js';
+import { openRealmProgress } from './realm-progress.js';
 import skillData from '../data/skills.json';
 
 const graph = skillData as SkillGraph;
@@ -12,7 +14,10 @@ const detailPanel = document.getElementById('detail-panel') as HTMLElement;
 const detailClose = document.getElementById('detail-close') as HTMLElement;
 const xpFill = document.getElementById('xp-fill') as HTMLElement;
 const xpText = document.getElementById('xp-text') as HTMLElement;
+const xpBar = document.getElementById('xp-bar') as HTMLElement;
 const badgeCount = document.getElementById('badge-count') as HTMLElement;
+const badgesModal = document.getElementById('badges-modal') as HTMLElement;
+const realmProgressModal = document.getElementById('realm-progress-modal') as HTMLElement;
 const toastContainer = document.getElementById('toast-container') as HTMLElement;
 
 function showToast(message: string, type: 'xp' | 'badge' | 'info' = 'info') {
@@ -74,6 +79,14 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     detailPanel.classList.add('hidden');
   }
+});
+
+badgeCount.addEventListener('click', () => {
+  openBadgesGallery(badgesModal, graph.skills, graph.realms, progress);
+});
+
+xpBar.addEventListener('click', () => {
+  openRealmProgress(realmProgressModal, graph.skills, graph.realms, progress);
 });
 
 // Initial render

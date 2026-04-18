@@ -85,6 +85,32 @@ body {
   color: var(--accent-purple);
   font-weight: 600;
   white-space: nowrap;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#badge-count:hover,
+#badge-count:focus-visible {
+  border-color: rgba(188, 140, 255, 0.4);
+  background: rgba(188, 140, 255, 0.1);
+  outline: none;
+}
+
+button#xp-bar {
+  background: var(--xp-bar-bg);
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+
+button#xp-bar:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
 }
 
 #app {
@@ -364,4 +390,227 @@ body {
   background: rgba(88, 166, 255, 0.2);
   color: var(--accent-blue);
   border: 1px solid rgba(88, 166, 255, 0.4);
+}
+
+/* Modal shell (shared by badges gallery + realm progress) */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+
+.modal-content {
+  position: relative;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 24px 28px 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modal-content h2 {
+  font-size: 20px;
+  margin-bottom: 18px;
+  color: var(--accent-gold);
+  letter-spacing: 0.5px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 26px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.modal-close:hover,
+.modal-close:focus-visible {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+}
+
+/* Badges gallery grid */
+#badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.badge-tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--realm-color, var(--border));
+  border-radius: 10px;
+  padding: 14px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.badge-tile.unlocked {
+  background: linear-gradient(180deg, rgba(201, 162, 39, 0.08), var(--bg-card));
+  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.2) inset;
+}
+
+.badge-tile.locked {
+  filter: grayscale(0.9) brightness(0.7);
+  opacity: 0.75;
+}
+
+.badge-tile-icon {
+  font-size: 32px;
+  line-height: 1;
+  color: var(--realm-color, var(--text-muted));
+  margin-bottom: 6px;
+}
+
+.badge-tile.locked .badge-tile-icon {
+  color: var(--text-muted);
+}
+
+.badge-tile-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.badge-tile-source {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.badge-tile-realm {
+  font-size: 11px;
+  color: var(--realm-color, var(--text-muted));
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-tile-status {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.badge-tile.unlocked .badge-tile-status {
+  color: var(--accent-green);
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  #badges-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Realm progress panel */
+#realm-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.realm-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--realm-color, var(--border));
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.realm-row-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.realm-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--realm-color, var(--bg-dark));
+  color: var(--bg-dark);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.realm-row-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.realm-row-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.realm-bar {
+  height: 8px;
+  background: var(--bg-dark);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.realm-bar-fill {
+  height: 100%;
+  background: var(--realm-color, var(--accent-gold));
+  transition: width 0.4s ease;
+}
+
+.realm-row-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.realm-row-percent {
+  color: var(--realm-color, var(--accent-gold));
+  font-weight: 600;
 }

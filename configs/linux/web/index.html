@@ -11,11 +11,11 @@
 <body>
   <header id="app-header">
     <h1>Kernel Quest</h1>
-    <div id="xp-bar">
+    <button id="xp-bar" type="button" aria-label="Show realm progress">
       <div id="xp-fill"></div>
       <span id="xp-text">0 / 2200 XP</span>
-    </div>
-    <div id="badge-count">0 Badges</div>
+    </button>
+    <button id="badge-count" type="button" aria-label="Show badges gallery">0 Badges</button>
   </header>
 
   <main id="app">
@@ -36,6 +36,24 @@
       <div id="detail-content"></div>
     </aside>
   </main>
+
+  <div id="badges-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="badges-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="badges-close" aria-label="Close">&times;</button>
+      <h2 id="badges-modal-title">Badges</h2>
+      <div id="badges-grid"></div>
+    </div>
+  </div>
+
+  <div id="realm-progress-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="realm-progress-modal-title">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="realm-progress-close" aria-label="Close">&times;</button>
+      <h2 id="realm-progress-modal-title">Realm Progress</h2>
+      <div id="realm-progress-list"></div>
+    </div>
+  </div>
 
   <div id="toast-container"></div>
 

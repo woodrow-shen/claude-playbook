@@ -9,12 +9,44 @@ export interface ControlBarCallbacks {
   onSpeedChange: (speed: number) => void;
   onScenarioChange: (id: string) => void;
   onReset: () => void;
+  // Optional close handler invoked by the Escape keyboard shortcut. When
+  // omitted, Escape is a no-op at the control-bar level (callers may still
+  // bind their own handlers elsewhere). This keeps the callback interface
+  // backward compatible with existing consumers.
+  onClose?: () => void;
 }
 
 export interface ControlBar {
   update(state: PlaybackState): void;
   updateDescription(label: string, detail: string): void;
   destroy(): void;
+}
+
+// Maps a number key character to its corresponding playback speed. Defined
+// at module scope so the handler re-uses the same lookup without rebuilding
+// it per keypress.
+const SPEED_BY_NUMBER_KEY: Record<string, number> = {
+  '1': 0.5,
+  '2': 1,
+  '3': 2,
+  '4': 4,
+};
+
+// Returns true when keyboard shortcuts should NOT fire for the given event
+// target -- e.g. the user is typing in a form field or rich-text editor. The
+// native scrubber <input type="range"> is also caught here, which is the
+// desired behavior: once the user focuses the scrubber, its own arrow-key
+// handling wins.
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  // Check both the native property (honored by real browsers) and the raw
+  // attribute (jsdom does not compute isContentEditable from the attribute).
+  if (target.isContentEditable) return true;
+  const attr = target.getAttribute('contenteditable');
+  if (attr !== null && attr.toLowerCase() !== 'false') return true;
+  return false;
 }
 
 export function createControlBar(
@@ -122,6 +154,48 @@ export function createControlBar(
   container.appendChild(wrapper);
   container.appendChild(desc);
 
+  // Global keydown handler for playback shortcuts. Attached to `document`
+  // because the animation viewport fills the page and shortcut focus is
+  // implicit (users expect the controls to respond without having to click
+  // into the modal first). Form-field and modifier-key guards prevent
+  // hijacking normal typing or browser chord shortcuts.
+  function onKeyDown(event: KeyboardEvent): void {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isEditableTarget(event.target)) return;
+
+    switch (event.key) {
+      case ' ':
+      case 'Spacebar': // legacy browsers
+        event.preventDefault();
+        if (isPlaying) callbacks.onPause();
+        else callbacks.onPlay();
+        return;
+      case 'ArrowLeft':
+        callbacks.onStepBack();
+        return;
+      case 'ArrowRight':
+        callbacks.onStepForward();
+        return;
+      case 'r':
+      case 'R':
+        callbacks.onReset();
+        return;
+      case 'Escape':
+        if (callbacks.onClose) callbacks.onClose();
+        return;
+    }
+
+    const speed = SPEED_BY_NUMBER_KEY[event.key];
+    if (speed !== undefined) {
+      // Keep the UI select in sync with the chosen speed, mirroring what a
+      // manual selector change would look like.
+      speedSelect.value = String(speed);
+      callbacks.onSpeedChange(speed);
+    }
+  }
+
+  document.addEventListener('keydown', onKeyDown);
+
   return {
     update(state: PlaybackState): void {
       isPlaying = state.playing;
@@ -137,6 +211,7 @@ export function createControlBar(
     },
 
     destroy(): void {
+      document.removeEventListener('keydown', onKeyDown);
       container.innerHTML = '';
     },
   };

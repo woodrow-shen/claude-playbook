@@ -59,18 +59,14 @@ export function mountAnimationViewport(
   // Prevent body scroll while overlay is open
   document.body.classList.add('animation-open');
 
-  // Close on Escape key
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape') doClose();
-  }
-  document.addEventListener('keydown', onKeyDown);
-
   // Close on overlay background click
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) doClose();
   });
 
-  // Create engine and control bar
+  // Create engine and control bar. The control bar owns the document-level
+  // keydown listener for playback shortcuts and delegates Escape to the
+  // viewport via onClose so there is a single keyboard handler active.
   const controlBar = createControlBar(
     controlContainer,
     module.getScenarios(),
@@ -83,6 +79,7 @@ export function mountAnimationViewport(
       onSpeedChange: (speed) => engine.setSpeed(speed),
       onScenarioChange: (id) => engine.load(module, id),
       onReset: () => engine.reset(),
+      onClose: () => doClose(),
     },
   );
 
@@ -100,7 +97,6 @@ export function mountAnimationViewport(
     destroyed = true;
     engine.destroy();
     controlBar.destroy();
-    document.removeEventListener('keydown', onKeyDown);
     document.body.classList.remove('animation-open');
     overlay.remove();
     onClose();
