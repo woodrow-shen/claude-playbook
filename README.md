@@ -11,8 +11,8 @@ Shared AI assistant configurations for Claude Code development workflows.
 This repository provides reusable Claude Code configurations, enabling consistent AI-assisted development workflows with shared best practices.
 
 **Quick Stats:**
-- **3 configs** - Global, Debugging, OpenRA2-Rust
-- **21 commands** - 100% documentation coverage
+- **4 configs** - Global, Debugging, OpenRA2-Rust, Linux
+- **22 commands** - 100% documentation coverage
 - **Interactive setup** - `claude-setup` command for easy installation
 - **Comprehensive tests** - Functional coverage with isolated environments
 
@@ -25,6 +25,7 @@ Read the complete overview: [docs/guides/overview.md](docs/guides/overview.md)
 | **Global** | Cross-project commands (installed to `~/.claude`) | 21 commands, 13 agents, 2 skills, 9 rules |
 | **Debugging** | Kernel debugging and coredump analysis | Skeleton config |
 | **OpenRA2-Rust** | OpenRA2 Rust project | Git workflow rules |
+| **Linux** | Gamified Linux kernel learning | 1 command, 60 skills, 13 realms |
 
 See detailed config descriptions: [docs/guides/overview.md#available-configs](docs/guides/overview.md#available-configs)
 
