@@ -194,5 +194,7 @@ fi
 
 echo ""
 echo "Local clone setup complete."
-echo "Don't forget to commit the .gitignore change:"
-echo "  git add .gitignore && git commit -m 'Add .claude-playbook to gitignore'"
+if [[ -d "$TARGET_REPO/.git" ]]; then
+    echo "Don't forget to commit the .gitignore change:"
+    echo "  git add .gitignore && git commit -m 'Add .claude-playbook to gitignore'"
+fi

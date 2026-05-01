@@ -313,10 +313,11 @@ run_setup_local_clone() {
     # Expand ~ to home directory
     PROJECT_PATH="${PROJECT_PATH/#\~/$HOME}"
 
-    # Check if it's a git repository
+    # Local clone mode does not require a git repo on the host -- the playbook
+    # is cloned into .claude-playbook/ as its own git repo. Warn if missing so
+    # the user knows .gitignore won't be tracked.
     if [ ! -d "$PROJECT_PATH/.git" ]; then
-        print_error "$PROJECT_PATH is not a git repository"
-        return 1
+        print_warning "$PROJECT_PATH is not a git repository (continuing anyway)"
     fi
 
     print_info "Project: $PROJECT_PATH"

@@ -162,4 +162,34 @@ assert_output_contains "hooks installed during setup" "$output" "hooks installed
 assert_file_exists "pre-commit hook exists" "$TARGET11/.claude-playbook/.git/hooks/pre-commit"
 assert_file_exists "commit-msg hook exists" "$TARGET11/.claude-playbook/.git/hooks/commit-msg"
 
+# --------------------------------------------------------------------------
+# Test 12: Works on non-git target directory
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 12: Works on non-git target directory ---"
+TARGET12="$TEST_TMPDIR/target12-nogit"
+mkdir -p "$TARGET12"
+# Intentionally do NOT git init -- bare directory only
+
+bash "$MOCK_PB/scripts/setup/setup-claude-local-clone.sh" debugging "$TARGET12" >/dev/null 2>&1
+rc=$?
+assert_exit_code "non-git target succeeds with exit 0" "0" "$rc"
+assert_dir_exists ".claude-playbook/ created in non-git target" "$TARGET12/.claude-playbook"
+assert_symlink "CLAUDE.md symlink created in non-git target" "$TARGET12/CLAUDE.md"
+
+# --------------------------------------------------------------------------
+# Test 13: Suppresses git commit suggestion when target is not a git repo
+# --------------------------------------------------------------------------
+echo ""
+echo "--- Test 13: Suppresses git commit suggestion on non-git target ---"
+TARGET13="$TEST_TMPDIR/target13-nogit"
+mkdir -p "$TARGET13"
+
+output=$(bash "$MOCK_PB/scripts/setup/setup-claude-local-clone.sh" debugging "$TARGET13" 2>&1)
+if echo "$output" | grep -q "git add .gitignore"; then
+    assert_fail "non-git target should not suggest git commit"
+else
+    assert_pass "non-git target does not suggest git commit"
+fi
+
 report_results
