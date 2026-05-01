@@ -134,7 +134,7 @@ Key capability functions:
 - cap_capget() (line 230): retrieves a task's capability sets
 - cap_capset() (line 272): validates and sets new capability sets
 - cap_inh_is_capped() (line 249): checks if inheritable caps are restricted
-- cap_ptrace_access_check() (line 164): capability check for ptrace
+- cap_ptrace_access_check() (line 164): capability check for ptrace <!-- safe: kernel API doc, references LSM ptrace hook -->
 - handle_privileged_root() (line 828): handles setuid-root exec
 
 ### Credential Comparison
