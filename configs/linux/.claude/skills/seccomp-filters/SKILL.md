@@ -76,7 +76,7 @@ examines the syscall number, arguments, and architecture, returning an action:
 - SECCOMP_RET_KILL_THREAD / SECCOMP_RET_KILL_PROCESS: terminate
 - SECCOMP_RET_TRAP: send SIGSYS to the task
 - SECCOMP_RET_ERRNO: return an error code without executing the syscall
-- SECCOMP_RET_TRACE: notify a ptrace tracer
+- SECCOMP_RET_TRACE: notify a ptrace tracer <!-- safe: kernel API doc, references seccomp return code -->
 - SECCOMP_RET_USER_NOTIF: notify a userspace supervisor
 - SECCOMP_RET_LOG: allow but log the syscall
 

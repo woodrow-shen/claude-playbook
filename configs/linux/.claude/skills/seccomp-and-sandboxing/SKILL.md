@@ -138,7 +138,7 @@ The function:
    - SECCOMP_RET_ERRNO: returns an error code without executing the syscall.
    - SECCOMP_RET_USER_NOTIF: sends the syscall to a supervisor via the
      notification mechanism.
-   - SECCOMP_RET_TRACE: notifies a ptrace tracer.
+   - SECCOMP_RET_TRACE: notifies a ptrace tracer. <!-- safe: kernel API doc, references seccomp return code -->
    - SECCOMP_RET_LOG: allows but logs the syscall.
 
 For strict mode, __secure_computing_strict() at line 1067 checks against a
