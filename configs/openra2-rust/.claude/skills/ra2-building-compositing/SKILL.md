@@ -36,6 +36,18 @@ Only `idle-*` (with hyphen) are visual overlays to render simultaneously.
 
 Example: cow has `idle1`, `idle2` (chewing animations). Bridge has `idle2`, `idle3`, `idle4` (damage variants). Neither should be composited.
 
+## Building Capture and Owner Swap
+
+Buildings can be captured by Engineers (infantry with `CanCapture` trait). Capture triggers owner swap and palette remap on all SHP layers.
+
+### Capture Rules (Phase 25c/26)
+
+- Only infantry with `CanCapture` component can capture, not VXL vehicles
+- Engineer must walk onto the building's footprint cells (not just adjacent)
+- Engineer is despawned after capture (consumed)
+- Use building `Transform` position for capture target, NOT CPos centroid (footprint centroid doesn't match visual position due to sprite/footprint offsets)
+- Remove captured unit from `SelectionState` before despawning to prevent dangling entity panic
+
 ## VXL Exception
 
 Some buildings (e.g., caoutp) have a VXL 3D model as the main body. The SHP layers are decorations around it. The VXL part (e.g., `outp.vxl`) requires software rasterization to produce 2D sprites — not yet integrated.

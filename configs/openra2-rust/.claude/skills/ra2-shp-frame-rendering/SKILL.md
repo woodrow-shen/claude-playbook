@@ -38,3 +38,26 @@ pub struct FrameOffset { pub x: f32, pub y: f32 }
 ```
 
 `sync_actor_positions` reads and applies it every frame alongside `SpriteOffset`, `FootprintOffset`, and `TerrainHeightOffset`. This ensures cropped sprite positioning survives frame updates.
+
+## Infantry SHP Rendering (Phase 26)
+
+Infantry units use SHP sprites with multi-facing, multi-sequence animation.
+
+### Animation State Machine
+
+Infantry have multiple sequences: `stand`, `run`, `crawl`, `guard`, `prone`, etc. Each sequence has 8 or 32 facings. The animation system switches sequences based on movement state (idle -> stand, moving -> run).
+
+### Facing Convention
+
+OpenRA WAngle is counter-clockwise: 0=N, 256=W, 512=S, 768=E. The `facing_from_delta` function must rotate the movement delta to OpenRA's isometric convention (45-degree rotation) before computing the facing index. Without this rotation, infantry face the wrong direction when moving.
+
+### Infantry Sprite Sources
+
+Infantry SHP files are found in `conquer.mix` and `conqmd.mix` (not `local.mix` like VXL vehicles). The sequence_viewer searches conqmd -> conquer -> local MIX archives.
+
+### Selection and Movement
+
+- Infantry use 2D click selection (screen-space bounding box), separate from VXL 3D selection
+- Left-click move must check for nearby 2D selectables before consuming the click for VXL orders
+- Selection brackets persist after move order via `GpuSelectionConsumed` flag
+- Only one Transform update path: `sync_actor_positions`. Duplicate updates from movement systems cause 15px jumps due to different projection formulas

@@ -86,6 +86,20 @@ The +5/+15 pixel offset and parent-child turret structure MUST be applied in the
 
 Constants currently live in `src/debug/mod.rs` — move them to a shared location (e.g. `src/render/` or `src/map/`) when building the game MapPlugin.
 
+## GPU VXL Lighting
+
+Ambient/diffuse balance affects shadow contrast on VXL surfaces:
+- Ambient 0.6 / diffuse 0.4 — washed out, poor shadow definition
+- Ambient 0.4 / diffuse 0.6 — stronger light-dark transitions, better on bright tilesets (snow)
+
+## Terrain Height Integration
+
+GPU VXL units must snap to terrain height for correct visual placement:
+- Bilinear height interpolation between 4 nearest cell corners for smooth transitions
+- Surface normal tilting: compute normal from height gradient, apply as mesh rotation
+- Z-snap on path completion to prevent height drift accumulating across multiple moves
+- Water submersion: units on water cells render partially submerged (Phase 24d-lite)
+
 ## Debug Checklist
 
 When a GPU VXL turret is invisible:

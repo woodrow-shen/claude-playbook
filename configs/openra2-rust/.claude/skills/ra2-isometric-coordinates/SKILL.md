@@ -50,6 +50,34 @@ screen_y = (cx + cy) * (TILE_H / 2)    // TILE_H = 30
 
 Bevy Y-up: negate screen_y. Terrain height: add `height * 15.0` to Y.
 
+## Problem: Negative CPos.y in Isometric Maps
+
+Isometric MPos-to-CPos conversion yields CPos.y in range `[-(map_width-1), map_height-1]`, not `[0, w+h)`. A valid map cell like MPos(96,14) can become CPos(96,-14).
+
+### Symptom
+
+A* pathfinding silently rejects negative-y goals, causing units to stop short. The nav grid only covered `[0, N)`.
+
+### Fix
+
+Add origin offset to CellLayer/PathGraph so `CPos(origin_x, origin_y)` maps to array index (0,0). The nav grid must cover the full isometric CPos range including negative coordinates.
+
+## Problem: Map Bounds Off-by-One
+
+OpenRA's `Map.cs SetBounds()` excludes the outermost ring of MPos cells: `SetBounds(tl+1, br-1)`. Without this, A* routes units through edge cells with no terrain sprites.
+
+### Fix
+
+Mark MPos `[0,*]` and `[w-1,h-1]` rows/columns as Impassable in the pathfinding grid.
+
+## Terrain Height in Screen Coordinates
+
+Wireframe gizmos and debug overlays must account for terrain height. Height offset: `height_level * HEIGHT_OFFSET` pixels, applied to screen Y. Without this, Water wireframes at height=0 appear shifted onto land tiles at height>0.
+
+## Infantry Facing Convention
+
+OpenRA WAngle is counter-clockwise: 0=N, 256=W, 512=S, 768=E. RA2/TS SHP frames store facings in this order. The `facing_from_delta` function must rotate the movement delta to OpenRA's isometric convention (45-degree rotation) before computing `ArcTan(-Y, X) - 256`.
+
 ## MPos Parity
 
 MPos conversion: `v = cpos.x + cpos.y`, `u = (v - (v&1))/2 - cpos.y`.

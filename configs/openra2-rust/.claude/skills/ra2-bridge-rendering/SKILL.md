@@ -70,6 +70,12 @@ lobrdg_b sequences (each references a DIFFERENT .tem file):
 
 These are NOT overlays — do not render idle2/3/4 simultaneously with idle.
 
+## Bridge Terrain Override for Pathfinding
+
+Bridge cells must be classified as `TerrainType::Bridge` in the pathfinding grid, overriding the underlying Water terrain. Without this, A* treats bridge cells as impassable water and routes units around them.
+
+Detection: iterate all actors with `GroundLevelBridge` trait, expand their footprint cells, and override terrain classification to Bridge. Log count for verification.
+
 ## Bridge Actor Properties
 
 - `Building.Dimensions`: "1, 3"
