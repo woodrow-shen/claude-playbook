@@ -39,8 +39,23 @@ else
   CMD=$(printf '%s' "$PAYLOAD" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))')
 fi
 
-# Fast-skip if not an AUTO test or cargo run command.
-if ! printf '%s' "$CMD" | grep -qE '\bcargo run --release\b|\bAUTO_[A-Z_]+='; then
+# Early-exit when this Bash call is a `git commit` at a real command
+# position — the message body (heredoc / `-m '...'`) often mentions
+# `AUTO_FRAME=N` or `timeout N` as documentation, NOT as a runtime
+# invocation. Without this skip the hook false-positives on commit
+# bodies and forces awkward rephrasings (e.g. "60 frames" instead of
+# "AUTO_FRAME=60"). Same command-position pattern as
+# `enforce-no-blacklist-commit.sh`.
+if printf '%s' "$CMD" | grep -qE '(^|[;&|]+|\n)[[:space:]]*git[[:space:]]+commit\b'; then
+  exit 0
+fi
+
+# Fast-skip if there's no actual `cargo run` invocation. AUTO_FRAME /
+# AUTO_SCREENSHOT env vars are MEANINGLESS without something that
+# actually launches the binary; if the command is, say, `echo` or a
+# shell-only operation that happens to mention AUTO_* literally,
+# there's nothing to enforce.
+if ! printf '%s' "$CMD" | grep -qE '\bcargo[[:space:]]+run\b'; then
   exit 0
 fi
 
