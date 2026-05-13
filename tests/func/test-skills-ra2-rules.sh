@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Functional tests for rules skill — validates file structure + frontmatter.
+# Functional tests for ra2-rules skill — validates file structure + frontmatter.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FILE="$SCRIPT_DIR/../../configs/openra2-rust/.claude/skills/rules/SKILL.md"
+FILE="$SCRIPT_DIR/../../configs/openra2-rust/.claude/skills/ra2-rules/SKILL.md"
 
 passed=0
 failed=0
@@ -20,10 +20,10 @@ assert() {
     fi
 }
 
-echo "=== Tests: rules skill ==="
+echo "=== Tests: ra2-rules skill ==="
 
 assert "File exists" test -f "$FILE"
-assert "Has name in frontmatter" grep -q '^name: rules' "$FILE"
+assert "Has name in frontmatter" grep -q "^name: ra2-rules" "$FILE"
 assert "Has description in frontmatter" grep -q '^description:' "$FILE"
 assert "Non-empty body" test "$(wc -l < "$FILE")" -gt 5
 

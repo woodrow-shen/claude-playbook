@@ -1,5 +1,5 @@
 ---
-name: rules
+name: ra2-rules
 description: RA2 rules.ini structure reference — object registry, behavior sections, weapon/warhead/projectile chain, general config
 ---
 
