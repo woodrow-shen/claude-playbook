@@ -1,10 +1,10 @@
 # Run All AUTO Smoke Tests
 
-Run all 68 AUTO smoke tests sequentially with full validation. Covers Phases 23-28l: unit control / combat / VFX / pathfinding / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat.
+Run all 75 AUTO smoke tests sequentially with full validation. Covers Phases 23-28l: unit control / combat / VFX / pathfinding / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat.
 
 ## Input Validation
 
-This command takes no user arguments, but it MUST validate the environment before kicking off ~68 cargo runs (~2 hours of GPU time):
+This command takes no user arguments, but it MUST validate the environment before kicking off ~75 cargo runs (~2.2 hours of GPU time):
 
 - Refuse to start if `[[ -z "$WAYLAND_DISPLAY" ]]` and SSH session detected -- headless without Wayland will silently render to nowhere.
 - Refuse to start if `git status --porcelain` shows un-stashed changes that could be lost on a panic-driven `pkill`.
@@ -19,9 +19,9 @@ This command takes no user arguments, but it MUST validate the environment befor
 source .env && cargo build --release || exit 1
 ```
 
-### Step 2: Run the 68-Test Matrix
+### Step 2: Run the 75-Test Matrix
 
-Run each of the 68 tests below sequentially. For each test:
+Run each of the 75 tests below sequentially. For each test:
 
 - Run the command exactly as specified (AUTO_FRAME=1800, no override)
 - Capture stdout+stderr to a log file at `/tmp/auto_<name>.log`
@@ -43,7 +43,7 @@ For each test, run (set `RA2_MAP=<map>` if the test's row lists one — otherwis
 source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<map>] AUTO_FRAME=1800 AUTO_SCREENSHOT="/tmp/auto_<NAME>.png" AUTO_<NAME>=1 CAM_CPOS=<X,Y> CAM_ZOOM=<Z> cargo run --release > /tmp/auto_<name>.log 2>&1
 ```
 
-### All 68 tests with camera presets
+### All 75 tests with camera presets
 
 `RA2_MAP` is **required for every test** — every row spells out the exact map name so no test runs on an unintended layout. Two maps in use:
 
@@ -120,6 +120,13 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 66 | AUTO_TANYA_VS_SQD | 76,8 | 2.0 | bering-strait |
 | 67 | AUTO_SEAL_VS_DLPH | 77,8 | 2.5 | bering-strait |
 | 68 | AUTO_SEAL_VS_SQD | 76,8 | 2.0 | bering-strait |
+| 69 | AUTO_SUB_TORPEDO | 83,9 | 2.0 | bering-strait |
+| 70 | AUTO_NAVAL_SINK | 83,9 | 2.5 | bering-strait |
+| 71 | AUTO_SWIM_DEATH | 83,9 | 2.5 | bering-strait |
+| 72 | AUTO_SQD_GRAPPLE | 123,-24 | 2.0 | bering-strait |
+| 73 | AUTO_BUILDING_COLLAPSE | 109,-2 | 2.0 | heartland |
+| 74 | AUTO_FIRE_COMPARE | 62,30 | 2.5 | heartland |
+| 75 | AUTO_ROAD_PATH | 67,20 | 1.0 | heartland |
 
 ### Known test-specific symptoms (non-blocking)
 
@@ -134,7 +141,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 
 After all tests complete, report:
 
-- Total: Passed N / 68, Failed N / 68
+- Total: Passed N / 75, Failed N / 75
 - Per-test symptom summary (only non-baseline warnings)
 - Any new or unexpected symptoms not in the known list above
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Functional tests for the openra2-rust /run-all-auto command.
-# Validates file structure + that the documented 68-test AUTO smoke
+# Validates file structure + that the documented 75-test AUTO smoke
 # matrix (Phases 23-28l, AUTO_FRAME convention, WAYLAND_DISPLAY
 # requirement, RA2_MAP per row, baseline-noise allow-list) is present.
 set -uo pipefail
@@ -29,7 +29,7 @@ assert "Command file exists" test -f "$CMD_FILE"
 assert "File is not empty" test -s "$CMD_FILE"
 assert "Has Run All AUTO heading" grep -qE '^# Run All AUTO' "$CMD_FILE"
 assert "Has Execution section" grep -qE '^## Execution' "$CMD_FILE"
-assert "Documents 68-test count" grep -qE '\b68\b' "$CMD_FILE"
+assert "Documents 75-test count" grep -qE '\b75\b' "$CMD_FILE"
 assert "Covers Phases 23-28l" grep -qE 'Phases? 23.*28l' "$CMD_FILE"
 assert "Documents AUTO_FRAME convention" grep -q 'AUTO_FRAME' "$CMD_FILE"
 assert "Documents AUTO_SCREENSHOT pairing" grep -q 'AUTO_SCREENSHOT' "$CMD_FILE"
