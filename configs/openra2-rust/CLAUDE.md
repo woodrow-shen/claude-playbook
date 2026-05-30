@@ -69,32 +69,38 @@ See `docs/design/time-and-game-speed.md` for the full rule + examples. Short ver
 - **DON'T** use `./target/release/openra2-rust` directly to run tests during development — use `cargo run --release` instead. `cargo run` sets `CARGO_MANIFEST_DIR`, which is how Bevy's AssetPlugin locates the `assets/` folder; running the binary directly produces "Path not found" shader errors and broken rendering. (enforced by `.claude/hooks/enforce-no-direct-binary.sh`)
 - **`AUTO_FRAME` is per-scenario, not a universal 1800.** The 1800 default in `/run-all-auto` is only appropriate for long-running scenarios (patrol, multi-attack, full death-cycle-to-respawn). New AUTO tests should pick the **shortest** frame count that still exercises the validation target, then document the recommended `AUTO_FRAME=N` in both the system's rustdoc AND `docs/testing/environment-variables.md`. Examples from Phase 28g-1: `AUTO_DEATH_VARIANTS=300` (spawn frame 5 + kills frames 240-293 + screenshot frame 300 catches all 5 deaths mid-animation); `AUTO_FLAMEGUY=60` (spawn 10 + walk reseed × 2-3 + screenshot 60). Forcing every test to 1800 wastes 3-6× the CI time and — worse — lets actors time-out / despawn before the capture, making the screenshot useless. Design new smokes to read `AUTO_FRAME` dynamically (e.g. kill offsets computed as `auto_frame - N`) so shorter overrides still exercise the right timing.
 
-## Live Visual Debugging Workflow (preferred over screenshot-and-paste)
+## Live Debugging Workflow (preferred over screenshot-and-paste)
 
-**Default for any user-triggered single AUTO run**: use **live mode** (no `AUTO_FRAME`, no `AUTO_SCREENSHOT`). When the user types something like "re-run AUTO_X" / "跑一下 AUTO_X" / "看看 AUTO_X" mid-conversation, that is **iteration**, not regression validation — even if the test passed before. Default to live mode unless the user explicitly says "for regression" / "screenshot mode" / "CI gating" / mentions `/run-all-auto`.
+**Default for any user-triggered single AUTO run or in-game test**: use **live mode** (no `AUTO_FRAME`, no `AUTO_SCREENSHOT`). When the user types "re-run AUTO_X" / "跑一下 AUTO_X" / "看看 AUTO_X" / "test the Kirov attack" mid-conversation, that is **iteration / debug**, not regression validation — even if the test passed before. Default to live mode unless the user explicitly says "for regression" / "screenshot mode" / "CI gating" / mentions `/run-all-auto`.
 
-When iterating on a visual feature (alignment, animation, particle effects, FX timing) and the user is at the keyboard, **DO NOT** run with `AUTO_SCREENSHOT` + `AUTO_FRAME` and ask the user to inspect a PNG. That round-trip is slow: build → screenshot at frame N → user opens PNG → may not catch mid-flight moment → user describes what they saw → I re-run with a different frame.
+Two flavours of iteration both run live, both follow the same workflow:
 
-**Correct workflow**:
+- **Visual iteration** — alignment, animation, particle effects, FX timing, anything the user verifies by eye in the running window.
+- **Behavioural debug** — cursor mismatch, missing event, wrong target resolution, order-vs-cursor divergence, anything the user reproduces by clicking / keying and then inspects the log.
 
-1. Run the AUTO smoke **without** `AUTO_SCREENSHOT` and **without** `AUTO_FRAME` so the window stays open and the test loops the visible scenario.
-2. Run in the background (`run_in_background: true`) so I can collect logs while the user watches the window live.
-3. Capture into `/tmp/auto_<name>_live.log` whatever per-tick / per-event state I need to validate the fix numerically (positions, projections, deltas, frame-by-frame diffs).
-4. The user closes the window when they've seen enough — that is the signal to stop, not a frame counter.
-5. Grep the log for the diagnostic data and report findings; user verifies the visual result from their own screen.
+**The agent takes over execution and orchestrates the test.** Don't launch and hope the user remembers what to test, and don't make the user inspect PNGs:
 
-**Command template**:
-```bash
-WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 \
-  AUTO_<NAME>=1 CAM_CPOS=<X,Y> CAM_ZOOM=<Z> \
-  cargo run --release > /tmp/auto_<name>_live.log 2>&1 &
-```
+1. **Plan exact reproduction steps BEFORE launching.** Numbered checklist of which keys to press, which entity to spawn, which to select, which modifier to hold, where to click. State the expected vs bug-suspected outcome so the user knows what they're watching for.
 
-(Note: no `AUTO_SCREENSHOT`, no `AUTO_FRAME`, no `timeout` wrapper — the user controls the run length by closing the window.)
+2. **Wire enough debug logging up-front.** Enable the relevant `DEBUG_*` flags (`DEBUG_HUD`, `DEBUG_COMBAT`, `DEBUG_AIRCRAFT_FSM`, …) so the log captures the lines you need. **If a needed log line doesn't exist, add a one-shot env-gated `info!` BEFORE running** — don't make the user repro twice because instrumentation was missing.
 
-This is faster than the screenshot path because the user verifies in real time, and Claude collects exactly the log lines the fix turns on, instead of guessing which capture frame would be informative.
+3. **Launch live, in the background.** No `AUTO_FRAME`, no `AUTO_SCREENSHOT`, no `timeout`, `run_in_background: true`. The user controls the run length by closing the window — not a frame counter.
 
-**When to STILL use the screenshot path**: regression validation in `/run-all-auto`, CI gating, frozen-frame asset comparison, when the user is not at the keyboard. Live mode is for the *iteration* phase; screenshot mode is for the *validation* phase.
+   ```bash
+   WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 \
+     [AUTO_<NAME>=1] CAM_CPOS=<X,Y> CAM_ZOOM=<Z> \
+     cargo run --release > /tmp/<name>_live.log 2>&1 &
+   ```
+
+4. **Hand off cleanly.** State the steps once, then stop. User performs steps, watches the window, closes when done.
+
+5. **Diagnose from the log.** Grep for the specific markers you planned in step 2 — not generic "any error" sweeps. For behavioural divergences, cross-reference multiple log streams (e.g. cursor vs order vs FSM) to find the exact branch where they diverge.
+
+6. **Compare working vs broken paths in the SAME session** when possible. If the user reports "tank works, aircraft doesn't" — ask them to perform BOTH operations in one run so the log shows the divergence point side-by-side. Don't ask for repro-after-repro across sessions.
+
+**Why this beats screenshot-and-paste**: user verifies in real time, agent collects exactly the log lines the fix turns on, instead of guessing which capture frame would be informative. Origin: Phase 28m-4a-polish cursor-vs-order hit-test divergence — three round-trips wasted because debug logs weren't wired before the user clicked.
+
+**When to STILL use the screenshot path**: regression validation in `/run-all-auto`, CI gating, frozen-frame asset comparison, when the user is not at the keyboard. Live mode is for the *iteration / debug* phase; screenshot mode is for the *validation* phase.
 
 ## Running AUTO Tests (enforced)
 
