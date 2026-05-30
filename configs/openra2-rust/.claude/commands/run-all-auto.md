@@ -1,10 +1,10 @@
 # Run All AUTO Smoke Tests
 
-Run all 75 AUTO smoke tests sequentially with full validation. Covers Phases 23-28l: unit control / combat / VFX / pathfinding / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat.
+Run all 76 AUTO smoke tests sequentially with full validation. Covers Phases 23-28m: unit control / combat / VFX / pathfinding / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m Kirov aircraft.
 
 ## Input Validation
 
-This command takes no user arguments, but it MUST validate the environment before kicking off ~75 cargo runs (~2.2 hours of GPU time):
+This command takes no user arguments, but it MUST validate the environment before kicking off ~76 cargo runs (~2.2 hours of GPU time):
 
 - Refuse to start if `[[ -z "$WAYLAND_DISPLAY" ]]` and SSH session detected -- headless without Wayland will silently render to nowhere.
 - Refuse to start if `git status --porcelain` shows un-stashed changes that could be lost on a panic-driven `pkill`.
@@ -19,9 +19,9 @@ This command takes no user arguments, but it MUST validate the environment befor
 source .env && cargo build --release || exit 1
 ```
 
-### Step 2: Run the 75-Test Matrix
+### Step 2: Run the 76-Test Matrix
 
-Run each of the 75 tests below sequentially. For each test:
+Run each of the 76 tests below sequentially. For each test:
 
 - Run the command exactly as specified (AUTO_FRAME=1800, no override)
 - Capture stdout+stderr to a log file at `/tmp/auto_<name>.log`
@@ -43,7 +43,7 @@ For each test, run (set `RA2_MAP=<map>` if the test's row lists one — otherwis
 source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<map>] AUTO_FRAME=1800 AUTO_SCREENSHOT="/tmp/auto_<NAME>.png" AUTO_<NAME>=1 CAM_CPOS=<X,Y> CAM_ZOOM=<Z> cargo run --release > /tmp/auto_<name>.log 2>&1
 ```
 
-### All 75 tests with camera presets
+### All 76 tests with camera presets
 
 `RA2_MAP` is **required for every test** — every row spells out the exact map name so no test runs on an unintended layout. Two maps in use:
 
@@ -127,6 +127,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 73 | AUTO_BUILDING_COLLAPSE | 109,-2 | 2.0 | heartland |
 | 74 | AUTO_FIRE_COMPARE | 62,30 | 2.5 | heartland |
 | 75 | AUTO_ROAD_PATH | 67,20 | 1.0 | heartland |
+| 76 | AUTO_KIROV_CLIMB | 109,-2 | 1.5 | heartland |
 
 ### Known test-specific symptoms (non-blocking)
 
@@ -141,7 +142,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 
 After all tests complete, report:
 
-- Total: Passed N / 75, Failed N / 75
+- Total: Passed N / 76, Failed N / 76
 - Per-test symptom summary (only non-baseline warnings)
 - Any new or unexpected symptoms not in the known list above
 
