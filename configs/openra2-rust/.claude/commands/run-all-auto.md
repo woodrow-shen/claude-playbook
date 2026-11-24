@@ -1,10 +1,10 @@
 # Run All AUTO Smoke Tests
 
-Run all 76 AUTO smoke tests sequentially with full validation. Covers Phases 23-28m: unit control / combat / VFX / pathfinding / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m Kirov aircraft.
+Run all 114 AUTO smoke tests sequentially with full validation. Covers Phases 23-28m: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m aircraft (Kirov, Harrier, Black Eagle, Nighthawk, airfields, carrier Hornets, Rocketeer) and ground anti-air.
 
 ## Input Validation
 
-This command takes no user arguments, but it MUST validate the environment before kicking off ~76 cargo runs (~2.2 hours of GPU time):
+This command takes no user arguments, but it MUST validate the environment before kicking off ~114 cargo runs (~3.2 hours of GPU time):
 
 - Refuse to start if `[[ -z "$WAYLAND_DISPLAY" ]]` and SSH session detected -- headless without Wayland will silently render to nowhere.
 - Refuse to start if `git status --porcelain` shows un-stashed changes that could be lost on a panic-driven `pkill`.
@@ -19,9 +19,9 @@ This command takes no user arguments, but it MUST validate the environment befor
 source .env && cargo build --release || exit 1
 ```
 
-### Step 2: Run the 76-Test Matrix
+### Step 2: Run the 114-Test Matrix
 
-Run each of the 76 tests below sequentially. For each test:
+Run each of the 114 tests below sequentially. For each test:
 
 - Run the command exactly as specified (AUTO_FRAME=1800, no override)
 - Capture stdout+stderr to a log file at `/tmp/auto_<name>.log`
@@ -43,12 +43,12 @@ For each test, run (set `RA2_MAP=<map>` if the test's row lists one — otherwis
 source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<map>] AUTO_FRAME=1800 AUTO_SCREENSHOT="/tmp/auto_<NAME>.png" AUTO_<NAME>=1 CAM_CPOS=<X,Y> CAM_ZOOM=<Z> cargo run --release > /tmp/auto_<name>.log 2>&1
 ```
 
-### All 76 tests with camera presets
+### All 114 tests with camera presets
 
 `RA2_MAP` is **required for every test** — every row spells out the exact map name so no test runs on an unintended layout. Two maps in use:
 
 - `heartland` — default land map; used by most combat / infantry / VFX tests
-- `bering-strait` — open-ocean naval map; used by all 21 water-dependent tests (naval VXL ships, swimming infantry, water-cell impact, dolphin / squid sprites, amphibious commando vs naval target matrix)
+- `bering-strait` — open-ocean naval map; used by all 32 water-dependent tests (naval VXL ships, swimming infantry, water-cell impact, dolphin / squid sprites, amphibious commando vs naval target matrix)
 
 | # | Env Var | CAM_CPOS | CAM_ZOOM | RA2_MAP |
 |---|---------|----------|----------|---------|
@@ -108,7 +108,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 54 | AUTO_DLPH_SPAWN | 78,13 | 3.0 | bering-strait |
 | 55 | AUTO_DLPH_SONIC | 78,7 | 3.0 | bering-strait |
 | 56 | AUTO_VETERANCY_INFANTRY | 64,30 | 2.5 | heartland |
-| 57 | AUTO_TWO_WAY_PURSUIT | 63,30 | 2.0 | heartland |
+| 57 | AUTO_TWO_WAY_PURSUIT | 63,25 | 2.0 | heartland |
 | 58 | AUTO_IDLE_FIDGET | 62,30 | 3.0 | heartland |
 | 59 | AUTO_DLPH_VS_SQD | 79,10 | 2.0 | bering-strait |
 | 60 | AUTO_SQD_DLPH_LORE | 82,10 | 2.0 | bering-strait |
@@ -128,11 +128,51 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 74 | AUTO_FIRE_COMPARE | 62,30 | 2.5 | heartland |
 | 75 | AUTO_ROAD_PATH | 67,20 | 1.0 | heartland |
 | 76 | AUTO_KIROV_CLIMB | 109,-2 | 1.5 | heartland |
+| 77 | AUTO_AEGIS_VS_KIROV | 74,10 | 2.0 | bering-strait |
+| 78 | AUTO_AEGIS_OVERFLY | 78,10 | 1.0 | bering-strait |
+| 79 | AUTO_DEATH_VARIANTS | 62,30 | 2.0 | heartland |
+| 80 | AUTO_FLAMEGUY | 62,30 | 2.5 | heartland |
+| 81 | AUTO_WRECKAGE | 62,30 | 2.5 | heartland |
+| 82 | AUTO_VETERANCY | 64,30 | 2.0 | heartland |
+| 83 | AUTO_ELITE | 63,30 | 2.0 | heartland |
+| 84 | AUTO_ELITE_GI | 62,30 | 2.5 | heartland |
+| 85 | AUTO_VFX | 62,30 | 2.0 | heartland |
+| 86 | AUTO_VFX_CROSS | 62,30 | 2.0 | heartland |
+| 87 | AUTO_BUILDING_AIM_8WAY | 110,-1 | 2.0 | heartland |
+| 88 | AUTO_DROWN | 80,8 | 2.5 | bering-strait |
+| 89 | AUTO_AA_PATRIOT | 62,28 | 3.0 | heartland |
+| 90 | AUTO_AA_TANK_VS_KIROV_FORCE | 62,30 | 2.0 | heartland |
+| 91 | AUTO_AA_NAFLAK | 64,28 | 2.0 | heartland |
+| 92 | AUTO_AA_FLAKT | 59,26 | 2.0 | heartland |
+| 93 | AUTO_AA_HTK | 58,24 | 1.5 | heartland |
+| 94 | AUTO_AA_IFV | 58,23 | 1.5 | heartland |
+| 95 | AUTO_AA_APOC | 58,22 | 2.0 | heartland |
+| 96 | AUTO_KIROV_VS_KIROV | 62,28 | 2.0 | heartland |
+| 97 | AUTO_AIR_VS_GROUND_BOMB | 60,30 | 2.5 | heartland |
+| 98 | AUTO_AIR_HARRIER | 58,28 | 1.5 | heartland |
+| 99 | AUTO_AIR_HARRIER_SORTIE | 57,28 | 1.2 | heartland |
+| 100 | AUTO_AIR_HARRIER_EGRESS | 62,28 | 1.2 | heartland |
+| 101 | AUTO_AIR_BLACK_EAGLE_SORTIE | 57,28 | 1.2 | heartland |
+| 102 | AUTO_AIR_NIGHTHAWK | 58,28 | 1.5 | heartland |
+| 103 | AUTO_AIRFIELD_PADS | 50,25 | 4.0 | heartland |
+| 104 | AUTO_AIRFIELD_STRIKE | 50,20 | 1.2 | heartland |
+| 105 | AUTO_CARRIER_HORNET | 76,11 | 1.5 | bering-strait |
+| 106 | AUTO_CARRIER_REGEN | 76,11 | 1.5 | bering-strait |
+| 107 | AUTO_CARRIER_SINK | 76,11 | 1.5 | bering-strait |
+| 108 | AUTO_ASW_HORNET | 81,8 | 2.5 | bering-strait |
+| 109 | AUTO_ROCKETEER | 63,30 | 2.0 | heartland |
+| 110 | AUTO_ROCKETEER_AIR | 63,28 | 2.0 | heartland |
+| 111 | AUTO_ROCKETEER_DEATH | 62,28 | 3.0 | heartland |
+| 112 | AUTO_ROCKETEER_SWARM | 62,27 | 1.5 | heartland |
+| 113 | AUTO_V3_INTERCEPT | 58,30 | 1.0 | heartland |
+| 114 | AUTO_V3_ROCKETEER | 58,30 | 1.0 | heartland |
 
 ### Known test-specific symptoms (non-blocking)
 
 - AUTO_GROUP_COLORS: double-despawn race at `gpu_selection.rs:418` (cosmetic)
 - AUTO_INFANTRY_DEPLOY: shoot-deployed state transition warning (Phase 27i workaround)
+- AUTO_ROCKETEER_SWARM: needs ~3000 frames with 4 Patriots (PASS ~38 s). At the mandatory 1800 the run ends around 18/20 kills without a PASS / FAIL line; that is not a regression.
+- Visual-only smokes (no PASS / FAIL line): AUTO_DEATH_VARIANTS, AUTO_FLAMEGUY, AUTO_WRECKAGE, AUTO_VETERANCY, AUTO_ELITE, AUTO_ELITE_GI, AUTO_VFX, AUTO_VFX_CROSS, AUTO_BUILDING_AIM_8WAY, AUTO_AA_PATRIOT, AUTO_KIROV_VS_KIROV (interactive). Judge them by `Screenshot saved` and a clean log.
 - AUTO_V3_4WAY / AUTO_V3_DIAG / AUTO_V3_MINRANGE / AUTO_V3_MAXRANGE: recommended `AUTO_FRAME` is shorter than 1800 (130 / 300 / 900 / 300 respectively) — running at 1800 is safe but produces ~50 s of post-impact idle. Smokes spawn launchers at frame 5, fire/impact early, and stay idle until the screenshot frame. Pass criteria: at least one `[combat impact] target=...` line per launcher and zero `[missile lifetime cap]` warnings.
 - AUTO_V3_PREFIRE / AUTO_V3_TRAIL: assertion fires at frame 180 regardless of `AUTO_FRAME`, so the universal `AUTO_FRAME=1800` works without a per-smoke override (action completes ~frame 109, then idle until screenshot). Each smoke logs an explicit `PASS` / `FAIL` line — look for `[auto-v3-prefire] PASS` and `[auto-v3-trail] PASS`. Pass criteria:
   - **AUTO_V3_PREFIRE**: `peak_dwell ≥ PRE_FIRE_TICKS` (= 18) AND `dwell_window ≥ PRE_FIRE_TICKS - 1` (= 17). The `-1` accounts for the counter going 0→1 on settle frame and reaching N exactly N-1 frames later.
@@ -142,7 +182,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 
 After all tests complete, report:
 
-- Total: Passed N / 76, Failed N / 76
+- Total: Passed N / 114, Failed N / 114
 - Per-test symptom summary (only non-baseline warnings)
 - Any new or unexpected symptoms not in the known list above
 
