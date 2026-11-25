@@ -1,10 +1,10 @@
 # Run All AUTO Smoke Tests
 
-Run all 115 AUTO smoke tests sequentially with full validation. Covers Phases 23-28m: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m aircraft (Kirov, Harrier, Black Eagle, Nighthawk, airfields, carrier Hornets, Rocketeer) and ground anti-air.
+Run all 123 AUTO smoke tests sequentially with full validation. Covers Phases 23-28n: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m aircraft (Kirov, Harrier, Black Eagle, Nighthawk, airfields, carrier Hornets, Rocketeer) and ground anti-air.
 
 ## Input Validation
 
-This command takes no user arguments, but it MUST validate the environment before kicking off ~115 cargo runs (~3.2 hours of GPU time):
+This command takes no user arguments, but it MUST validate the environment before kicking off ~123 cargo runs (~3.2 hours of GPU time):
 
 - Refuse to start if `[[ -z "$WAYLAND_DISPLAY" ]]` and SSH session detected -- headless without Wayland will silently render to nowhere.
 - Refuse to start if `git status --porcelain` shows un-stashed changes that could be lost on a panic-driven `pkill`.
@@ -19,9 +19,9 @@ This command takes no user arguments, but it MUST validate the environment befor
 source .env && cargo build --release || exit 1
 ```
 
-### Step 2: Run the 115-Test Matrix
+### Step 2: Run the 123-Test Matrix
 
-Run each of the 115 tests below sequentially. For each test:
+Run each of the 123 tests below sequentially. For each test:
 
 - Run the command exactly as specified (AUTO_FRAME=1800, no override)
 - Capture stdout+stderr to a log file at `/tmp/auto_<name>.log`
@@ -43,12 +43,12 @@ For each test, run (set `RA2_MAP=<map>` if the test's row lists one — otherwis
 source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<map>] AUTO_FRAME=1800 AUTO_SCREENSHOT="/tmp/auto_<NAME>.png" AUTO_<NAME>=1 CAM_CPOS=<X,Y> CAM_ZOOM=<Z> cargo run --release > /tmp/auto_<name>.log 2>&1
 ```
 
-### All 115 tests with camera presets
+### All 123 tests with camera presets
 
 `RA2_MAP` is **required for every test** — every row spells out the exact map name so no test runs on an unintended layout. Two maps in use:
 
 - `heartland` — default land map; used by most combat / infantry / VFX tests
-- `bering-strait` — open-ocean naval map; used by all 32 water-dependent tests (naval VXL ships, swimming infantry, water-cell impact, dolphin / squid sprites, amphibious commando vs naval target matrix)
+- `bering-strait` — open-ocean naval map; used by all 34 water-dependent tests (naval VXL ships, swimming infantry, water-cell impact, dolphin / squid sprites, amphibious commando vs naval target matrix)
 
 | # | Env Var | CAM_CPOS | CAM_ZOOM | RA2_MAP |
 |---|---------|----------|----------|---------|
@@ -167,6 +167,14 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 113 | AUTO_V3_INTERCEPT | 58,30 | 1.0 | heartland |
 | 114 | AUTO_V3_ROCKETEER | 58,30 | 1.0 | heartland |
 | 115 | AUTO_V3_FLAK | 58,30 | 1.0 | heartland |
+| 116 | AUTO_TRANSPORT_HTK | 60,31 | 2.0 | heartland |
+| 117 | AUTO_TRANSPORT_HTK_KILL | 60,31 | 2.0 | heartland |
+| 118 | AUTO_TRANSPORT_IFV | 63,30 | 2.0 | heartland |
+| 119 | AUTO_TRANSPORT_LCRF | 56,9 | 1.5 | bering-strait |
+| 120 | AUTO_TRANSPORT_LCRF_KILL | 56,9 | 1.5 | bering-strait |
+| 121 | AUTO_TRANSPORT_SHAD | 63,30 | 1.5 | heartland |
+| 122 | AUTO_TRANSPORT_SHAD_KILL | 63,30 | 1.5 | heartland |
+| 123 | AUTO_VXL_HILL_CLICK | 85,-62 | 1.5 | heartland |
 
 ### Known test-specific symptoms (non-blocking)
 
@@ -182,7 +190,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 
 After all tests complete, report:
 
-- Total: Passed N / 115, Failed N / 115
+- Total: Passed N / 123, Failed N / 123
 - Per-test symptom summary (only non-baseline warnings)
 - Any new or unexpected symptoms not in the known list above
 
