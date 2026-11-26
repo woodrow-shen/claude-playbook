@@ -55,9 +55,10 @@ License: GPL-3.0. Owner: Woodrow Shen.
 
 See `docs/design/time-and-game-speed.md` for the full rule + examples. Short version:
 
-- Every new `Time::delta()` usage **must** carry a one-line comment classifying it as `// game-logic timer — scales with F5 game speed (TODO Phase 40)` or `// visual timer — wall-clock, must NOT scale with game speed`.
+- Game logic reads `Res<Time>` (= `Time<Virtual>` in `Update`): F5 cycles the stock game speeds via `set_relative_speed`, Esc pauses. Visuals (particles, cursor, camera, UI, screen shake) read `Res<Time<Real>>` so they keep wall-clock pace and keep animating while paused.
+- Every new `Time` usage **must** carry a one-line comment classifying it as `// game-logic timer — scales with F5 game speed (Time<Virtual>)` or `// visual timer — wall-clock (Time<Real>), must NOT scale with game speed`.
 - Classifier: *"If the player picks **Faster** game speed, should this go faster?"* Yes → game-logic. No → visual.
-- `GameTime` resource is not landed yet; F5 menu is deferred to Phase 40+. Tracked in `docs/PROJECT_STATUS.md` tech-debt ledger.
+- Stock time base is 30 game frames per second (GameSpeed 2). Convert INI frame values (`ROF=`, `Delay=`) with `crate::game::tick::frames_to_secs` / `frames_to_ms`; never divide by 25 (OpenRA) or hardcode `/ 30.0`.
 
 ## Visual Testing Rules
 
