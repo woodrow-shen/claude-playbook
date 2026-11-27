@@ -1,6 +1,6 @@
 # /run-all-auto Command Guide
 
-Run all 125 AUTO smoke tests sequentially with full validation. Covers Phases 23-29.0 of the openra2-rust project: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline / Phase 28l naval combat (including the amphibious commando vs naval target matrix) / Phase 28m aircraft and ground anti-air.
+Run all 137 AUTO smoke tests sequentially with full validation. Covers Phases 23-29c of the openra2-rust project: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline / Phase 28l naval combat (including the amphibious commando vs naval target matrix) / Phase 28m aircraft and ground anti-air.
 
 ## Usage
 
@@ -8,16 +8,16 @@ Run all 125 AUTO smoke tests sequentially with full validation. Covers Phases 23
 /run-all-auto
 ```
 
-Takes no arguments. The 125-test matrix is hard-coded in the command file with per-row `AUTO_<NAME>`, `CAM_CPOS`, `CAM_ZOOM`, and `RA2_MAP`.
+Takes no arguments. The 137-test matrix is hard-coded in the command file with per-row `AUTO_<NAME>`, `CAM_CPOS`, `CAM_ZOOM`, and `RA2_MAP`.
 
 ## What It Does
 
 1. Validates environment: `WAYLAND_DISPLAY`, clean working tree, no stale openra2-rust process
 2. Builds the release binary once (`source .env && cargo build --release`)
-3. Runs each of the 125 smokes in sequence with `AUTO_FRAME=1800` and the row's camera preset
+3. Runs each of the 137 smokes in sequence with `AUTO_FRAME=1800` and the row's camera preset
 4. Captures stdout+stderr to `/tmp/auto_<name>.log` per row
 5. Scans each log for symptoms: `panic`, `WARN`, `ERROR`, `overflow`, `Could not despawn`, `unwrap`, `index out of bounds`, unexpected state transitions
-6. After the matrix completes, reports Passed N/125, Failed N/125, plus per-test non-baseline symptoms
+6. After the matrix completes, reports Passed N/137, Failed N/137, plus per-test non-baseline symptoms
 
 ## Key Features
 
