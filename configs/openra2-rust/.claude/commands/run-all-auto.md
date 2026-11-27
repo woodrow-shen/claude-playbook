@@ -1,10 +1,10 @@
 # Run All AUTO Smoke Tests
 
-Run all 137 AUTO smoke tests sequentially with full validation. Covers Phases 23-29c: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m aircraft (Kirov, Harrier, Black Eagle, Nighthawk, airfields, carrier Hornets, Rocketeer) and ground anti-air.
+Run all 138 AUTO smoke tests sequentially with full validation. Covers Phases 23-29c: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m aircraft (Kirov, Harrier, Black Eagle, Nighthawk, airfields, carrier Hornets, Rocketeer) and ground anti-air.
 
 ## Input Validation
 
-This command takes no user arguments, but it MUST validate the environment before kicking off ~137 cargo runs (~3.6 hours of GPU time):
+This command takes no user arguments, but it MUST validate the environment before kicking off ~138 cargo runs (~3.6 hours of GPU time):
 
 - Refuse to start if `[[ -z "$WAYLAND_DISPLAY" ]]` and SSH session detected -- headless without Wayland will silently render to nowhere.
 - Refuse to start if `git status --porcelain` shows un-stashed changes that could be lost on a panic-driven `pkill`.
@@ -19,9 +19,9 @@ This command takes no user arguments, but it MUST validate the environment befor
 source .env && cargo build --release || exit 1
 ```
 
-### Step 2: Run the 137-Test Matrix
+### Step 2: Run the 138-Test Matrix
 
-Run each of the 137 tests below sequentially. For each test:
+Run each of the 138 tests below sequentially. For each test:
 
 - Run the command exactly as specified (AUTO_FRAME=1800, no override)
 - Capture stdout+stderr to a log file at `/tmp/auto_<name>.log`
@@ -43,7 +43,7 @@ For each test, run (set `RA2_MAP=<map>` if the test's row lists one — otherwis
 source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<map>] AUTO_FRAME=1800 AUTO_SCREENSHOT="/tmp/auto_<NAME>.png" AUTO_<NAME>=1 CAM_CPOS=<X,Y> CAM_ZOOM=<Z> cargo run --release > /tmp/auto_<name>.log 2>&1
 ```
 
-### All 137 tests with camera presets
+### All 138 tests with camera presets
 
 `RA2_MAP` is **required for every test** — every row spells out the exact map name so no test runs on an unintended layout. Two maps in use:
 
@@ -156,9 +156,9 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 102 | AUTO_AIR_NIGHTHAWK | 58,28 | 1.5 | heartland |
 | 103 | AUTO_AIRFIELD_PADS | 50,25 | 4.0 | heartland |
 | 104 | AUTO_AIRFIELD_STRIKE | 50,20 | 1.2 | heartland |
-| 105 | AUTO_CARRIER_HORNET | 76,11 | 1.5 | bering-strait |
-| 106 | AUTO_CARRIER_REGEN | 76,11 | 1.5 | bering-strait |
-| 107 | AUTO_CARRIER_SINK | 76,11 | 1.5 | bering-strait |
+| 105 | AUTO_CARRIER_HORNET | 68,8 | 1.5 | bering-strait |
+| 106 | AUTO_CARRIER_REGEN | 68,8 | 1.5 | bering-strait |
+| 107 | AUTO_CARRIER_SINK | 68,8 | 1.5 | bering-strait |
 | 108 | AUTO_ASW_HORNET | 81,8 | 2.5 | bering-strait |
 | 109 | AUTO_ROCKETEER | 63,30 | 2.0 | heartland |
 | 110 | AUTO_ROCKETEER_AIR | 63,28 | 2.0 | heartland |
@@ -189,6 +189,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 135 | AUTO_TECH_TREE | 57,42 | 1.5 | heartland |
 | 136 | AUTO_SIDEBAR | 57,42 | 1.5 | heartland |
 | 137 | AUTO_RALLY | 56,44 | 1.5 | heartland |
+| 138 | AUTO_ROSTER_SPAWN | 55,58 | 0.6 | heartland |
 
 ### Known test-specific symptoms (non-blocking)
 
@@ -205,7 +206,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 
 After all tests complete, report:
 
-- Total: Passed N / 137, Failed N / 137
+- Total: Passed N / 138, Failed N / 138
 - Per-test symptom summary (only non-baseline warnings)
 - Any new or unexpected symptoms not in the known list above
 

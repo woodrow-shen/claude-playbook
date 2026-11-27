@@ -88,10 +88,12 @@ Two flavours of iteration both run live, both follow the same workflow:
 3. **Launch live, in the background.** No `AUTO_FRAME`, no `AUTO_SCREENSHOT`, no `timeout`, `run_in_background: true`. The user controls the run length by closing the window — not a frame counter.
 
    ```bash
-   WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 \
+   WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 DEBUG_CREDITS=99999 \
      [AUTO_<NAME>=1] CAM_CPOS=<X,Y> CAM_ZOOM=<Z> \
      cargo run --release > /tmp/<name>_live.log 2>&1 &
    ```
+
+   **Every live test sets `DEBUG_CREDITS=99999`** (the local house's starting credits). Until Phase 29a harvesting brings income in, the default 10000 runs out while the user tests production and placement. AUTO smoke runs in screenshot mode do NOT set it — their verdicts count credits from the default.
 
 4. **Hand off cleanly.** State the steps once, then stop. User performs steps, watches the window, closes when done.
 
