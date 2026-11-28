@@ -1,10 +1,10 @@
 # Run All AUTO Smoke Tests
 
-Run all 138 AUTO smoke tests sequentially with full validation. Covers Phases 23-29c: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m aircraft (Kirov, Harrier, Black Eagle, Nighthawk, airfields, carrier Hornets, Rocketeer) and ground anti-air.
+Run all 140 AUTO smoke tests sequentially with full validation. Covers Phases 23-29c: unit control / combat / VFX / pathfinding / death variants and veterancy / Phase 28k V3 ballistic-missile pipeline (Half A + Half B) / Phase 28l naval combat / Phase 28m aircraft (Kirov, Harrier, Black Eagle, Nighthawk, airfields, carrier Hornets, Rocketeer) and ground anti-air.
 
 ## Input Validation
 
-This command takes no user arguments, but it MUST validate the environment before kicking off ~138 cargo runs (~3.6 hours of GPU time):
+This command takes no user arguments, but it MUST validate the environment before kicking off ~140 cargo runs (~3.7 hours of GPU time):
 
 - Refuse to start if `[[ -z "$WAYLAND_DISPLAY" ]]` and SSH session detected -- headless without Wayland will silently render to nowhere.
 - Refuse to start if `git status --porcelain` shows un-stashed changes that could be lost on a panic-driven `pkill`.
@@ -19,9 +19,9 @@ This command takes no user arguments, but it MUST validate the environment befor
 source .env && cargo build --release || exit 1
 ```
 
-### Step 2: Run the 138-Test Matrix
+### Step 2: Run the 140-Test Matrix
 
-Run each of the 138 tests below sequentially. For each test:
+Run each of the 140 tests below sequentially. For each test:
 
 - Run the command exactly as specified (AUTO_FRAME=1800, no override)
 - Capture stdout+stderr to a log file at `/tmp/auto_<name>.log`
@@ -43,12 +43,12 @@ For each test, run (set `RA2_MAP=<map>` if the test's row lists one — otherwis
 source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<map>] AUTO_FRAME=1800 AUTO_SCREENSHOT="/tmp/auto_<NAME>.png" AUTO_<NAME>=1 CAM_CPOS=<X,Y> CAM_ZOOM=<Z> cargo run --release > /tmp/auto_<name>.log 2>&1
 ```
 
-### All 138 tests with camera presets
+### All 140 tests with camera presets
 
 `RA2_MAP` is **required for every test** — every row spells out the exact map name so no test runs on an unintended layout. Two maps in use:
 
 - `heartland` — default land map; used by most combat / infantry / VFX tests
-- `bering-strait` — open-ocean naval map; used by all 34 water-dependent tests (naval VXL ships, swimming infantry, water-cell impact, dolphin / squid sprites, amphibious commando vs naval target matrix)
+- `bering-strait` — open-ocean naval map; used by all 35 water-dependent tests (naval VXL ships, swimming infantry, water-cell impact, dolphin / squid sprites, amphibious commando vs naval target matrix)
 
 | # | Env Var | CAM_CPOS | CAM_ZOOM | RA2_MAP |
 |---|---------|----------|----------|---------|
@@ -190,10 +190,12 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 | 136 | AUTO_SIDEBAR | 57,42 | 1.5 | heartland |
 | 137 | AUTO_RALLY | 56,44 | 1.5 | heartland |
 | 138 | AUTO_ROSTER_SPAWN | 55,58 | 0.6 | heartland |
+| 139 | AUTO_BUILD_SHIP | 74,17 | 1.0 | bering-strait |
+| 140 | AUTO_BUILD_SHAD | 58,44 | 1.5 | heartland |
 
 ### Known test-specific symptoms (non-blocking)
 
-- Phase 29b / 29c economy smokes (AUTO_MCV_DEPLOY, AUTO_PLACEMENT_RULES, AUTO_SELL_REPAIR, AUTO_LOW_POWER, AUTO_BUILD_*, AUTO_TECH_TREE, AUTO_SIDEBAR, AUTO_RALLY): verdicts are in game frames and finish well before frame 1800; each logs one `PASS` / `FAIL` line. A missing verdict line means the run ended early, not a pass.
+- Phase 29b / 29c economy smokes (AUTO_MCV_DEPLOY, AUTO_PLACEMENT_RULES, AUTO_SELL_REPAIR, AUTO_LOW_POWER, AUTO_BUILD_*, AUTO_TECH_TREE, AUTO_SIDEBAR, AUTO_RALLY): verdicts are in game frames and finish well before frame 1800; each logs one `PASS` / `FAIL` line. A missing verdict line means the run ended early, not a pass. AUTO_BUILD_SHIP (shipyard exit + `ProductionAnim`, needs ~1600 frames) and AUTO_BUILD_SHAD (Nighthawk roof exit, needs ~1500 frames) finish closest to the limit. AUTO_BUILD_INFANTRY's hold check is occasionally flaky; rerun once before calling it a regression.
 - AUTO_GROUP_COLORS: double-despawn race at `gpu_selection.rs:418` (cosmetic)
 - AUTO_ROCKETEER_SWARM: needs ~3000 frames with 4 Patriots (PASS ~38 s). At the mandatory 1800 the run ends around 18/20 kills without a PASS / FAIL line; that is not a regression.
 - Visual-only smokes (no PASS / FAIL line): AUTO_DEATH_VARIANTS, AUTO_FLAMEGUY, AUTO_WRECKAGE, AUTO_VETERANCY, AUTO_ELITE, AUTO_ELITE_GI, AUTO_VFX, AUTO_VFX_CROSS, AUTO_BUILDING_AIM_8WAY, AUTO_AA_PATRIOT, AUTO_KIROV_VS_KIROV (interactive). Judge them by `Screenshot saved` and a clean log.
@@ -206,7 +208,7 @@ source .env && WAYLAND_DISPLAY=wayland-0 DEBUG_HUD=1 DEBUG_COMBAT=1 [RA2_MAP=<ma
 
 After all tests complete, report:
 
-- Total: Passed N / 138, Failed N / 138
+- Total: Passed N / 140, Failed N / 140
 - Per-test symptom summary (only non-baseline warnings)
 - Any new or unexpected symptoms not in the known list above
 
